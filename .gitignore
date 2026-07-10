@@ -1,0 +1,48 @@
+# Build
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# Configurações locais
+appsettings.Development.json
+
+# Secrets
+secrets.json
+*.secret
+
+# Logs
+*.log
+
+# Banco local
+*.db
+*.sqlite
+*.sqlite3
+
+# EF Core
+*.dll
+*.pdb
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Node (caso tenha frontend junto)
+node_modules/
+dist/
+build/
+
+# Arquivos temporários
+*.tmp
+*.temp
