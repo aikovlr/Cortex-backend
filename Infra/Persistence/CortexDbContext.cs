@@ -17,7 +17,7 @@ public class CortexDbContext : DbContext
     public DbSet<RespostaTarefa> RespostasTarefa => Set<RespostaTarefa>();
     public DbSet<ResponsavelTarefa> ResponsaveisTarefa => Set<ResponsavelTarefa>();
     public DbSet<Anexo> Anexos => Set<Anexo>();
-    public DbSet<TicketReporte> TicketsTarefa => Set<TicketReporte>();
+    public DbSet<TicketReporte> TicketReporte => Set<TicketReporte>();
     public DbSet<Sugestao> Sugestoes => Set<Sugestao>();
     public DbSet<Meta> Metas => Set<Meta>();
 
