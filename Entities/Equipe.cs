@@ -4,7 +4,7 @@ namespace Cortex.Entities
     {
         public int Id { get; set; }
         public required string Nome { get; set; }
-        public DateTime DataCriacao { get; set; } = DateTime.Now;
+        public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
         public ICollection<MembroEquipe> Membros { get; set; } = new List<MembroEquipe>();
     }
 }

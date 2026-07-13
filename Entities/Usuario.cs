@@ -8,7 +8,7 @@ namespace Cortex.Entities
         public required string Email { get; set; }
         public required string SenhaHash { get; set; }
         public Anexo? FotoPerfil { get; set; }
-        public DateTime DataCriacao { get; set; } = DateTime.Now;
+        public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
         // navegacao
         public ICollection<Tarefa> TarefasCriadas { get; set; } = new List<Tarefa>();
         public ICollection<RespostaTarefa> Respostas { get; set; } = new List<RespostaTarefa>();

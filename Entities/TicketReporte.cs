@@ -5,7 +5,7 @@ namespace Cortex.Entities
         public int Id{ get; set; }
         public required string Descricao { get; set; }
         public bool Ativo { get; set; }
-        public DateTime DataCriacao { get; set; } = DateTime.Now;
+        public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
         public required int TarefaId { get; set; } // fk
         public required int UsuarioId { get; set; } // fk
         // navegacao
