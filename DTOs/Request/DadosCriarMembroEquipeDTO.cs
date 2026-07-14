@@ -1,6 +1,6 @@
 using Cortex.Entities;
 
-namespace Cortex.DTOs
+namespace Cortex.DTOs.Request
 {
     public class CriarMembroEquipeDTO
     {

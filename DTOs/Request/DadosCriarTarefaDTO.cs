@@ -1,6 +1,6 @@
 using Cortex.Entities;
 
-namespace Cortex.DTos
+namespace Cortex.DTOs.Request
 {
     public class CriarTarefaDTO
     {

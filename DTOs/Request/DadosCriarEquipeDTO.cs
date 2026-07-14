@@ -1,4 +1,4 @@
-namespace Cortex.DTOS
+namespace Cortex.DTOs.Request
 {
     public class CriarEquipeDTO
     {

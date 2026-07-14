@@ -1,4 +1,4 @@
-namespace Cortex.DTOs
+namespace Cortex.DTOs.Request
 {
     public class CriarRespostaTarefaDTO
     {
