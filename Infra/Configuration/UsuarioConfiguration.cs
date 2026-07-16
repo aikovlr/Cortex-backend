@@ -32,7 +32,7 @@ namespace Cortex.Infra.Persistence.Configuration
 
             builder.HasOne(u => u.FotoPerfil)
                 .WithOne()
-                .HasForeignKey<Usuario>(u => u.Id)
+                .HasForeignKey<Anexo>(u => u.Id)
                 .OnDelete(DeleteBehavior.SetNull);
 
             builder.HasMany(u => u.TarefasCriadas)
