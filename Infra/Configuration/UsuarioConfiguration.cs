@@ -30,11 +30,6 @@ namespace Cortex.Infra.Persistence.Configuration
                 .IsRequired()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-            builder.HasOne(u => u.FotoPerfil)
-                .WithOne()
-                .HasForeignKey<Anexo>(u => u.Id)
-                .OnDelete(DeleteBehavior.SetNull);
-
             builder.HasMany(u => u.TarefasCriadas)
                 .WithOne(t => t.Criador)
                 .HasForeignKey(t => t.CriadorId)
