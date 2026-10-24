@@ -441,9 +441,9 @@ graph TD
 - [x] **Fase 4** — Tarefas: `TarefaService`, `ResponsavelTarefaService`, `TarefaController`, Background Service de atraso
 - [x] **Fase 5** — Sugestões: `SugestaoService`, `SugestaoController`
 - [x] **Fase 6** — Tickets: `TicketReporteService`, `TicketReporteController`
-- [ ] **Fase 7** — Metas: `MetaService`, `MetaController`
-- [ ] **Fase 8** — Respostas & Anexos: `RespostaTarefaService`, `AnexoService`, controllers
-- [ ] **Fase 9** — Relatórios: `RelatorioService`, `RelatorioController`
+- [x] **Fase 7** — Metas: `MetaService`, `MetaController`
+- [x] **Fase 8** — Respostas & Anexos: `RespostaTarefaService`, `AnexoService`, controllers
+- [x] **Fase 9** — Relatórios: `RelatorioService`, `RelatorioController`
 - [ ] **Fase 10** — Notificações: entidade, `NotificacaoService`, Background Service, gateways stub
 - [ ] **Fase 11** — FluentValidation: validators para todos os DTOs
 - [ ] **Fase 12** — Serilog: log estruturado de todos os eventos críticos

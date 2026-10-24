@@ -16,22 +16,48 @@ namespace Cortex.Repositories.Implementations
 
         public async Task<Anexo?> ObterAnexoPorIdAsync(int id)
         {
-            return await _context.Anexos.FindAsync(id);
+            return await _context.Anexos
+                .Include(a => a.Tarefa)
+                .Include(a => a.RespostaTarefa)
+                .Include(a => a.Usuario)
+                .FirstOrDefaultAsync(a => a.Id == id);
         }
 
         public async Task<List<Anexo>> ObterAnexosPorTarefaIdAsync(int tarefaId)
         {
-            return await _context.Anexos.Where(a => a.TarefaId == tarefaId).ToListAsync();
+            return await _context.Anexos
+                .Where(a => a.TarefaId == tarefaId)
+                .OrderByDescending(a => a.DataEnvio)
+                .ToListAsync();
         }
 
         public async Task<List<Anexo>> ObterAnexosPorRespostaIdAsync(int respostaId)
         {
-            return await _context.Anexos.Where(a => a.RespostaTarefaId == respostaId).ToListAsync();
+            return await _context.Anexos
+                .Where(a => a.RespostaTarefaId == respostaId)
+                .OrderByDescending(a => a.DataEnvio)
+                .ToListAsync();
         }
 
         public async Task<List<Anexo>> ObterAnexosPorUsuarioIdAsync(int usuarioId)
         {
-            return await _context.Anexos.Where(a => a.UsuarioId == usuarioId).ToListAsync();
+            return await _context.Anexos
+                .Where(a => a.UsuarioId == usuarioId)
+                .OrderByDescending(a => a.DataEnvio)
+                .ToListAsync();
+        }
+
+        public async Task<List<Anexo>> ObterAnexosPorEntidadeAsync(TipoEntidade tipoEntidade, int entidadeId)
+        {
+            return tipoEntidade switch
+            {
+                TipoEntidade.Tarefa => await ObterAnexosPorTarefaIdAsync(entidadeId),
+                TipoEntidade.Usuario => await ObterAnexosPorUsuarioIdAsync(entidadeId),
+                _ => await _context.Anexos
+                    .Where(a => a.TipoEntidade == tipoEntidade && (a.TarefaId == entidadeId || a.UsuarioId == entidadeId || a.RespostaTarefaId == entidadeId))
+                    .OrderByDescending(a => a.DataEnvio)
+                    .ToListAsync()
+            };
         }
 
         public async Task<Anexo> AdicionarAnexoAsync(Anexo anexo)

@@ -16,20 +16,31 @@ namespace Cortex.Repositories.Implementations
 
         public async Task<RespostaTarefa?> ObterRespostaTarefaPorIdAsync(int id)
         {
-            return await _context.RespostasTarefa.FindAsync(id);
+            return await _context.RespostasTarefa
+                .Include(rt => rt.Usuario)
+                .Include(rt => rt.Tarefa)
+                .Include(rt => rt.Anexos)
+                .FirstOrDefaultAsync(rt => rt.Id == id);
         }
 
         public async Task<List<RespostaTarefa>> ObterRespostasTarefaPorTarefaIdAsync(int tarefaId)
         {
             return await _context.RespostasTarefa
+                .Include(rt => rt.Usuario)
+                .Include(rt => rt.Anexos)
                 .Where(rt => rt.TarefaId == tarefaId)
+                .OrderByDescending(rt => rt.DataResposta)
                 .ToListAsync();
         }
 
         public async Task<List<RespostaTarefa>> ObterRespostasTarefaPorUsuarioIdAsync(int usuarioId)
         {
             return await _context.RespostasTarefa
+                .Include(rt => rt.Usuario)
+                .Include(rt => rt.Tarefa)
+                .Include(rt => rt.Anexos)
                 .Where(rt => rt.UsuarioId == usuarioId)
+                .OrderByDescending(rt => rt.DataResposta)
                 .ToListAsync();
         }
 
@@ -49,7 +60,10 @@ namespace Cortex.Repositories.Implementations
 
         public async Task<bool> RemoverRespostaTarefaAsync(int id)
         {
-            var respostaTarefa = await _context.RespostasTarefa.FindAsync(id);
+            var respostaTarefa = await _context.RespostasTarefa
+                .Include(rt => rt.Anexos)
+                .FirstOrDefaultAsync(rt => rt.Id == id);
+
             if (respostaTarefa == null) return false;
 
             _context.RespostasTarefa.Remove(respostaTarefa);
