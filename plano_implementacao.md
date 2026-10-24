@@ -21,11 +21,11 @@
 | **Infra/Repositories (Implementations)** | ✅ Completo | 10 repositórios implementados e operacionais |
 | **DTOs/Request** | ✅ Completo | 19 DTOs de Request criados para todas as entidades |
 | **DTOs/Response** | ✅ Completo | 11 DTOs de Response / Consulta criados |
-| **Services/Interfaces** | ⚠️ Parcial | `IUsuarioService`, `IPasswordService`, `ITokenService`, `IEquipeService`, `IMembroEquipeService` |
-| **Services/Implementations** | ⚠️ Parcial | `UsuarioService`, `PasswordService`, `TokenService`, `EquipeService`, `MembroEquipeService` |
-| **Controllers** | ⚠️ Parcial | `AuthController`, `UsuarioController` e `EquipeController` implementados |
+| **Services/Interfaces** | ⚠️ Parcial | `IUsuarioService`, `IPasswordService`, `ITokenService`, `IEquipeService`, `IMembroEquipeService`, `ITarefaService`, `IResponsavelTarefaService` |
+| **Services/Implementations** | ⚠️ Parcial | `UsuarioService`, `PasswordService`, `TokenService`, `EquipeService`, `MembroEquipeService`, `TarefaService`, `ResponsavelTarefaService`, `TarefaStatusBackgroundService` |
+| **Controllers** | ⚠️ Parcial | `AuthController`, `UsuarioController`, `EquipeController` e `TarefaController` implementados |
 | **Autenticação JWT** | ✅ Completo | Configurada com Bearer tokens, Claims e `TokenService` |
-| **FluentValidation** | ⚠️ Parcial | Validadores de usuário, autenticação e equipes implementados |
+| **FluentValidation** | ⚠️ Parcial | Validadores de usuário, autenticação, equipes e tarefas implementados |
 | **Serilog** | ✅ Completo | Configurado com sinks de Console e File estruturado (JSON) |
 | **Injeção de Dependências** | ✅ Completo | Todos os repositórios e serviços base registrados no `Program.cs` |
 
@@ -438,7 +438,7 @@ graph TD
 - [x] **Fase 1** — Infra Base: Serilog, JWT, DI, Middleware de exceções, `IResponsavelTarefaRepository`
 - [x] **Fase 2** — Usuários: `AuthController`, `UsuarioController`, Validators, upload real de foto
 - [x] **Fase 3** — Equipes: `EquipeService`, `MembroEquipeService`, `EquipeController`
-- [ ] **Fase 4** — Tarefas: `TarefaService`, `ResponsavelTarefaService`, `TarefaController`, Background Service de atraso
+- [x] **Fase 4** — Tarefas: `TarefaService`, `ResponsavelTarefaService`, `TarefaController`, Background Service de atraso
 - [ ] **Fase 5** — Sugestões: `SugestaoService`, `SugestaoController`
 - [ ] **Fase 6** — Tickets: `TicketReporteService`, `TicketReporteController`
 - [ ] **Fase 7** — Metas: `MetaService`, `MetaController`

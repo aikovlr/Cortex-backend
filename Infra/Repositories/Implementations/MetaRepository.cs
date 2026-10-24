@@ -16,18 +16,33 @@ namespace Cortex.Repositories.Implementations
 
         public async Task<Meta?> ObterMetaPorIdAsync(int id)
         {
-            return await _context.Metas.FindAsync(id);
+            return await _context.Metas
+                .Include(m => m.Usuario)
+                .Include(m => m.Tarefa)
+                .FirstOrDefaultAsync(m => m.Id == id);
         }
 
         public async Task<List<Meta>> ObterTodasMetasAsync()
         {
-            return await _context.Metas.ToListAsync();
+            return await _context.Metas
+                .Include(m => m.Usuario)
+                .Include(m => m.Tarefa)
+                .ToListAsync();
         }
 
         public async Task<List<Meta>> ObterMetasPorUsuarioIdAsync(int usuarioId)
         {
             return await _context.Metas
                 .Where(m => m.UsuarioId == usuarioId)
+                .Include(m => m.Tarefa)
+                .ToListAsync();
+        }
+
+        public async Task<List<Meta>> ObterMetasPorTarefaIdAsync(int tarefaId)
+        {
+            return await _context.Metas
+                .Where(m => m.TarefaId == tarefaId)
+                .Include(m => m.Tarefa)
                 .ToListAsync();
         }
 
