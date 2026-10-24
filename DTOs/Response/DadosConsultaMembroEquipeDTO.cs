@@ -9,5 +9,6 @@ namespace Cortex.DTOs.Response
         public Cargo Cargo { get; set; }
         public int UsuarioId { get; set; }
         public int EquipeId { get; set; }
+        public ConsultaUsuarioDTO? Usuario { get; set; }
     }
 }
