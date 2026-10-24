@@ -5,7 +5,7 @@ using Cortex.Repositories.Interface;
 
 namespace Cortex.Repositories.Implementations
 {
-    public class ResponsavelTarefaRepository : IUsuarioRepository
+    public class ResponsavelTarefaRepository : IResponsavelTarefaRepository
     {
         private readonly CortexDbContext _context;
 
@@ -14,69 +14,74 @@ namespace Cortex.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<Usuario?> ObterUsuarioPorIdAsync(int id)
+        public async Task<ResponsavelTarefa?> ObterResponsavelTarefaPorIdAsync(int id)
         {
-            return await _context.Usuarios.FindAsync(id);
+            return await _context.ResponsaveisTarefa
+                .Include(r => r.Usuario)
+                .Include(r => r.Tarefa)
+                .FirstOrDefaultAsync(r => r.Id == id);
         }
 
-        public async Task<Usuario?> ObterUsuarioPorEmailAsync(string email)
+        public async Task<List<ResponsavelTarefa>> ObterResponsaveisPorTarefaIdAsync(int tarefaId)
         {
-            return await _context.Usuarios.FirstOrDefaultAsync(u => u.Email == email);
+            return await _context.ResponsaveisTarefa
+                .Where(r => r.TarefaId == tarefaId)
+                .Include(r => r.Usuario)
+                .ToListAsync();
         }
 
-        public async Task<List<Usuario>> ObterTodosUsuariosAsync()
+        public async Task<List<ResponsavelTarefa>> ObterTarefasPorUsuarioIdAsync(int usuarioId)
         {
-            return await _context.Usuarios.ToListAsync();
+            return await _context.ResponsaveisTarefa
+                .Where(r => r.UsuarioId == usuarioId)
+                .Include(r => r.Tarefa)
+                .ToListAsync();
         }
 
-        public async Task<List<Usuario>> ListarUsuariosAsync()
+        public async Task<ResponsavelTarefa> AdicionarResponsavelTarefaAsync(ResponsavelTarefa responsavelTarefa)
         {
-            return await ObterTodosUsuariosAsync();
-        }
-
-        public async Task<Usuario> AdicionarUsuarioAsync(Usuario usuario)
-        {
-            _context.Usuarios.Add(usuario);
+            _context.ResponsaveisTarefa.Add(responsavelTarefa);
             await _context.SaveChangesAsync();
-            return usuario;
+            return responsavelTarefa;
         }
 
-        public async Task<Usuario> AtualizarUsuarioAsync(Usuario usuario)
+        public async Task AdicionarResponsaveisEmLoteAsync(IEnumerable<ResponsavelTarefa> responsaveis)
         {
-            _context.Usuarios.Update(usuario);
+            await _context.ResponsaveisTarefa.AddRangeAsync(responsaveis);
             await _context.SaveChangesAsync();
-            return usuario;
         }
 
-        public async Task<bool> RemoverUsuarioAsync(int id)
+        public async Task<bool> RemoverResponsavelTarefaAsync(int id)
         {
-            var usuario = await _context.Usuarios.FindAsync(id);
-            if (usuario == null) return false;
+            var responsavel = await _context.ResponsaveisTarefa.FindAsync(id);
+            if (responsavel == null) return false;
 
-            _context.Usuarios.Remove(usuario);
+            _context.ResponsaveisTarefa.Remove(responsavel);
             await _context.SaveChangesAsync();
             return true;
         }
 
-        public async Task<bool> UsuarioExisteAsync(int id)
+        public async Task<bool> RemoverResponsavelPorTarefaEUsuarioAsync(int tarefaId, int usuarioId)
         {
-            return await _context.Usuarios.AnyAsync(u => u.Id == id);
+            var responsavel = await _context.ResponsaveisTarefa
+                .FirstOrDefaultAsync(r => r.TarefaId == tarefaId && r.UsuarioId == usuarioId);
+
+            if (responsavel == null) return false;
+
+            _context.ResponsaveisTarefa.Remove(responsavel);
+            await _context.SaveChangesAsync();
+            return true;
         }
 
-        public async Task<bool> UsuarioExistePorEmailAsync(string email)
+        public async Task<bool> ResponsavelTarefaExisteAsync(int id)
         {
-            return await _context.Usuarios.AnyAsync(u => u.Email == email);
+            return await _context.ResponsaveisTarefa.AnyAsync(r => r.Id == id);
         }
 
-        public async Task<bool> UsuarioTemTarefasEmAndamentoAsync(int usuarioId)
+        public async Task<bool> ResponsavelJaAtribuidoAsync(int tarefaId, int usuarioId)
         {
-            return await _context.Tarefas.AnyAsync(t => t.CriadorId == usuarioId && t.Status == Status.Pendente);
-        }
-
-        public async Task<bool> UsuarioEhResponsavelPorTarefaEmAndamentoAsync(int usuarioId)
-        {
-            return await _context.ResponsaveisTarefa.AnyAsync(r => r.UsuarioId == usuarioId
-                && r.Tarefa.Status == Status.Pendente);
+            return await _context.ResponsaveisTarefa
+                .AnyAsync(r => r.TarefaId == tarefaId && r.UsuarioId == usuarioId);
         }
     }
 }
