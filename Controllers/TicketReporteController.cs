@@ -30,7 +30,7 @@ namespace Cortex.Controllers
 
             var ticket = await _ticketReporteService.CriarTicketAsync(dto, currentUserId);
 
-            _logger.LogInformation("Ticket de reporte {TicketId} criado na TarefaId {TarefaId} por UsuarioId {UsuarioId}",
+            _logger.LogInformation("Auditoria: Abertura de ticket. TicketId: {TicketId}, TarefaId: {TarefaId}, UsuarioId: {UsuarioId}",
                 ticket.Id, id, currentUserId);
 
             return CreatedAtAction(nameof(ListarPorTarefa), new { id }, ticket);

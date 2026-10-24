@@ -446,5 +446,5 @@ graph TD
 - [x] **Fase 9** — Relatórios: `RelatorioService`, `RelatorioController`
 - [x] **Fase 10** — Notificações: entidade, `NotificacaoService`, Background Service, gateways stub
 - [x] **Fase 11** — FluentValidation: validators para todos os DTOs
-- [ ] **Fase 12** — Serilog: log estruturado de todos os eventos críticos
+- [x] **Fase 12** — Serilog: log estruturado de todos os eventos críticos
 - [ ] **Fase 13** — Hardening: rate limiting, `EmailVerificado`, índices, testes

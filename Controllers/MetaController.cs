@@ -77,8 +77,8 @@ namespace Cortex.Controllers
             if (!deletado)
                 return NotFound(new { message = "Meta não encontrada." });
 
-            _logger.LogWarning("Meta {MetaId} excluída pelo UsuarioId {UsuarioId}",
-                id, currentUserId);
+            _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}",
+                "Meta", id, currentUserId);
 
             return NoContent();
         }

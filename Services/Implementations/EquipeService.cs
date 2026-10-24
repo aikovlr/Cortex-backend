@@ -12,15 +12,18 @@ namespace Cortex.Services.Implementations
         private readonly IEquipeRepository _equipeRepository;
         private readonly IMembroEquipeRepository _membroEquipeRepository;
         private readonly IUsuarioRepository _usuarioRepository;
+        private readonly ILogger<EquipeService> _logger;
 
         public EquipeService(
             IEquipeRepository equipeRepository,
             IMembroEquipeRepository membroEquipeRepository,
-            IUsuarioRepository usuarioRepository)
+            IUsuarioRepository usuarioRepository,
+            ILogger<EquipeService> logger)
         {
             _equipeRepository = equipeRepository;
             _membroEquipeRepository = membroEquipeRepository;
             _usuarioRepository = usuarioRepository;
+            _logger = logger;
         }
 
         public async Task<ConsultaEquipeDTO> CriarEquipeAsync(CriarEquipeDTO dto, int criadorId)
@@ -117,7 +120,14 @@ namespace Cortex.Services.Implementations
                 throw new ForbiddenException("Apenas o Dono da equipe possui permissão para excluí-la.");
             }
 
-            return await _equipeRepository.RemoverEquipeAsync(id);
+            var removida = await _equipeRepository.RemoverEquipeAsync(id);
+            if (removida)
+            {
+                _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}",
+                    "Equipe", id, solicitanteId);
+            }
+
+            return removida;
         }
 
         private static ConsultaEquipeDTO MapToConsultaDTO(Equipe equipe)

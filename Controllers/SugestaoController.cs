@@ -50,8 +50,8 @@ namespace Cortex.Controllers
             var currentUserId = ObterUsuarioIdAutenticado();
             var sugestao = await _sugestaoService.AprovarSugestaoAsync(id, currentUserId);
 
-            _logger.LogInformation("Sugestão {SugestaoId} aprovada pelo criador {CriadorId}",
-                id, currentUserId);
+            _logger.LogInformation("Auditoria: Sugestão processada. SugestaoId: {SugestaoId}, TarefaId: {TarefaId}, Acao: {Acao}, SolicitanteId: {SolicitanteId}",
+                id, sugestao.TarefaId, "Aprovada", currentUserId);
 
             return Ok(sugestao);
         }
@@ -62,8 +62,8 @@ namespace Cortex.Controllers
             var currentUserId = ObterUsuarioIdAutenticado();
             var sugestao = await _sugestaoService.RejeitarSugestaoAsync(id, currentUserId);
 
-            _logger.LogInformation("Sugestão {SugestaoId} rejeitada pelo criador {CriadorId}",
-                id, currentUserId);
+            _logger.LogInformation("Auditoria: Sugestão processada. SugestaoId: {SugestaoId}, TarefaId: {TarefaId}, Acao: {Acao}, SolicitanteId: {SolicitanteId}",
+                id, sugestao.TarefaId, "Rejeitada", currentUserId);
 
             return Ok(sugestao);
         }
