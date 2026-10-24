@@ -16,17 +16,26 @@ namespace Cortex.Repositories.Implementations
 
         public async Task<Usuario?> ObterUsuarioPorIdAsync(int id)
         {
-            return await _context.Usuarios.FindAsync(id);
+            return await _context.Usuarios
+                .Include(u => u.FotoPerfil)
+                .Include(u => u.Equipes)
+                .FirstOrDefaultAsync(u => u.Id == id);
         }
 
         public async Task<Usuario?> ObterUsuarioPorEmailAsync(string email)
         {
-            return await _context.Usuarios.FirstOrDefaultAsync(u => u.Email == email);
+            return await _context.Usuarios
+                .Include(u => u.FotoPerfil)
+                .Include(u => u.Equipes)
+                .FirstOrDefaultAsync(u => u.Email == email);
         }
 
         public async Task<List<Usuario>> ObterTodosUsuariosAsync()
         {
-            return await _context.Usuarios.ToListAsync();
+            return await _context.Usuarios
+                .Include(u => u.FotoPerfil)
+                .Include(u => u.Equipes)
+                .ToListAsync();
         }
 
         public async Task<List<Usuario>> ListarUsuariosAsync()
