@@ -33,6 +33,13 @@ namespace Cortex.Infra.Persistence.Configuration
                 .HasColumnType("Prioridade")
                 .IsRequired();
 
+            // Índices de Performance (RNF09 / Fase 13)
+            builder.HasIndex(t => t.Status);
+            builder.HasIndex(t => t.DataVencimento);
+            builder.HasIndex(t => t.Prioridade);
+            builder.HasIndex(t => t.CriadorId);
+            builder.HasIndex(t => new { t.Status, t.DataVencimento });
+
             builder.HasOne(t => t.Criador)
                 .WithMany(u => u.TarefasCriadas)
                 .HasForeignKey(t => t.CriadorId)
