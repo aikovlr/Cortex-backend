@@ -21,6 +21,8 @@ namespace Cortex_backend.Migrations
                 .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "CanalNotificacao", new[] { "email", "push", "sms" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "CanalNotificacao", "canal_notificacao", new[] { "email", "push", "sms" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "Cargo", new[] { "admin", "dono", "membro" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "Cargo", "cargo", new[] { "dono", "admin", "membro" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "Prioridade", new[] { "alta", "baixa", "media", "urgente" });
@@ -34,7 +36,10 @@ namespace Cortex_backend.Migrations
             modelBuilder.Entity("Cortex.Entities.Anexo", b =>
                 {
                     b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("DataEnvio")
                         .ValueGeneratedOnAdd()
@@ -74,7 +79,8 @@ namespace Cortex_backend.Migrations
 
                     b.HasIndex("TarefaId");
 
-                    b.HasIndex("UsuarioId");
+                    b.HasIndex("UsuarioId")
+                        .IsUnique();
 
                     b.ToTable("Anexo", (string)null);
                 });
@@ -163,6 +169,53 @@ namespace Cortex_backend.Migrations
                     b.HasIndex("UsuarioId");
 
                     b.ToTable("Meta", (string)null);
+                });
+
+            modelBuilder.Entity("Cortex.Entities.PreferenciaNotificacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AntecedenciaHoras")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(24);
+
+                    b.Property<bool>("AtivoConclusaoMeta")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("AtivoNovaAtribuicao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("AtivoTicket")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("AtivoVencimento")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<CanalNotificacao>("Canal")
+                        .HasColumnType("\"CanalNotificacao\"");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId", "Canal")
+                        .IsUnique();
+
+                    b.ToTable("PreferenciasNotificacao", (string)null);
                 });
 
             modelBuilder.Entity("Cortex.Entities.ResponsavelTarefa", b =>
@@ -339,6 +392,11 @@ namespace Cortex_backend.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("EmailVerificado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -363,12 +421,6 @@ namespace Cortex_backend.Migrations
 
             modelBuilder.Entity("Cortex.Entities.Anexo", b =>
                 {
-                    b.HasOne("Cortex.Entities.Usuario", null)
-                        .WithOne("FotoPerfil")
-                        .HasForeignKey("Cortex.Entities.Anexo", "Id")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .IsRequired();
-
                     b.HasOne("Cortex.Entities.RespostaTarefa", "RespostaTarefa")
                         .WithMany("Anexos")
                         .HasForeignKey("RespostaTarefaId")
@@ -380,8 +432,9 @@ namespace Cortex_backend.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("Cortex.Entities.Usuario", "Usuario")
-                        .WithMany()
-                        .HasForeignKey("UsuarioId");
+                        .WithOne("FotoPerfil")
+                        .HasForeignKey("Cortex.Entities.Anexo", "UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("RespostaTarefa");
 
@@ -424,6 +477,17 @@ namespace Cortex_backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Tarefa");
+
+                    b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("Cortex.Entities.PreferenciaNotificacao", b =>
+                {
+                    b.HasOne("Cortex.Entities.Usuario", "Usuario")
+                        .WithMany("PreferenciasNotificacao")
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Usuario");
                 });
@@ -547,6 +611,8 @@ namespace Cortex_backend.Migrations
                     b.Navigation("FotoPerfil");
 
                     b.Navigation("Metas");
+
+                    b.Navigation("PreferenciasNotificacao");
 
                     b.Navigation("ResponsaveisTarefas");
 
