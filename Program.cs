@@ -75,6 +75,10 @@ builder.Services.AddScoped<ITarefaService, TarefaService>();
 builder.Services.AddScoped<IResponsavelTarefaService, ResponsavelTarefaService>();
 builder.Services.AddScoped<ISugestaoService, SugestaoService>();
 builder.Services.AddScoped<ITicketReporteService, TicketReporteService>();
+builder.Services.AddScoped<IMetaService, MetaService>();
+builder.Services.AddScoped<IRespostaTarefaService, RespostaTarefaService>();
+builder.Services.AddScoped<IAnexoService, AnexoService>();
+builder.Services.AddScoped<IRelatorioService, RelatorioService>();
 
 // Background Services (RN06)
 builder.Services.AddHostedService<TarefaStatusBackgroundService>();

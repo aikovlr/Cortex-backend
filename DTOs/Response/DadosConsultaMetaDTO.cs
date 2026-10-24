@@ -4,8 +4,11 @@ namespace Cortex.DTOs.Response
     {
         public int Id { get; set; }
         public required string Nome { get; set; }
-        public DateTime DataFechamento { get; set; }
+        public DateTime? DataFechamento { get; set; }
         public bool Concluida { get; set; }
         public int TarefaId { get; set; }
+        public int UsuarioId { get; set; }
+        public ConsultaTarefaDTO? Tarefa { get; set; }
+        public ConsultaUsuarioDTO? Usuario { get; set; }
     }
 }
