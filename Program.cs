@@ -4,6 +4,7 @@ using Cortex.Infra.Middleware;
 using Cortex.Infra.Persistence;
 using Cortex.Repositories.Implementations;
 using Cortex.Repositories.Interface;
+using Cortex.Services.Background;
 using Cortex.Services.Implementations;
 using Cortex.Services.Interfaces;
 using FluentValidation;
@@ -70,6 +71,11 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IEquipeService, EquipeService>();
 builder.Services.AddScoped<IMembroEquipeService, MembroEquipeService>();
+builder.Services.AddScoped<ITarefaService, TarefaService>();
+builder.Services.AddScoped<IResponsavelTarefaService, ResponsavelTarefaService>();
+
+// Background Services (RN06)
+builder.Services.AddHostedService<TarefaStatusBackgroundService>();
 
 // Autenticação JWT & Autorização
 var jwtSecret = builder.Configuration["Jwt:Secret"] 
