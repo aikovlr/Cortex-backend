@@ -68,6 +68,8 @@ builder.Services.AddScoped<IAnexoRepository, AnexoRepository>();
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
+builder.Services.AddScoped<IEquipeService, EquipeService>();
+builder.Services.AddScoped<IMembroEquipeService, MembroEquipeService>();
 
 // Autenticação JWT & Autorização
 var jwtSecret = builder.Configuration["Jwt:Secret"] 

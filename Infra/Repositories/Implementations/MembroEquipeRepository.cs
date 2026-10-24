@@ -16,13 +16,36 @@ namespace Cortex.Repositories.Implementations
 
         public async Task<MembroEquipe?> ObterMembroEquipePorIdAsync(int id)
         {
-            return await _context.MembrosEquipe.FindAsync(id);
+            return await _context.MembrosEquipe
+                .Include(me => me.Usuario)
+                    .ThenInclude(u => u.FotoPerfil)
+                .Include(me => me.Equipe)
+                .FirstOrDefaultAsync(me => me.Id == id);
+        }
+
+        public async Task<MembroEquipe?> ObterMembroPorEquipeEUsuarioAsync(int equipeId, int usuarioId)
+        {
+            return await _context.MembrosEquipe
+                .Include(me => me.Usuario)
+                    .ThenInclude(u => u.FotoPerfil)
+                .Include(me => me.Equipe)
+                .FirstOrDefaultAsync(me => me.EquipeId == equipeId && me.UsuarioId == usuarioId);
         }
 
         public async Task<List<MembroEquipe>> ObterMembrosEquipePorEquipeIdAsync(int equipeId)
         {
             return await _context.MembrosEquipe
                 .Where(me => me.EquipeId == equipeId)
+                .Include(me => me.Usuario)
+                    .ThenInclude(u => u.FotoPerfil)
+                .ToListAsync();
+        }
+
+        public async Task<List<MembroEquipe>> ObterMembrosPorUsuarioIdAsync(int usuarioId)
+        {
+            return await _context.MembrosEquipe
+                .Where(me => me.UsuarioId == usuarioId)
+                .Include(me => me.Equipe)
                 .ToListAsync();
         }
 
@@ -53,6 +76,12 @@ namespace Cortex.Repositories.Implementations
         public async Task<bool> MembroEquipeExisteAsync(int id)
         {
             return await _context.MembrosEquipe.AnyAsync(me => me.Id == id);
+        }
+
+        public async Task<bool> MembroExisteNaEquipeAsync(int equipeId, int usuarioId)
+        {
+            return await _context.MembrosEquipe
+                .AnyAsync(me => me.EquipeId == equipeId && me.UsuarioId == usuarioId);
         }
     }
 }

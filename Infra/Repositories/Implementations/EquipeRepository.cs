@@ -16,12 +16,20 @@ namespace Cortex.Repositories.Implementations
 
         public async Task<List<Equipe>> ObterTodasEquipesAsync()
         {
-            return await _context.Equipes.ToListAsync();
+            return await _context.Equipes
+                .Include(e => e.Membros)
+                    .ThenInclude(m => m.Usuario)
+                        .ThenInclude(u => u.FotoPerfil)
+                .ToListAsync();
         }
         
         public async Task<Equipe?> ObterEquipePorIdAsync(int id)
         {
-            return await _context.Equipes.FindAsync(id);
+            return await _context.Equipes
+                .Include(e => e.Membros)
+                    .ThenInclude(m => m.Usuario)
+                        .ThenInclude(u => u.FotoPerfil)
+                .FirstOrDefaultAsync(e => e.Id == id);
         }
 
         public async Task<List<Equipe>> ObterEquipesPorUsuarioIdAsync(int usuarioId)
@@ -29,6 +37,9 @@ namespace Cortex.Repositories.Implementations
             return await _context.MembrosEquipe
                 .Where(me => me.UsuarioId == usuarioId)
                 .Select(me => me.Equipe)
+                .Include(e => e.Membros)
+                    .ThenInclude(m => m.Usuario)
+                        .ThenInclude(u => u.FotoPerfil)
                 .Distinct()
                 .ToListAsync();
         }
