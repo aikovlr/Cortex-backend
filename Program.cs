@@ -73,6 +73,8 @@ builder.Services.AddScoped<IEquipeService, EquipeService>();
 builder.Services.AddScoped<IMembroEquipeService, MembroEquipeService>();
 builder.Services.AddScoped<ITarefaService, TarefaService>();
 builder.Services.AddScoped<IResponsavelTarefaService, ResponsavelTarefaService>();
+builder.Services.AddScoped<ISugestaoService, SugestaoService>();
+builder.Services.AddScoped<ITicketReporteService, TicketReporteService>();
 
 // Background Services (RN06)
 builder.Services.AddHostedService<TarefaStatusBackgroundService>();
