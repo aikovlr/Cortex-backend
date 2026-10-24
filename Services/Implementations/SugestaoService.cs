@@ -80,8 +80,8 @@ namespace Cortex.Services.Implementations
 
             await _tarefaRepository.AtualizarTarefaAsync(sugestao.Tarefa);
 
-            _logger.LogInformation("Sugestão {SugestaoId} na TarefaId {TarefaId} aprovada pelo SolicitanteId {SolicitanteId}. Ação: {Acao}",
-                sugestao.Id, sugestao.TarefaId, solicitanteId, "Aprovada");
+            _logger.LogInformation("Auditoria: Sugestão processada. SugestaoId: {SugestaoId}, TarefaId: {TarefaId}, Acao: {Acao}, SolicitanteId: {SolicitanteId}",
+                sugestao.Id, sugestao.TarefaId, "Aprovada", solicitanteId);
 
             return MapToConsultaDTO(sugestao);
         }
@@ -98,8 +98,8 @@ namespace Cortex.Services.Implementations
                 throw new ForbiddenException("Apenas o criador da tarefa possui autorização para rejeitar sugestões de alteração.");
             }
 
-            _logger.LogInformation("Sugestão {SugestaoId} na TarefaId {TarefaId} rejeitada pelo SolicitanteId {SolicitanteId}. Ação: {Acao}",
-                sugestao.Id, sugestao.TarefaId, solicitanteId, "Rejeitada");
+            _logger.LogInformation("Auditoria: Sugestão processada. SugestaoId: {SugestaoId}, TarefaId: {TarefaId}, Acao: {Acao}, SolicitanteId: {SolicitanteId}",
+                sugestao.Id, sugestao.TarefaId, "Rejeitada", solicitanteId);
 
             return MapToConsultaDTO(sugestao);
         }

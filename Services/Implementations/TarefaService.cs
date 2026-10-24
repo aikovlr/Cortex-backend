@@ -67,7 +67,7 @@ namespace Cortex.Services.Implementations
 
             await _tarefaRepository.AdicionarTarefaAsync(tarefa);
 
-            _logger.LogInformation("Tarefa criada com sucesso: TarefaId {TarefaId}, CriadorId {CriadorId}, Titulo '{Titulo}'",
+            _logger.LogInformation("Auditoria: Tarefa criada. TarefaId: {TarefaId}, CriadorId: {CriadorId}, Titulo: {Titulo}",
                 tarefa.Id, criadorId, tarefa.Titulo);
 
             return MapToConsultaDTO(tarefa);
@@ -124,6 +124,14 @@ namespace Cortex.Services.Implementations
                 ? dto.DataVencimento 
                 : DateTime.SpecifyKind(dto.DataVencimento, DateTimeKind.Utc);
 
+            var camposAlterados = new List<string>();
+            if (tarefa.Titulo != dto.Titulo) camposAlterados.Add("Titulo");
+            if (tarefa.Descricao != dto.Descricao) camposAlterados.Add("Descricao");
+            if (tarefa.DataVencimento != dataVencimentoUtc) camposAlterados.Add("DataVencimento");
+            if (tarefa.Pontuacao != dto.Pontuacao) camposAlterados.Add("Pontuacao");
+            if (tarefa.Prioridade != dto.Prioridade) camposAlterados.Add("Prioridade");
+            if (dto.Anexos != null && dto.Anexos.Count > 0) camposAlterados.Add("Anexos");
+
             tarefa.Titulo = dto.Titulo;
             tarefa.Descricao = dto.Descricao;
             tarefa.DataVencimento = dataVencimentoUtc;
@@ -141,8 +149,8 @@ namespace Cortex.Services.Implementations
 
             await _tarefaRepository.AtualizarTarefaAsync(tarefa);
 
-            _logger.LogInformation("Tarefa atualizada: TarefaId {TarefaId} por SolicitanteId {SolicitanteId}",
-                id, solicitanteId);
+            _logger.LogInformation("Auditoria: Tarefa alterada. TarefaId: {TarefaId}, AlteradoPor: {AlteradoPor}, CamposAlterados: {CamposAlterados}",
+                id, solicitanteId, camposAlterados);
 
             var tarefaAtualizada = await _tarefaRepository.ObterTarefaPorIdAsync(id);
             return MapToDetalhesDTO(tarefaAtualizada ?? tarefa);
@@ -167,8 +175,8 @@ namespace Cortex.Services.Implementations
 
             if (removida)
             {
-                _logger.LogWarning("Tarefa excluída: TarefaId {TarefaId} por SolicitanteId {SolicitanteId}",
-                    id, solicitanteId);
+                _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}",
+                    "Tarefa", id, solicitanteId);
             }
 
             return removida;
@@ -193,8 +201,8 @@ namespace Cortex.Services.Implementations
             tarefa.Status = Status.Concluida;
             await _tarefaRepository.AtualizarTarefaAsync(tarefa);
 
-            _logger.LogInformation("Tarefa concluída: TarefaId {TarefaId} por SolicitanteId {SolicitanteId}",
-                id, solicitanteId);
+            _logger.LogInformation("Auditoria: Tarefa concluída. TarefaId: {TarefaId}, ConcluidaPor: {ConcluidaPor}, Timestamp: {Timestamp}",
+                id, solicitanteId, DateTime.UtcNow);
 
             // RN08: Conclusão de Metas vinculadas
             var metasVinculadas = await _metaRepository.ObterMetasPorTarefaIdAsync(id);

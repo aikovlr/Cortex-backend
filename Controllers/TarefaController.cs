@@ -97,8 +97,8 @@ namespace Cortex.Controllers
                 });
             }
 
-            _logger.LogWarning("Tarefa excluída: TarefaId {TarefaId} por SolicitanteId {SolicitanteId}",
-                id, currentUserId);
+            _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}",
+                "Tarefa", id, currentUserId);
 
             return NoContent();
         }
@@ -109,8 +109,8 @@ namespace Cortex.Controllers
             var currentUserId = ObterUsuarioIdAutenticado();
             var tarefaConcluida = await _tarefaService.ConcluirTarefaAsync(id, currentUserId);
 
-            _logger.LogInformation("Tarefa concluída: TarefaId {TarefaId} por SolicitanteId {SolicitanteId}",
-                id, currentUserId);
+            _logger.LogInformation("Auditoria: Tarefa concluída. TarefaId: {TarefaId}, ConcluidaPor: {ConcluidaPor}, Timestamp: {Timestamp}",
+                id, currentUserId, DateTime.UtcNow);
 
             return Ok(tarefaConcluida);
         }

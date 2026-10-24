@@ -35,10 +35,14 @@ namespace Cortex.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] DadosLoginDTO dto)
         {
+            var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+
             var credenciaisValidas = await _usuarioService.ValidarSenhaAsync(dto.Email, dto.Senha);
             if (!credenciaisValidas)
             {
-                _logger.LogWarning("Tentativa de login falhada para o e-mail: {Email}", dto.Email);
+                _logger.LogWarning("Auditoria: Tentativa de login falhada. Email: {Email}, IP: {IP}, Timestamp: {Timestamp}",
+                    dto.Email, clientIp, DateTime.UtcNow);
+
                 return Unauthorized(new ProblemDetails
                 {
                     Status = StatusCodes.Status401Unauthorized,
@@ -51,6 +55,9 @@ namespace Cortex.Controllers
             var usuario = await _usuarioRepository.ObterUsuarioPorEmailAsync(dto.Email);
             if (usuario == null)
             {
+                _logger.LogWarning("Auditoria: Tentativa de login falhada. Email: {Email}, IP: {IP}, Timestamp: {Timestamp}",
+                    dto.Email, clientIp, DateTime.UtcNow);
+
                 return Unauthorized(new ProblemDetails
                 {
                     Status = StatusCodes.Status401Unauthorized,
@@ -66,7 +73,8 @@ namespace Cortex.Controllers
 
             var token = _tokenService.GerarToken(usuario, cargo, equipeId);
 
-            _logger.LogInformation("Login bem-sucedido para UserId {UserId}, Email {Email}", usuario.Id, usuario.Email);
+            _logger.LogInformation("Auditoria: Login bem-sucedido. UserId: {UserId}, Email: {Email}, IP: {IP}, Timestamp: {Timestamp}",
+                usuario.Id, usuario.Email, clientIp, DateTime.UtcNow);
 
             var response = new LoginResponseDTO
             {

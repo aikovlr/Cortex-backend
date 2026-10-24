@@ -67,7 +67,7 @@ namespace Cortex.Services.Implementations
 
             await _ticketReporteRepository.AdicionarTicketReporteAsync(ticket);
 
-            _logger.LogInformation("Ticket de reporte {TicketId} criado na TarefaId {TarefaId} por UsuarioId {UsuarioId}",
+            _logger.LogInformation("Auditoria: Abertura de ticket. TicketId: {TicketId}, TarefaId: {TarefaId}, UsuarioId: {UsuarioId}",
                 ticket.Id, dto.TarefaId, solicitanteId);
 
             var ticketCompleto = await _ticketReporteRepository.ObterTicketReportePorIdAsync(ticket.Id);

@@ -12,15 +12,18 @@ namespace Cortex.Services.Implementations
         private readonly IMembroEquipeRepository _membroEquipeRepository;
         private readonly IEquipeRepository _equipeRepository;
         private readonly IUsuarioRepository _usuarioRepository;
+        private readonly ILogger<MembroEquipeService> _logger;
 
         public MembroEquipeService(
             IMembroEquipeRepository membroEquipeRepository,
             IEquipeRepository equipeRepository,
-            IUsuarioRepository usuarioRepository)
+            IUsuarioRepository usuarioRepository,
+            ILogger<MembroEquipeService> logger)
         {
             _membroEquipeRepository = membroEquipeRepository;
             _equipeRepository = equipeRepository;
             _usuarioRepository = usuarioRepository;
+            _logger = logger;
         }
 
         public async Task<ConsultaMembroEquipeDTO> AdicionarMembroAsync(CriarMembroEquipeDTO dto, int solicitanteId)
@@ -102,7 +105,14 @@ namespace Cortex.Services.Implementations
                 throw new ForbiddenException("Administradores não podem remover o Dono ou outros Administradores da equipe.");
             }
 
-            return await _membroEquipeRepository.RemoverMembroEquipeAsync(membroId);
+            var removido = await _membroEquipeRepository.RemoverMembroEquipeAsync(membroId);
+            if (removido)
+            {
+                _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}",
+                    "MembroEquipe", membroId, solicitanteId);
+            }
+
+            return removido;
         }
 
         public async Task<ConsultaMembroEquipeDTO> AlterarCargoAsync(int membroId, Cargo novoCargo, int solicitanteId)

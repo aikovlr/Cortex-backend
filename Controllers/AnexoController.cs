@@ -74,8 +74,8 @@ namespace Cortex.Controllers
             if (!deletado)
                 return NotFound(new { message = "Anexo não encontrado." });
 
-            _logger.LogWarning("Anexo {AnexoId} excluído por UsuarioId {UsuarioId}",
-                id, currentUserId);
+            _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}",
+                "Anexo", id, currentUserId);
 
             return NoContent();
         }

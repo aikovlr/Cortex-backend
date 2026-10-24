@@ -185,8 +185,8 @@ namespace Cortex.Services.Implementations
 
             if (removida)
             {
-                _logger.LogWarning("Meta excluída: MetaId {MetaId} por SolicitanteId {SolicitanteId}",
-                    id, solicitanteId);
+                _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}",
+                    "Meta", id, solicitanteId);
             }
 
             return removida;

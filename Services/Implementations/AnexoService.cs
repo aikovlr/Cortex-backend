@@ -129,8 +129,8 @@ namespace Cortex.Services.Implementations
             var removido = await _anexoRepository.RemoverAnexoAsync(id);
             if (removido)
             {
-                _logger.LogWarning("Anexo {AnexoId} ('{NomeOriginal}') excluído por UsuarioId {UsuarioId}",
-                    id, anexo.NomeOriginal, solicitanteId);
+                _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}",
+                    "Anexo", id, solicitanteId);
             }
 
             return removido;

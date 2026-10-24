@@ -147,8 +147,8 @@ namespace Cortex.Services.Implementations
             var removida = await _respostaRepository.RemoverRespostaTarefaAsync(respostaId);
             if (removida)
             {
-                _logger.LogWarning("Resposta {RespostaId} excluída por UsuarioId {UsuarioId}",
-                    respostaId, solicitanteId);
+                _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}",
+                    "RespostaTarefa", respostaId, solicitanteId);
             }
 
             return removida;

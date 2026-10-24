@@ -54,8 +54,8 @@ namespace Cortex.Controllers
             if (!deletado)
                 return NotFound(new { message = "Resposta não encontrada." });
 
-            _logger.LogWarning("Resposta {RespostaId} excluída por UsuarioId {UsuarioId}",
-                id, currentUserId);
+            _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}",
+                "RespostaTarefa", id, currentUserId);
 
             return NoContent();
         }

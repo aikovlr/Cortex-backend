@@ -106,8 +106,8 @@ namespace Cortex.Controllers
                 });
             }
 
-            _logger.LogWarning("Usuário excluído: UserId {UserId} por SolicitanteId {SolicitanteId}", 
-                id, currentUserId);
+            _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}", 
+                "Usuario", id, currentUserId);
 
             return NoContent();
         }
