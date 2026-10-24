@@ -7,6 +7,7 @@ using Cortex.Repositories.Interface;
 using Cortex.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Cortex.Controllers
 {
@@ -33,6 +34,7 @@ namespace Cortex.Controllers
 
         [HttpPost("login")]
         [AllowAnonymous]
+        [EnableRateLimiting("login-policy")]
         public async Task<IActionResult> Login([FromBody] DadosLoginDTO dto)
         {
             var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
@@ -123,6 +125,22 @@ namespace Cortex.Controllers
             _logger.LogInformation("Senha alterada com sucesso para UserId {UserId}", usuarioId);
 
             return NoContent();
+        }
+
+        [HttpPost("verificar-email")]
+        [AllowAnonymous]
+        public async Task<IActionResult> VerificarEmail([FromBody] VerificarEmailDTO dto)
+        {
+            var verificado = await _usuarioService.VerificarEmailAsync(dto.Email, dto.Codigo);
+            return Ok(new { message = "E-mail verificado com sucesso!", email = dto.Email, verificado });
+        }
+
+        [HttpPost("solicitar-verificacao-email")]
+        [AllowAnonymous]
+        public async Task<IActionResult> SolicitarCodigoVerificacao([FromBody] SolicitarCodigoVerificacaoDTO dto)
+        {
+            var codigo = await _usuarioService.SolicitarCodigoVerificacaoAsync(dto.Email);
+            return Ok(new { message = "Código de verificação enviado com sucesso!", email = dto.Email });
         }
     }
 }

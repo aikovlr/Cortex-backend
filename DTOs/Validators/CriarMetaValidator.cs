@@ -14,12 +14,9 @@ namespace Cortex.DTOs.Validators
             RuleFor(x => x.TarefaId)
                 .GreaterThan(0).WithMessage("A meta deve estar vinculada a uma tarefa válida.");
 
-            When(x => x.DataFechamento.HasValue, () =>
-            {
-                RuleFor(x => x.DataFechamento!.Value)
-                    .Must(data => data <= DateTime.UtcNow.AddMonths(12))
-                    .WithMessage("A data de término da meta não pode exceder 12 meses a partir da data de criação (RN15).");
-            });
+            RuleFor(x => x.DataFechamento)
+                .Must(data => !data.HasValue || data.Value <= DateTime.UtcNow.AddMonths(12))
+                .WithMessage("A data de término da meta não pode exceder 12 meses a partir da data de criação (RN15).");
         }
     }
 }

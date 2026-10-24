@@ -168,6 +168,8 @@ namespace Cortex_backend.Migrations
 
                     b.HasIndex("UsuarioId");
 
+                    b.HasIndex("UsuarioId", "Concluida");
+
                     b.ToTable("Meta", (string)null);
                 });
 
@@ -237,6 +239,8 @@ namespace Cortex_backend.Migrations
                     b.HasIndex("TarefaId");
 
                     b.HasIndex("UsuarioId");
+
+                    b.HasIndex("TarefaId", "UsuarioId");
 
                     b.ToTable("ResponsavelTarefa", (string)null);
                 });
@@ -335,6 +339,14 @@ namespace Cortex_backend.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CriadorId");
+
+                    b.HasIndex("DataVencimento");
+
+                    b.HasIndex("Prioridade");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("Status", "DataVencimento");
 
                     b.ToTable("Tarefa", (string)null);
                 });

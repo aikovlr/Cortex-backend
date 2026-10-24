@@ -13,12 +13,9 @@ namespace Cortex.DTOs.Validators
                     .MaximumLength(255).WithMessage("O nome da meta não pode exceder 255 caracteres.");
             });
 
-            When(x => x.DataFechamento.HasValue, () =>
-            {
-                RuleFor(x => x.DataFechamento!.Value)
-                    .Must(data => data <= DateTime.UtcNow.AddMonths(12))
-                    .WithMessage("A data de término da meta não pode exceder 12 meses a partir da data atual (RN15).");
-            });
+            RuleFor(x => x.DataFechamento)
+                .Must(data => !data.HasValue || data.Value <= DateTime.UtcNow.AddMonths(12))
+                .WithMessage("A data de término da meta não pode exceder 12 meses a partir da data atual (RN15).");
 
             When(x => x.TarefaId > 0, () =>
             {
