@@ -16,13 +16,24 @@ namespace Cortex.Repositories.Implementations
 
         public async Task<TicketReporte?> ObterTicketReportePorIdAsync(int id)
         {
-            return await _context.TicketReporte.FindAsync(id);
+            return await _context.TicketReporte
+                .Include(tr => tr.Usuario)
+                    .ThenInclude(u => u.FotoPerfil)
+                .Include(tr => tr.Tarefa)
+                    .ThenInclude(t => t.Criador)
+                .Include(tr => tr.Tarefa)
+                    .ThenInclude(t => t.ResponsaveisTarefas)
+                .FirstOrDefaultAsync(tr => tr.Id == id);
         }
 
         public async Task<List<TicketReporte>> ObterTicketReportesPorUsuarioIdAsync(int usuarioId)
         {
             return await _context.TicketReporte
                 .Where(tr => tr.UsuarioId == usuarioId)
+                .Include(tr => tr.Tarefa)
+                .Include(tr => tr.Usuario)
+                    .ThenInclude(u => u.FotoPerfil)
+                .OrderByDescending(tr => tr.DataCriacao)
                 .ToListAsync();
         }
         
@@ -30,6 +41,28 @@ namespace Cortex.Repositories.Implementations
         {
             return await _context.TicketReporte
                 .Where(tr => tr.TarefaId == tarefaId)
+                .Include(tr => tr.Usuario)
+                    .ThenInclude(u => u.FotoPerfil)
+                .Include(tr => tr.Tarefa)
+                .OrderByDescending(tr => tr.DataCriacao)
+                .ToListAsync();
+        }
+
+        public async Task<List<TicketReporte>> ObterTicketsAbertosPorEquipeIdAsync(int equipeId)
+        {
+            var membrosIds = await _context.MembrosEquipe
+                .Where(me => me.EquipeId == equipeId)
+                .Select(me => me.UsuarioId)
+                .ToListAsync();
+
+            return await _context.TicketReporte
+                .Where(tr => tr.Ativo && (membrosIds.Contains(tr.UsuarioId) 
+                                       || membrosIds.Contains(tr.Tarefa.CriadorId) 
+                                       || tr.Tarefa.ResponsaveisTarefas.Any(rt => membrosIds.Contains(rt.UsuarioId))))
+                .Include(tr => tr.Usuario)
+                    .ThenInclude(u => u.FotoPerfil)
+                .Include(tr => tr.Tarefa)
+                .OrderByDescending(tr => tr.DataCriacao)
                 .ToListAsync();
         }
 

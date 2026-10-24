@@ -16,13 +16,23 @@ namespace Cortex.Repositories.Implementations
 
         public async Task<Sugestao?> ObterSugestaoPorIdAsync(int id)
         {
-            return await _context.Sugestoes.FindAsync(id);
+            return await _context.Sugestoes
+                .Include(s => s.Usuario)
+                    .ThenInclude(u => u.FotoPerfil)
+                .Include(s => s.Tarefa)
+                    .ThenInclude(t => t.Criador)
+                .Include(s => s.Tarefa)
+                    .ThenInclude(t => t.ResponsaveisTarefas)
+                .FirstOrDefaultAsync(s => s.Id == id);
         }
 
         public async Task<List<Sugestao>> ObterSugestoesPorUsuarioIdAsync(int usuarioId)
         {
             return await _context.Sugestoes
                 .Where(s => s.UsuarioId == usuarioId)
+                .Include(s => s.Tarefa)
+                .Include(s => s.Usuario)
+                .OrderByDescending(s => s.DataCriacao)
                 .ToListAsync();
         }
 
@@ -30,6 +40,9 @@ namespace Cortex.Repositories.Implementations
         {
             return await _context.Sugestoes
                 .Where(s => s.TarefaId == tarefaId)
+                .Include(s => s.Usuario)
+                    .ThenInclude(u => u.FotoPerfil)
+                .OrderByDescending(s => s.DataCriacao)
                 .ToListAsync();
         }
 
