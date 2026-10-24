@@ -20,6 +20,7 @@ public class CortexDbContext : DbContext
     public DbSet<TicketReporte> TicketReporte => Set<TicketReporte>();
     public DbSet<Sugestao> Sugestoes => Set<Sugestao>();
     public DbSet<Meta> Metas => Set<Meta>();
+    public DbSet<PreferenciaNotificacao> PreferenciasNotificacao => Set<PreferenciaNotificacao>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -27,6 +28,7 @@ public class CortexDbContext : DbContext
         modelBuilder.HasPostgresEnum<Prioridade>("Prioridade");
         modelBuilder.HasPostgresEnum<TipoEntidade>("TipoEntidade");
         modelBuilder.HasPostgresEnum<Cargo>("Cargo");
+        modelBuilder.HasPostgresEnum<CanalNotificacao>("CanalNotificacao");
         
         base.OnModelCreating(modelBuilder);
 

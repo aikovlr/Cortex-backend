@@ -26,6 +26,10 @@ namespace Cortex.Infra.Persistence.Configuration
                 .IsRequired()
                 .HasMaxLength(255);
 
+            builder.Property(u => u.EmailVerificado)
+                .HasDefaultValue(false)
+                .IsRequired();
+
             builder.Property(u => u.DataCriacao)
                 .IsRequired()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
@@ -63,6 +67,11 @@ namespace Cortex.Infra.Persistence.Configuration
             builder.HasMany(u => u.Metas)
                 .WithOne(m => m.Usuario)
                 .HasForeignKey(m => m.UsuarioId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasMany(u => u.PreferenciasNotificacao)
+                .WithOne(p => p.Usuario)
+                .HasForeignKey(p => p.UsuarioId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

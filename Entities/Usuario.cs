@@ -7,6 +7,7 @@ namespace Cortex.Entities
         public string? Telefone { get; set; }
         public required string Email { get; set; }
         public required string SenhaHash { get; set; }
+        public bool EmailVerificado { get; set; } = false;
         public Anexo? FotoPerfil { get; set; }
         public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
         // navegacao
@@ -17,5 +18,6 @@ namespace Cortex.Entities
         public ICollection<TicketReporte> Tickets { get; set; } = new List<TicketReporte>();
         public ICollection<Sugestao> Sugestoes { get; set; } = new List<Sugestao>();
         public ICollection<Meta> Metas { get; set; } = new List<Meta>();
+        public ICollection<PreferenciaNotificacao> PreferenciasNotificacao { get; set; } = new List<PreferenciaNotificacao>();
     }
 }

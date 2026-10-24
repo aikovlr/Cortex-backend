@@ -1,5 +1,6 @@
 using System.Text;
 using Cortex.Entities;
+using Cortex.Infra.Gateways;
 using Cortex.Infra.Middleware;
 using Cortex.Infra.Persistence;
 using Cortex.Repositories.Implementations;
@@ -51,6 +52,7 @@ builder.Services.AddDbContext<CortexDbContext>(options =>
             npgsqlOptions.MapEnum<Prioridade>("Prioridade");
             npgsqlOptions.MapEnum<TipoEntidade>("TipoEntidade");
             npgsqlOptions.MapEnum<Cargo>("Cargo");
+            npgsqlOptions.MapEnum<CanalNotificacao>("CanalNotificacao");
         }));
 
 // Injeção de Dependências - Repositórios
@@ -80,8 +82,15 @@ builder.Services.AddScoped<IRespostaTarefaService, RespostaTarefaService>();
 builder.Services.AddScoped<IAnexoService, AnexoService>();
 builder.Services.AddScoped<IRelatorioService, RelatorioService>();
 
-// Background Services (RN06)
+// Gateways de Notificação (Stubs)
+builder.Services.AddScoped<IEmailGateway, EmailGatewayStub>();
+builder.Services.AddScoped<IPushGateway, PushGatewayStub>();
+builder.Services.AddScoped<ISmsGateway, SmsGatewayStub>();
+builder.Services.AddScoped<INotificacaoService, NotificacaoService>();
+
+// Background Services (RN06, RNF10)
 builder.Services.AddHostedService<TarefaStatusBackgroundService>();
+builder.Services.AddHostedService<AlertaVencimentoBackgroundService>();
 
 // Autenticação JWT & Autorização
 var jwtSecret = builder.Configuration["Jwt:Secret"] 
