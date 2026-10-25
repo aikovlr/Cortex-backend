@@ -49,6 +49,23 @@ namespace Cortex.Repositories.Implementations
                 .ToListAsync();
         }
 
+        public async Task<List<MembroEquipe>> ObterMembrosPorUsuarioEEquipesAsync(
+            int usuarioId, IEnumerable<int> equipeIds)
+        {
+            return await _context.MembrosEquipe
+                .AsNoTracking()
+                .Where(m => m.UsuarioId == usuarioId && equipeIds.Contains(m.EquipeId))
+                .ToListAsync();
+        }
+
+        public async Task<List<MembroEquipe>> ObterMembrosPorUsuarioEEquipesIdsAsync(IEnumerable<int> usuarioIds)
+        {
+            return await _context.MembrosEquipe
+                .AsNoTracking()
+                .Where(m => usuarioIds.Contains(m.UsuarioId))
+                .ToListAsync();
+        }
+
         public async Task<MembroEquipe> AdicionarMembroEquipeAsync(MembroEquipe membroEquipe)
         {
             _context.MembrosEquipe.Add(membroEquipe);

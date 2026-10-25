@@ -45,17 +45,18 @@ namespace Cortex.Controllers
         {
             var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
 
+            // Uma única mensagem para qualquer falha de credencial (previne user enumeration)
+            const string mensagemErroGenerico = "E-mail ou senha incorretos.";
+
             var credenciaisValidas = await _usuarioService.ValidarSenhaAsync(dto.Email, dto.Senha);
             if (!credenciaisValidas)
             {
-                _logger.LogWarning("Auditoria: Tentativa de login falhada. Email: {Email}, IP: {IP}, Timestamp: {Timestamp}",
-                    dto.Email, clientIp, DateTime.UtcNow);
-
+                _logger.LogWarning("Auditoria: Login falhado. Email: {Email}, IP: {IP}", dto.Email, clientIp);
                 return Unauthorized(new ProblemDetails
                 {
                     Status = StatusCodes.Status401Unauthorized,
                     Title = "Não autorizado",
-                    Detail = "E-mail ou senha incorretos.",
+                    Detail = mensagemErroGenerico,
                     Instance = HttpContext.Request.Path
                 });
             }
@@ -63,14 +64,12 @@ namespace Cortex.Controllers
             var usuario = await _usuarioRepository.ObterUsuarioPorEmailAsync(dto.Email);
             if (usuario == null)
             {
-                _logger.LogWarning("Auditoria: Tentativa de login falhada. Email: {Email}, IP: {IP}, Timestamp: {Timestamp}",
-                    dto.Email, clientIp, DateTime.UtcNow);
-
+                _logger.LogError("Inconsistência: ValidarSenhaAsync retornou true mas usuário não encontrado. Email: {Email}", dto.Email);
                 return Unauthorized(new ProblemDetails
                 {
                     Status = StatusCodes.Status401Unauthorized,
                     Title = "Não autorizado",
-                    Detail = "Usuário não encontrado.",
+                    Detail = mensagemErroGenerico,
                     Instance = HttpContext.Request.Path
                 });
             }

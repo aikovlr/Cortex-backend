@@ -12,17 +12,20 @@ namespace Cortex.Services.Implementations
         private readonly IMetaRepository _metaRepository;
         private readonly ITarefaRepository _tarefaRepository;
         private readonly IUsuarioRepository _usuarioRepository;
+        private readonly IEquipeAuthorizationService _authService;
         private readonly ILogger<MetaService> _logger;
 
         public MetaService(
             IMetaRepository metaRepository,
             ITarefaRepository tarefaRepository,
             IUsuarioRepository usuarioRepository,
+            IEquipeAuthorizationService authService,
             ILogger<MetaService> logger)
         {
             _metaRepository = metaRepository;
             _tarefaRepository = tarefaRepository;
             _usuarioRepository = usuarioRepository;
+            _authService = authService;
             _logger = logger;
         }
 
@@ -79,8 +82,8 @@ namespace Cortex.Services.Implementations
                 return null;
 
             // RN09: Usuários comuns só podem visualizar suas próprias metas
-            var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(solicitanteId);
-            var ehAdminOuDono = usuario != null && usuario.Equipes.Any(e => e.Cargo == Cargo.Dono || e.Cargo == Cargo.Admin);
+            var tarefa = meta.Tarefa ?? await _tarefaRepository.ObterTarefaPorIdAsync(meta.TarefaId);
+            var ehAdminOuDono = tarefa != null && await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, tarefa);
 
             if (meta.UsuarioId != solicitanteId && !ehAdminOuDono)
             {
@@ -93,8 +96,7 @@ namespace Cortex.Services.Implementations
         public async Task<IEnumerable<ConsultaMetaDTO>> ListarMetasPorUsuarioAsync(int usuarioId, int solicitanteId)
         {
             // RN09: Usuários comuns (Membro) só podem listar suas próprias metas
-            var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(solicitanteId);
-            var ehAdminOuDono = usuario != null && usuario.Equipes.Any(e => e.Cargo == Cargo.Dono || e.Cargo == Cargo.Admin);
+            var ehAdminOuDono = await _authService.EhAdminOuDonoDeAlgumaEquipeDoUsuarioAsync(solicitanteId, usuarioId);
 
             if (solicitanteId != usuarioId && !ehAdminOuDono)
             {
@@ -111,8 +113,8 @@ namespace Cortex.Services.Implementations
             if (meta == null)
                 throw new KeyNotFoundException("Meta não encontrada.");
 
-            var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(solicitanteId);
-            var ehAdminOuDono = usuario != null && usuario.Equipes.Any(e => e.Cargo == Cargo.Dono || e.Cargo == Cargo.Admin);
+            var tarefa = meta.Tarefa ?? await _tarefaRepository.ObterTarefaPorIdAsync(meta.TarefaId);
+            var ehAdminOuDono = tarefa != null && await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, tarefa);
 
             if (meta.UsuarioId != solicitanteId && !ehAdminOuDono)
             {
@@ -173,8 +175,8 @@ namespace Cortex.Services.Implementations
             if (meta == null)
                 return false;
 
-            var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(solicitanteId);
-            var ehAdminOuDono = usuario != null && usuario.Equipes.Any(e => e.Cargo == Cargo.Dono || e.Cargo == Cargo.Admin);
+            var tarefa = meta.Tarefa ?? await _tarefaRepository.ObterTarefaPorIdAsync(meta.TarefaId);
+            var ehAdminOuDono = tarefa != null && await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, tarefa);
 
             if (meta.UsuarioId != solicitanteId && !ehAdminOuDono)
             {

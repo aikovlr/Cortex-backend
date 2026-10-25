@@ -12,17 +12,20 @@ namespace Cortex.Services.Implementations
     {
         private readonly IUsuarioRepository _usuarioRepository;
         private readonly IPasswordService _passwordService;
+        private readonly IArquivoValidacaoService _arquivoValidacaoService;
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<UsuarioService> _logger;
 
         public UsuarioService(
             IUsuarioRepository usuarioRepository, 
             IPasswordService passwordService,
+            IArquivoValidacaoService arquivoValidacaoService,
             IWebHostEnvironment environment,
             ILogger<UsuarioService> logger)
         {
             _usuarioRepository = usuarioRepository;
             _passwordService = passwordService;
+            _arquivoValidacaoService = arquivoValidacaoService;
             _environment = environment;
             _logger = logger;
         }
@@ -179,13 +182,10 @@ namespace Cortex.Services.Implementations
 
         private async Task<Anexo> SalvarFotoPerfilAsync(IFormFile arquivo)
         {
-            var extensoesValidas = new[] { ".jpg", ".jpeg", ".png", ".webp" };
-            var extensao = Path.GetExtension(arquivo.FileName).ToLowerInvariant();
-            if (!extensoesValidas.Contains(extensao))
-                throw new ArgumentException("Formato de arquivo inválido para foto de perfil. Permitidos: .jpg, .jpeg, .png, .webp.");
+            _arquivoValidacaoService.ValidarImagemPerfil(arquivo);
 
-            if (arquivo.Length > 5 * 1024 * 1024)
-                throw new ArgumentException("O tamanho máximo da foto de perfil é 5MB.");
+            var nomeOriginalSanitizado = Path.GetFileName(arquivo.FileName);
+            var extensao = Path.GetExtension(nomeOriginalSanitizado).ToLowerInvariant();
 
             var webRoot = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
             var uploadDir = Path.Combine(webRoot, "uploads", "usuarios");

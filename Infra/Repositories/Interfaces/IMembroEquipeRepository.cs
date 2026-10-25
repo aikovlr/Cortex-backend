@@ -8,6 +8,8 @@ namespace Cortex.Repositories.Interface
         Task<MembroEquipe?> ObterMembroPorEquipeEUsuarioAsync(int equipeId, int usuarioId);
         Task<List<MembroEquipe>> ObterMembrosEquipePorEquipeIdAsync(int equipeId);
         Task<List<MembroEquipe>> ObterMembrosPorUsuarioIdAsync(int usuarioId);
+        Task<List<MembroEquipe>> ObterMembrosPorUsuarioEEquipesAsync(int usuarioId, IEnumerable<int> equipeIds);
+        Task<List<MembroEquipe>> ObterMembrosPorUsuarioEEquipesIdsAsync(IEnumerable<int> usuarioIds);
         Task<MembroEquipe> AdicionarMembroEquipeAsync(MembroEquipe membroEquipe);
         Task<MembroEquipe> AtualizarMembroEquipeAsync(MembroEquipe membroEquipe);
         Task<bool> RemoverMembroEquipeAsync(int id);

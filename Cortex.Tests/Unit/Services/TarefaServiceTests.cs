@@ -15,7 +15,8 @@ namespace Cortex.Tests.Unit.Services
         private readonly Mock<ITarefaRepository> _tarefaRepoMock;
         private readonly Mock<IUsuarioRepository> _usuarioRepoMock;
         private readonly Mock<IMetaService> _metaServiceMock;
-        private readonly Mock<IMembroEquipeRepository> _membroEquipeRepoMock;
+        private readonly Mock<IEquipeAuthorizationService> _authServiceMock;
+        private readonly Mock<IArquivoValidacaoService> _arquivoValidacaoServiceMock;
         private readonly Mock<IWebHostEnvironment> _envMock;
         private readonly Mock<ILogger<TarefaService>> _loggerMock;
         private readonly TarefaService _tarefaService;
@@ -25,7 +26,8 @@ namespace Cortex.Tests.Unit.Services
             _tarefaRepoMock = new Mock<ITarefaRepository>();
             _usuarioRepoMock = new Mock<IUsuarioRepository>();
             _metaServiceMock = new Mock<IMetaService>();
-            _membroEquipeRepoMock = new Mock<IMembroEquipeRepository>();
+            _authServiceMock = new Mock<IEquipeAuthorizationService>();
+            _arquivoValidacaoServiceMock = new Mock<IArquivoValidacaoService>();
             _envMock = new Mock<IWebHostEnvironment>();
             _loggerMock = new Mock<ILogger<TarefaService>>();
 
@@ -33,7 +35,8 @@ namespace Cortex.Tests.Unit.Services
                 _tarefaRepoMock.Object,
                 _usuarioRepoMock.Object,
                 _metaServiceMock.Object,
-                _membroEquipeRepoMock.Object,
+                _authServiceMock.Object,
+                _arquivoValidacaoServiceMock.Object,
                 _envMock.Object,
                 _loggerMock.Object);
         }
@@ -151,6 +154,49 @@ namespace Cortex.Tests.Unit.Services
             Assert.Equal(2, totalAtrasadas);
             Assert.All(tarefasAtrasadas, t => Assert.Equal(Status.Atrasada, t.Status));
             _tarefaRepoMock.Verify(r => r.AtualizarTarefaAsync(It.IsAny<Tarefa>()), Times.Exactly(2));
+        }
+
+        [Fact]
+        public async Task AtualizarTarefa_PatchParcial_DeveAtualizarApenasCamposInformados()
+        {
+            // Arrange
+            var dataOriginal = new DateTime(2026, 12, 1, 10, 0, 0, DateTimeKind.Utc);
+            var tarefaOriginal = new Tarefa
+            {
+                Id = 10,
+                Titulo = "Titulo Original",
+                Descricao = "Descricao Original",
+                DataVencimento = dataOriginal,
+                Pontuacao = 50,
+                Prioridade = Prioridade.Baixa,
+                CriadorId = 1,
+                Criador = new Usuario { Id = 1, Nome = "Criador", Email = "c@test.com", SenhaHash = "hash" },
+                ResponsaveisTarefas = new List<ResponsavelTarefa>()
+            };
+
+            _tarefaRepoMock.Setup(r => r.ObterTarefaPorIdAsync(10))
+                .ReturnsAsync(tarefaOriginal);
+
+            // Solicitante é o criador
+            var dto = new AtualizarTarefaDTO
+            {
+                Titulo = "Titulo Atualizado",
+                Descricao = null, // Não deve sobrescrever
+                DataVencimento = null, // Não deve sobrescrever
+                Pontuacao = null, // Não deve sobrescrever
+                Prioridade = null // Não deve sobrescrever
+            };
+
+            // Act
+            var resultado = await _tarefaService.AtualizarTarefaAsync(10, dto, solicitanteId: 1);
+
+            // Assert
+            Assert.Equal("Titulo Atualizado", tarefaOriginal.Titulo);
+            Assert.Equal("Descricao Original", tarefaOriginal.Descricao);
+            Assert.Equal(dataOriginal, tarefaOriginal.DataVencimento);
+            Assert.Equal(50, tarefaOriginal.Pontuacao);
+            Assert.Equal(Prioridade.Baixa, tarefaOriginal.Prioridade);
+            _tarefaRepoMock.Verify(r => r.AtualizarTarefaAsync(tarefaOriginal), Times.Once);
         }
     }
 }

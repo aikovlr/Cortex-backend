@@ -2,6 +2,7 @@ using Cortex.Entities;
 using Cortex.Infra.Exceptions;
 using Cortex.Repositories.Interface;
 using Cortex.Services.Implementations;
+using Cortex.Services.Interfaces;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -13,6 +14,7 @@ namespace Cortex.Tests.Unit.Services
         private readonly Mock<ISugestaoRepository> _sugestaoRepoMock;
         private readonly Mock<ITarefaRepository> _tarefaRepoMock;
         private readonly Mock<IUsuarioRepository> _usuarioRepoMock;
+        private readonly Mock<IEquipeAuthorizationService> _authServiceMock;
         private readonly Mock<ILogger<SugestaoService>> _loggerMock;
         private readonly SugestaoService _service;
 
@@ -21,12 +23,14 @@ namespace Cortex.Tests.Unit.Services
             _sugestaoRepoMock = new Mock<ISugestaoRepository>();
             _tarefaRepoMock = new Mock<ITarefaRepository>();
             _usuarioRepoMock = new Mock<IUsuarioRepository>();
+            _authServiceMock = new Mock<IEquipeAuthorizationService>();
             _loggerMock = new Mock<ILogger<SugestaoService>>();
 
             _service = new SugestaoService(
                 _sugestaoRepoMock.Object,
                 _tarefaRepoMock.Object,
                 _usuarioRepoMock.Object,
+                _authServiceMock.Object,
                 _loggerMock.Object);
         }
 

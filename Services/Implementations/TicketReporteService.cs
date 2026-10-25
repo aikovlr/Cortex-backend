@@ -14,6 +14,7 @@ namespace Cortex.Services.Implementations
         private readonly IUsuarioRepository _usuarioRepository;
         private readonly IEquipeRepository _equipeRepository;
         private readonly IMembroEquipeRepository _membroEquipeRepository;
+        private readonly IEquipeAuthorizationService _authService;
         private readonly ILogger<TicketReporteService> _logger;
 
         public TicketReporteService(
@@ -22,6 +23,7 @@ namespace Cortex.Services.Implementations
             IUsuarioRepository usuarioRepository,
             IEquipeRepository equipeRepository,
             IMembroEquipeRepository membroEquipeRepository,
+            IEquipeAuthorizationService authService,
             ILogger<TicketReporteService> logger)
         {
             _ticketReporteRepository = ticketReporteRepository;
@@ -29,6 +31,7 @@ namespace Cortex.Services.Implementations
             _usuarioRepository = usuarioRepository;
             _equipeRepository = equipeRepository;
             _membroEquipeRepository = membroEquipeRepository;
+            _authService = authService;
             _logger = logger;
         }
 
@@ -80,9 +83,9 @@ namespace Cortex.Services.Implementations
             if (ticket == null)
                 throw new KeyNotFoundException("Ticket de reporte não encontrado.");
 
-            var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(solicitanteId);
-            var ehAdminOuDono = usuario != null && usuario.Equipes.Any(e => e.Cargo == Cargo.Dono || e.Cargo == Cargo.Admin);
-            var ehCriadorTarefa = ticket.Tarefa != null && ticket.Tarefa.CriadorId == solicitanteId;
+            var tarefa = ticket.Tarefa ?? await _tarefaRepository.ObterTarefaPorIdAsync(ticket.TarefaId);
+            var ehAdminOuDono = tarefa != null && await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, tarefa);
+            var ehCriadorTarefa = tarefa != null && tarefa.CriadorId == solicitanteId;
 
             // Dono/Admin ou criador da tarefa fecha o ticket
             if (!ehAdminOuDono && !ehCriadorTarefa)
@@ -105,8 +108,7 @@ namespace Cortex.Services.Implementations
             if (tarefa == null)
                 throw new KeyNotFoundException("Tarefa não encontrada.");
 
-            var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(solicitanteId);
-            var ehAdminOuDono = usuario != null && usuario.Equipes.Any(e => e.Cargo == Cargo.Dono || e.Cargo == Cargo.Admin);
+            var ehAdminOuDono = await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, tarefa);
             var ehCriador = tarefa.CriadorId == solicitanteId;
 
             var tickets = await _ticketReporteRepository.ObterTicketReportesPorTarefaIdAsync(tarefaId);

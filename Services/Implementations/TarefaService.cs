@@ -14,7 +14,8 @@ namespace Cortex.Services.Implementations
         private readonly ITarefaRepository _tarefaRepository;
         private readonly IUsuarioRepository _usuarioRepository;
         private readonly IMetaService _metaService;
-        private readonly IMembroEquipeRepository _membroEquipeRepository;
+        private readonly IEquipeAuthorizationService _authService;
+        private readonly IArquivoValidacaoService _arquivoValidacaoService;
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<TarefaService> _logger;
 
@@ -22,14 +23,16 @@ namespace Cortex.Services.Implementations
             ITarefaRepository tarefaRepository,
             IUsuarioRepository usuarioRepository,
             IMetaService metaService,
-            IMembroEquipeRepository membroEquipeRepository,
+            IEquipeAuthorizationService authService,
+            IArquivoValidacaoService arquivoValidacaoService,
             IWebHostEnvironment environment,
             ILogger<TarefaService> logger)
         {
             _tarefaRepository = tarefaRepository;
             _usuarioRepository = usuarioRepository;
             _metaService = metaService;
-            _membroEquipeRepository = membroEquipeRepository;
+            _authService = authService;
+            _arquivoValidacaoService = arquivoValidacaoService;
             _environment = environment;
             _logger = logger;
         }
@@ -110,33 +113,54 @@ namespace Cortex.Services.Implementations
             if (tarefa == null)
                 throw new KeyNotFoundException("Tarefa não encontrada.");
 
-            // Apenas o criador ou Dono/Admin possuem autorização para alterar a tarefa
+            // Apenas o criador ou Dono/Admin da equipe possuem autorização para alterar a tarefa
             var ehCriador = tarefa.CriadorId == solicitanteId;
-            var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(solicitanteId);
-            var ehAdminOuDono = usuario != null && usuario.Equipes.Any(e => e.Cargo == Cargo.Dono || e.Cargo == Cargo.Admin);
+            var ehAdminOuDono = await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, tarefa);
 
             if (!ehCriador && !ehAdminOuDono)
             {
-                throw new ForbiddenException("Apenas o criador da tarefa ou administradores possuem permissão para editá-la.");
+                throw new ForbiddenException("Apenas o criador da tarefa ou administradores da equipe possuem permissão para editá-la.");
             }
 
-            var dataVencimentoUtc = dto.DataVencimento.Kind == DateTimeKind.Utc 
-                ? dto.DataVencimento 
-                : DateTime.SpecifyKind(dto.DataVencimento, DateTimeKind.Utc);
-
             var camposAlterados = new List<string>();
-            if (tarefa.Titulo != dto.Titulo) camposAlterados.Add("Titulo");
-            if (tarefa.Descricao != dto.Descricao) camposAlterados.Add("Descricao");
-            if (tarefa.DataVencimento != dataVencimentoUtc) camposAlterados.Add("DataVencimento");
-            if (tarefa.Pontuacao != dto.Pontuacao) camposAlterados.Add("Pontuacao");
-            if (tarefa.Prioridade != dto.Prioridade) camposAlterados.Add("Prioridade");
-            if (dto.Anexos != null && dto.Anexos.Count > 0) camposAlterados.Add("Anexos");
 
-            tarefa.Titulo = dto.Titulo;
-            tarefa.Descricao = dto.Descricao;
-            tarefa.DataVencimento = dataVencimentoUtc;
-            tarefa.Pontuacao = dto.Pontuacao;
-            tarefa.Prioridade = dto.Prioridade;
+            // Aplicar campos somente se enviados (patch semântico)
+            if (!string.IsNullOrWhiteSpace(dto.Titulo) && tarefa.Titulo != dto.Titulo)
+            {
+                tarefa.Titulo = dto.Titulo;
+                camposAlterados.Add("Titulo");
+            }
+
+            if (dto.Descricao != null && tarefa.Descricao != dto.Descricao) // null = não alterar; "" = limpar
+            {
+                tarefa.Descricao = dto.Descricao;
+                camposAlterados.Add("Descricao");
+            }
+
+            if (dto.DataVencimento.HasValue)
+            {
+                var dataUtc = dto.DataVencimento.Value.Kind == DateTimeKind.Utc
+                    ? dto.DataVencimento.Value
+                    : dto.DataVencimento.Value.ToUniversalTime();
+
+                if (tarefa.DataVencimento != dataUtc)
+                {
+                    tarefa.DataVencimento = dataUtc;
+                    camposAlterados.Add("DataVencimento");
+                }
+            }
+
+            if (dto.Pontuacao.HasValue && tarefa.Pontuacao != dto.Pontuacao.Value)
+            {
+                tarefa.Pontuacao = dto.Pontuacao.Value;
+                camposAlterados.Add("Pontuacao");
+            }
+
+            if (dto.Prioridade.HasValue && tarefa.Prioridade != dto.Prioridade.Value)
+            {
+                tarefa.Prioridade = dto.Prioridade.Value;
+                camposAlterados.Add("Prioridade");
+            }
 
             if (dto.Anexos != null && dto.Anexos.Count > 0)
             {
@@ -145,6 +169,7 @@ namespace Cortex.Services.Implementations
                     var anexo = await SalvarAnexoFisicoAsync(arquivo);
                     tarefa.Anexos.Add(anexo);
                 }
+                camposAlterados.Add("Anexos");
             }
 
             await _tarefaRepository.AtualizarTarefaAsync(tarefa);
@@ -163,12 +188,11 @@ namespace Cortex.Services.Implementations
                 return false;
 
             var ehCriador = tarefa.CriadorId == solicitanteId;
-            var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(solicitanteId);
-            var ehAdminOuDono = usuario != null && usuario.Equipes.Any(e => e.Cargo == Cargo.Dono || e.Cargo == Cargo.Admin);
+            var ehAdminOuDono = await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, tarefa);
 
             if (!ehCriador && !ehAdminOuDono)
             {
-                throw new ForbiddenException("Apenas o criador da tarefa ou administradores possuem permissão para excluí-la.");
+                throw new ForbiddenException("Apenas o criador da tarefa ou administradores da equipe possuem permissão para excluí-la.");
             }
 
             var removida = await _tarefaRepository.RemoverTarefaAsync(id);
@@ -190,8 +214,7 @@ namespace Cortex.Services.Implementations
 
             var ehCriador = tarefa.CriadorId == solicitanteId;
             var ehResponsavel = tarefa.ResponsaveisTarefas.Any(rt => rt.UsuarioId == solicitanteId);
-            var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(solicitanteId);
-            var ehAdminOuDono = usuario != null && usuario.Equipes.Any(e => e.Cargo == Cargo.Dono || e.Cargo == Cargo.Admin);
+            var ehAdminOuDono = await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, tarefa);
 
             if (!ehCriador && !ehResponsavel && !ehAdminOuDono)
             {
@@ -232,6 +255,8 @@ namespace Cortex.Services.Implementations
 
         private async Task<Anexo> SalvarAnexoFisicoAsync(IFormFile arquivo)
         {
+            _arquivoValidacaoService.ValidarAnexoTarefa(arquivo);
+
             var webRoot = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
             var uploadDir = Path.Combine(webRoot, "uploads", "tarefas");
             if (!Directory.Exists(uploadDir))
@@ -239,7 +264,8 @@ namespace Cortex.Services.Implementations
                 Directory.CreateDirectory(uploadDir);
             }
 
-            var extensao = Path.GetExtension(arquivo.FileName);
+            var nomeOriginalSanitizado = Path.GetFileName(arquivo.FileName);
+            var extensao = Path.GetExtension(nomeOriginalSanitizado).ToLowerInvariant();
             var nomeArquivo = $"{Guid.NewGuid()}{extensao}";
             var caminhoCompleto = Path.Combine(uploadDir, nomeArquivo);
 
