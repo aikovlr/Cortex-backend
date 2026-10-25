@@ -104,6 +104,16 @@ namespace Cortex.Services.Implementations
             return metas.Select(MapToConsultaDTO);
         }
 
+        public async Task<IEnumerable<ConsultaMetaDTO>> ListarMetasPorTarefaAsync(int tarefaId, int solicitanteId)
+        {
+            var tarefa = await _tarefaRepository.ObterTarefaPorIdAsync(tarefaId);
+            if (tarefa == null)
+                throw new KeyNotFoundException("Tarefa não encontrada.");
+
+            var metas = await _metaRepository.ObterMetasPorTarefaIdAsync(tarefaId);
+            return metas.Select(MapToConsultaDTO);
+        }
+
         public async Task<ConsultaMetaDTO> AtualizarMetaAsync(int id, AtualizarMetaDTO dto, int solicitanteId)
         {
             var meta = await _metaRepository.ObterMetaPorIdAsync(id);

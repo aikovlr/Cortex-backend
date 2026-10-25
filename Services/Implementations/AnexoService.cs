@@ -77,11 +77,16 @@ namespace Cortex.Services.Implementations
             return resultado;
         }
 
-        public async Task<ConsultaAnexoDTO?> ObterAnexoPorIdAsync(int id)
+        public async Task<ConsultaAnexoDTO?> ObterAnexoPorIdAsync(int id, int solicitanteId)
         {
             var anexo = await _anexoRepository.ObterAnexoPorIdAsync(id);
             if (anexo == null)
                 return null;
+
+            if (anexo.Tarefa != null)
+            {
+                await ValidarAcessoTarefaAsync(anexo.Tarefa, solicitanteId);
+            }
 
             return MapToConsultaDTO(anexo);
         }

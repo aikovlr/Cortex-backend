@@ -35,6 +35,20 @@ namespace Cortex.Controllers
             return CreatedAtAction(nameof(ObterPorId), new { id = meta.Id }, meta);
         }
 
+        [HttpPost("api/tarefas/{id:int}/metas")]
+        public async Task<IActionResult> CriarPorTarefa(int id, [FromBody] CriarMetaDTO dto)
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            dto.TarefaId = id;
+
+            var meta = await _metaService.CriarMetaAsync(dto, currentUserId);
+
+            _logger.LogInformation("Meta {MetaId} ('{Nome}') criada para TarefaId {TarefaId} pelo UsuarioId {UsuarioId}",
+                meta.Id, meta.Nome, id, currentUserId);
+
+            return CreatedAtAction(nameof(ObterPorId), new { id = meta.Id }, meta);
+        }
+
         [HttpGet("api/metas")]
         public async Task<IActionResult> Listar([FromQuery] int? usuarioId)
         {
@@ -42,6 +56,14 @@ namespace Cortex.Controllers
             var targetUsuarioId = usuarioId ?? currentUserId;
 
             var metas = await _metaService.ListarMetasPorUsuarioAsync(targetUsuarioId, currentUserId);
+            return Ok(metas);
+        }
+
+        [HttpGet("api/tarefas/{id:int}/metas")]
+        public async Task<IActionResult> ListarPorTarefa(int id)
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var metas = await _metaService.ListarMetasPorTarefaAsync(id, currentUserId);
             return Ok(metas);
         }
 

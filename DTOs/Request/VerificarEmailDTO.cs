@@ -10,4 +10,9 @@ namespace Cortex.DTOs.Request
     {
         public required string Email { get; set; }
     }
+
+    public class ConfirmarCodigoDTO
+    {
+        public required string Codigo { get; set; }
+    }
 }

@@ -51,7 +51,8 @@ namespace Cortex.Controllers
         [HttpGet("api/anexos/{id:int}")]
         public async Task<IActionResult> ObterPorId(int id)
         {
-            var anexo = await _anexoService.ObterAnexoPorIdAsync(id);
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var anexo = await _anexoService.ObterAnexoPorIdAsync(id, currentUserId);
             if (anexo == null)
                 return NaoEncontrado("Anexo não encontrado.", "Anexo não encontrado");
 
