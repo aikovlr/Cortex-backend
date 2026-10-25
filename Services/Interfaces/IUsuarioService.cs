@@ -14,6 +14,7 @@ namespace Cortex.Services.Interfaces
         Task<bool> DeletarUsuarioAsync(int id, int solicitanteId);
         Task<bool> ValidarSenhaAsync(string email, string senha);
         Task<bool> AlterarSenhaAsync(int usuarioId, string senhaAtual, string novaSenha);
+        Task<bool> RedefinirSenhaComCodigoAsync(string email, string codigo, string novaSenha);
         Task<bool> UsuarioTemTarefasEmAndamentoAsync(int usuarioId);
     }
 }

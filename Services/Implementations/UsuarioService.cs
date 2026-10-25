@@ -178,6 +178,46 @@ namespace Cortex.Services.Implementations
             return true;
         }
 
+        public async Task<bool> RedefinirSenhaComCodigoAsync(string email, string codigo, string novaSenha)
+        {
+            var usuario = await _usuarioRepository.ObterUsuarioPorEmailAsync(email)
+                ?? throw new KeyNotFoundException("Usuário não encontrado.");
+
+            if (string.IsNullOrWhiteSpace(usuario.CodigoVerificacaoHash) ||
+                !usuario.CodigoVerificacaoExpiracao.HasValue)
+                throw new InvalidOperationException("Nenhum código de recuperação foi solicitado para este e-mail.");
+
+            if (DateTime.UtcNow > usuario.CodigoVerificacaoExpiracao.Value)
+                throw new InvalidOperationException("O código de recuperação expirou. Solicite um novo código.");
+
+            var codigoValido = BCrypt.Net.BCrypt.Verify(codigo, usuario.CodigoVerificacaoHash);
+            if (!codigoValido)
+                throw new ArgumentException("Código de recuperação inválido.");
+
+            // Verifica se nova senha é igual à atual
+            if (_passwordService.VerifyPassword(novaSenha, usuario.SenhaHash))
+                throw new ArgumentException("A nova senha não pode ser igual à senha atual.");
+
+            // Valida requisitos de senha (RN02)
+            var (isValid, errorMessage) = _passwordService.ValidatePassword(novaSenha);
+            if (!isValid)
+                throw new ArgumentException(errorMessage);
+
+            // Atualiza senha e consome código
+            usuario.SenhaHash = _passwordService.HashPassword(novaSenha);
+            usuario.CodigoVerificacaoHash = null;
+            usuario.CodigoVerificacaoExpiracao = null;
+
+            // Se o usuário conseguiu recuperar a senha via e-mail, confirmamos a posse do e-mail
+            usuario.EmailVerificado = true;
+
+            await _usuarioRepository.AtualizarUsuarioAsync(usuario);
+
+            _logger.LogInformation("Senha redefinida com sucesso para UsuarioId {UsuarioId} via código de recuperação.", usuario.Id);
+
+            return true;
+        }
+
         public async Task<bool> UsuarioTemTarefasEmAndamentoAsync(int usuarioId)
         {
             return await _usuarioRepository.UsuarioTemTarefasEmAndamentoAsync(usuarioId);

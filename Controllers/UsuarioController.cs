@@ -42,6 +42,19 @@ namespace Cortex.Controllers
             _logger.LogInformation("Novo usuário registrado com sucesso: UserId {UserId}, Email {Email}", 
                 usuario.Id, usuario.Email);
 
+            // Gera e envia o código de verificação imediatamente após o cadastro
+            try
+            {
+                var codigo = await _verificacaoEmailService.GerarEArmazenarCodigoAsync(usuario.Id);
+                await _emailGateway.EnviarEmailAsync(usuario.Email, "Bem-vindo ao Cortex - Verifique seu e-mail", $"Seu código de verificação é: {codigo}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Falha ao gerar/enviar código de verificação para o usuário recém-criado {UserId}", usuario.Id);
+                // Não falha a criação da conta caso o gateway tenha oscilação pontual;
+                // o usuário pode clicar em reenviar código /api/auth/solicitar-verificacao-email
+            }
+
             return CreatedAtAction(nameof(ObterPorId), new { id = usuario.Id }, usuario);
         }
 
