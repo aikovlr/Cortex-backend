@@ -1,0 +1,18 @@
+$kind: http-request
+name: /api/tarefas/:id/anexos
+url: "{{baseUrl}}/api/tarefas/:id/anexos"
+method: POST
+headers:
+  Content-Type: application/x-www-form-urlencoded
+pathVariables:
+  id: "502"
+body:
+  type: urlencoded
+  content:
+    - key: arquivos
+      value: string
+    - key: arquivos
+      value: string
+settings: {}
+examples: ./.resources/-api-tarefas-id-anexos.resources/examples
+order: 1000

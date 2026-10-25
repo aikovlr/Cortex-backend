@@ -1,0 +1,20 @@
+$kind: http-request
+name: /api/notificacoes/preferencias
+url: "{{baseUrl}}/api/notificacoes/preferencias"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "canal": 3914,
+      "antecedenciaHoras": "0",
+      "ativoNovaAtribuicao": true,
+      "ativoVencimento": false,
+      "ativoConclusaoMeta": false,
+      "ativoTicket": false
+    }
+settings: {}
+examples: ./.resources/-api-notificacoes-preferencias-1.resources/examples
+order: 2000

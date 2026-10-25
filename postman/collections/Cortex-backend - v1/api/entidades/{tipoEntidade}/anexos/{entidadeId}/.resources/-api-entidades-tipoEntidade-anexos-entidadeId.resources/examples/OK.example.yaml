@@ -1,0 +1,14 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/entidades/:tipoEntidade/anexos/:entidadeId"
+  method: GET
+  pathVariables:
+    tipoEntidade: "1130"
+    entidadeId: "502"
+response:
+  statusCode: 200
+  statusText: OK
+  body:
+    type: text
+    content: ""
+order: 1000

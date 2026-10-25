@@ -1,0 +1,10 @@
+$kind: http-request
+name: /api/entidades/:tipoEntidade/anexos/:entidadeId
+url: "{{baseUrl}}/api/entidades/:tipoEntidade/anexos/:entidadeId"
+method: GET
+pathVariables:
+  tipoEntidade: "1130"
+  entidadeId: "502"
+settings: {}
+examples: ./.resources/-api-entidades-tipoEntidade-anexos-entidadeId.resources/examples
+order: 1000

@@ -28,6 +28,7 @@ secrets.json
 
 # Logs
 *.log
+logs/
 
 # Banco local
 *.db

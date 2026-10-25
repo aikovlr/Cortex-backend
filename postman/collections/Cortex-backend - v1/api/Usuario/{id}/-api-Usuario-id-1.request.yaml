@@ -1,0 +1,29 @@
+$kind: http-request
+name: /api/Usuario/:id
+url: "{{baseUrl}}/api/Usuario/:id"
+method: PUT
+headers:
+  Content-Type: multipart/form-data
+pathVariables:
+  id: "502"
+body:
+  type: formdata
+  content:
+    - type: text
+      key: Nome
+      value: string
+    - type: text
+      key: Email
+      value: string
+    - type: text
+      key: Senha
+      value: string
+    - type: text
+      key: Telefone
+      value: string
+    - type: file
+      key: FotoPerfil
+      src: []
+settings: {}
+examples: ./.resources/-api-Usuario-id-1.resources/examples
+order: 2000

@@ -1,0 +1,16 @@
+$kind: http-request
+name: /api/Auth/verificar-email
+url: "{{baseUrl}}/api/Auth/verificar-email"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "string",
+      "codigo": "string"
+    }
+settings: {}
+examples: ./.resources/-api-Auth-verificar-email.resources/examples
+order: 1000

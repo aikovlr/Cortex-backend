@@ -1,0 +1,9 @@
+$kind: http-request
+name: /api/anexos/:id
+url: "{{baseUrl}}/api/anexos/:id"
+method: GET
+pathVariables:
+  id: "502"
+settings: {}
+examples: ./.resources/-api-anexos-id.resources/examples
+order: 1000

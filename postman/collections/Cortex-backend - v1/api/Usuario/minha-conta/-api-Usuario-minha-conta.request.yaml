@@ -1,0 +1,7 @@
+$kind: http-request
+name: /api/Usuario/minha-conta
+url: "{{baseUrl}}/api/Usuario/minha-conta"
+method: DELETE
+settings: {}
+examples: ./.resources/-api-Usuario-minha-conta.resources/examples
+order: 1000

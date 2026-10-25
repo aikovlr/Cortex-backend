@@ -1,0 +1,18 @@
+$kind: http-request
+name: /api/tarefas/:id/sugestoes
+url: "{{baseUrl}}/api/tarefas/:id/sugestoes"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: "502"
+body:
+  type: json
+  content: |-
+    {
+      "descricao": "string",
+      "tarefaId": "-0"
+    }
+settings: {}
+examples: ./.resources/-api-tarefas-id-sugestoes.resources/examples
+order: 1000

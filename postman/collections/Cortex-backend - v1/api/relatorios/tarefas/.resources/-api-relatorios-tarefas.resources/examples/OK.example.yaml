@@ -1,0 +1,18 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/relatorios/tarefas?Status=1130&Prioridade=1130&EquipeId=0&ResponsavelId=0&DataInicio=1959-01-09T13:52:22.079Z&DataFim=1959-01-09T13:52:22.079Z"
+  method: GET
+  queryParams:
+    Status: "1130"
+    Prioridade: "1130"
+    EquipeId: "0"
+    ResponsavelId: "0"
+    DataInicio: 1959-01-09T13:52:22.079Z
+    DataFim: 1959-01-09T13:52:22.079Z
+response:
+  statusCode: 200
+  statusText: OK
+  body:
+    type: text
+    content: ""
+order: 1000

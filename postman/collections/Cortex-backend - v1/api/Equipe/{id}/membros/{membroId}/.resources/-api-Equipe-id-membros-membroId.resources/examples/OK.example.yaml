@@ -1,0 +1,14 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/Equipe/:id/membros/:membroId"
+  method: DELETE
+  pathVariables:
+    id: "502"
+    membroId: "502"
+response:
+  statusCode: 200
+  statusText: OK
+  body:
+    type: text
+    content: ""
+order: 1000

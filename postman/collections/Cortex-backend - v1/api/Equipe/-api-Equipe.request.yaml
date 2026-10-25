@@ -1,0 +1,15 @@
+$kind: http-request
+name: /api/Equipe
+url: "{{baseUrl}}/api/Equipe"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "nome": "string"
+    }
+settings: {}
+examples: ./.resources/-api-Equipe.resources/examples
+order: 2000

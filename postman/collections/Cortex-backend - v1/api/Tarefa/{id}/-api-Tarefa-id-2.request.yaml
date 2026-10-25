@@ -1,0 +1,9 @@
+$kind: http-request
+name: /api/Tarefa/:id
+url: "{{baseUrl}}/api/Tarefa/:id"
+method: DELETE
+pathVariables:
+  id: "502"
+settings: {}
+examples: ./.resources/-api-Tarefa-id-2.resources/examples
+order: 5000

@@ -1,0 +1,9 @@
+$kind: http-request
+name: /api/Tarefa/:id
+url: "{{baseUrl}}/api/Tarefa/:id"
+method: GET
+pathVariables:
+  id: "502"
+settings: {}
+examples: ./.resources/-api-Tarefa-id.resources/examples
+order: 3000

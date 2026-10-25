@@ -1,0 +1,9 @@
+$kind: http-request
+name: /api/Tarefa/:id/concluir
+url: "{{baseUrl}}/api/Tarefa/:id/concluir"
+method: PATCH
+pathVariables:
+  id: "502"
+settings: {}
+examples: ./.resources/-api-Tarefa-id-concluir.resources/examples
+order: 1000

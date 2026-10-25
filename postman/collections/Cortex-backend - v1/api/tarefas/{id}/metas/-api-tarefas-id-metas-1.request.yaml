@@ -1,0 +1,9 @@
+$kind: http-request
+name: /api/tarefas/:id/metas
+url: "{{baseUrl}}/api/tarefas/:id/metas"
+method: GET
+pathVariables:
+  id: "502"
+settings: {}
+examples: ./.resources/-api-tarefas-id-metas-1.resources/examples
+order: 2000

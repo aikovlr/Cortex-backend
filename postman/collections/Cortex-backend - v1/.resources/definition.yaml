@@ -1,0 +1,5 @@
+$kind: collection
+name: Cortex-backend | v1
+description: ""
+variables:
+  baseUrl: http://localhost:5220/

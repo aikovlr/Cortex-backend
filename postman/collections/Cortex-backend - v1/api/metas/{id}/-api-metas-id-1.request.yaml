@@ -1,0 +1,21 @@
+$kind: http-request
+name: /api/metas/:id
+url: "{{baseUrl}}/api/metas/:id"
+method: PUT
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: "502"
+body:
+  type: json
+  content: |-
+    {
+      "nome": "string",
+      "dataFechamento": null,
+      "concluida": null,
+      "tarefaId": "-9780077",
+      "usuarioId": "-476"
+    }
+settings: {}
+examples: ./.resources/-api-metas-id-1.resources/examples
+order: 2000
