@@ -14,6 +14,7 @@ namespace Cortex.Tests.Unit.Services
     {
         private readonly Mock<IUsuarioRepository> _usuarioRepoMock;
         private readonly Mock<IPasswordService> _passwordServiceMock;
+        private readonly Mock<IArquivoValidacaoService> _arquivoValidacaoServiceMock;
         private readonly Mock<IWebHostEnvironment> _envMock;
         private readonly Mock<ILogger<UsuarioService>> _loggerMock;
         private readonly UsuarioService _usuarioService;
@@ -22,12 +23,14 @@ namespace Cortex.Tests.Unit.Services
         {
             _usuarioRepoMock = new Mock<IUsuarioRepository>();
             _passwordServiceMock = new Mock<IPasswordService>();
+            _arquivoValidacaoServiceMock = new Mock<IArquivoValidacaoService>();
             _envMock = new Mock<IWebHostEnvironment>();
             _loggerMock = new Mock<ILogger<UsuarioService>>();
 
             _usuarioService = new UsuarioService(
                 _usuarioRepoMock.Object,
                 _passwordServiceMock.Object,
+                _arquivoValidacaoServiceMock.Object,
                 _envMock.Object,
                 _loggerMock.Object);
         }

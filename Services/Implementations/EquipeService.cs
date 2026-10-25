@@ -12,17 +12,20 @@ namespace Cortex.Services.Implementations
         private readonly IEquipeRepository _equipeRepository;
         private readonly IMembroEquipeRepository _membroEquipeRepository;
         private readonly IUsuarioRepository _usuarioRepository;
+        private readonly IEquipeAuthorizationService _authService;
         private readonly ILogger<EquipeService> _logger;
 
         public EquipeService(
             IEquipeRepository equipeRepository,
             IMembroEquipeRepository membroEquipeRepository,
             IUsuarioRepository usuarioRepository,
+            IEquipeAuthorizationService authService,
             ILogger<EquipeService> logger)
         {
             _equipeRepository = equipeRepository;
             _membroEquipeRepository = membroEquipeRepository;
             _usuarioRepository = usuarioRepository;
+            _authService = authService;
             _logger = logger;
         }
 
@@ -94,11 +97,7 @@ namespace Cortex.Services.Implementations
                 throw new KeyNotFoundException("Equipe não encontrada.");
 
             // Apenas Dono ou Admin da equipe podem atualizar dados da equipe
-            var membro = await _membroEquipeRepository.ObterMembroPorEquipeEUsuarioAsync(id, solicitanteId);
-            if (membro == null || (membro.Cargo != Cargo.Dono && membro.Cargo != Cargo.Admin))
-            {
-                throw new ForbiddenException("Apenas o Dono ou Administrador da equipe podem alterar suas informações.");
-            }
+            await _authService.ExigirAdminOuDonoDaEquipeAsync(solicitanteId, id);
 
             equipe.Nome = dto.Nome;
             await _equipeRepository.AtualizarEquipeAsync(equipe);
@@ -114,11 +113,7 @@ namespace Cortex.Services.Implementations
                 return false;
 
             // Apenas o Dono da equipe pode excluí-la
-            var membro = await _membroEquipeRepository.ObterMembroPorEquipeEUsuarioAsync(id, solicitanteId);
-            if (membro == null || membro.Cargo != Cargo.Dono)
-            {
-                throw new ForbiddenException("Apenas o Dono da equipe possui permissão para excluí-la.");
-            }
+            await _authService.ExigirDonoDaEquipeAsync(solicitanteId, id);
 
             var removida = await _equipeRepository.RemoverEquipeAsync(id);
             if (removida)

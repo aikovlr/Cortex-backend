@@ -38,17 +38,8 @@ namespace Cortex.Services.Implementations
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
-            if (!string.IsNullOrWhiteSpace(cargo))
-            {
-                claims.Add(new Claim("cargo", cargo));
-                claims.Add(new Claim(ClaimTypes.Role, cargo));
-            }
-
-            if (equipeId.HasValue)
-            {
-                claims.Add(new Claim("equipeId", equipeId.Value.ToString()));
-            }
-
+            // O token passa a conter apenas dados de identidade: sub, email, name, jti
+            // A autorização de cargos é contextual por equipe via IEquipeAuthorizationService
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),

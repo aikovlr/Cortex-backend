@@ -12,17 +12,20 @@ namespace Cortex.Services.Implementations
         private readonly ISugestaoRepository _sugestaoRepository;
         private readonly ITarefaRepository _tarefaRepository;
         private readonly IUsuarioRepository _usuarioRepository;
+        private readonly IEquipeAuthorizationService _authService;
         private readonly ILogger<SugestaoService> _logger;
 
         public SugestaoService(
             ISugestaoRepository sugestaoRepository,
             ITarefaRepository tarefaRepository,
             IUsuarioRepository usuarioRepository,
+            IEquipeAuthorizationService authService,
             ILogger<SugestaoService> logger)
         {
             _sugestaoRepository = sugestaoRepository;
             _tarefaRepository = tarefaRepository;
             _usuarioRepository = usuarioRepository;
+            _authService = authService;
             _logger = logger;
         }
 
@@ -125,8 +128,7 @@ namespace Cortex.Services.Implementations
 
             var ehCriador = tarefa.CriadorId == solicitanteId;
             var ehResponsavel = tarefa.ResponsaveisTarefas.Any(rt => rt.UsuarioId == solicitanteId);
-            var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(solicitanteId);
-            var ehAdminOuDono = usuario != null && usuario.Equipes.Any(e => e.Cargo == Cargo.Dono || e.Cargo == Cargo.Admin);
+            var ehAdminOuDono = await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, tarefa);
 
             if (!ehCriador && !ehResponsavel && !ehAdminOuDono)
             {

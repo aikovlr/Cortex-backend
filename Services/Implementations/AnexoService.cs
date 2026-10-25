@@ -11,6 +11,7 @@ namespace Cortex.Services.Implementations
         private readonly IAnexoRepository _anexoRepository;
         private readonly ITarefaRepository _tarefaRepository;
         private readonly IUsuarioRepository _usuarioRepository;
+        private readonly IArquivoValidacaoService _arquivoValidacaoService;
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<AnexoService> _logger;
 
@@ -18,12 +19,14 @@ namespace Cortex.Services.Implementations
             IAnexoRepository anexoRepository,
             ITarefaRepository tarefaRepository,
             IUsuarioRepository usuarioRepository,
+            IArquivoValidacaoService arquivoValidacaoService,
             IWebHostEnvironment environment,
             ILogger<AnexoService> logger)
         {
             _anexoRepository = anexoRepository;
             _tarefaRepository = tarefaRepository;
             _usuarioRepository = usuarioRepository;
+            _arquivoValidacaoService = arquivoValidacaoService;
             _environment = environment;
             _logger = logger;
         }
@@ -158,6 +161,8 @@ namespace Cortex.Services.Implementations
             int? respostaTarefaId, 
             int usuarioId)
         {
+            _arquivoValidacaoService.ValidarAnexoTarefa(arquivo);
+
             var webRoot = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
             var uploadDir = Path.Combine(webRoot, "uploads", subPasta);
             if (!Directory.Exists(uploadDir))
@@ -165,7 +170,8 @@ namespace Cortex.Services.Implementations
                 Directory.CreateDirectory(uploadDir);
             }
 
-            var extensao = Path.GetExtension(arquivo.FileName);
+            var nomeOriginalSanitizado = Path.GetFileName(arquivo.FileName);
+            var extensao = Path.GetExtension(nomeOriginalSanitizado).ToLowerInvariant();
             var nomeArquivo = $"{Guid.NewGuid()}{extensao}";
             var caminhoCompleto = Path.Combine(uploadDir, nomeArquivo);
 

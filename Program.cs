@@ -75,6 +75,7 @@ builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IVerificacaoEmailService, VerificacaoEmailService>();
+builder.Services.AddScoped<IEquipeAuthorizationService, EquipeAuthorizationService>();
 builder.Services.AddScoped<IEquipeService, EquipeService>();
 builder.Services.AddScoped<IMembroEquipeService, MembroEquipeService>();
 builder.Services.AddScoped<ITarefaService, TarefaService>();
@@ -84,6 +85,7 @@ builder.Services.AddScoped<ITicketReporteService, TicketReporteService>();
 builder.Services.AddScoped<IMetaService, MetaService>();
 builder.Services.AddScoped<IRespostaTarefaService, RespostaTarefaService>();
 builder.Services.AddScoped<IAnexoService, AnexoService>();
+builder.Services.AddScoped<IArquivoValidacaoService, ArquivoValidacaoService>();
 builder.Services.AddScoped<IRelatorioService, RelatorioService>();
 
 // Gateways de Notificação (Stubs)

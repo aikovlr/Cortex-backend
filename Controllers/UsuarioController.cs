@@ -35,7 +35,7 @@ namespace Cortex.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "Dono,Admin")]
+        [Authorize]
         public async Task<IActionResult> Listar()
         {
             var usuarios = await _usuarioService.ListarUsuariosAsync();
