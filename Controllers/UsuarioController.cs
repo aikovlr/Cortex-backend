@@ -14,15 +14,21 @@ namespace Cortex.Controllers
     {
         private readonly IUsuarioService _usuarioService;
         private readonly IEquipeAuthorizationService _authService;
+        private readonly IVerificacaoEmailService _verificacaoEmailService;
+        private readonly IEmailGateway _emailGateway;
         private readonly ILogger<UsuarioController> _logger;
 
         public UsuarioController(
             IUsuarioService usuarioService,
             IEquipeAuthorizationService authService,
+            IVerificacaoEmailService verificacaoEmailService,
+            IEmailGateway emailGateway,
             ILogger<UsuarioController> logger)
         {
             _usuarioService = usuarioService;
             _authService = authService;
+            _verificacaoEmailService = verificacaoEmailService;
+            _emailGateway = emailGateway;
             _logger = logger;
         }
 
@@ -79,6 +85,96 @@ namespace Cortex.Controllers
                 id, currentUserId);
 
             return Ok(usuarioAtualizado);
+        }
+
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> ObterMeuPerfil()
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var usuario = await _usuarioService.ObterUsuarioPorIdAsync(currentUserId);
+            if (usuario == null)
+            {
+                return NaoEncontrado($"Usuário autenticado não encontrado.", "Usuário não encontrado");
+            }
+
+            return Ok(usuario);
+        }
+
+        [HttpPut("me")]
+        [Authorize]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> AtualizarMeuPerfil([FromForm] AtualizarUsuarioDTO dto)
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var usuarioAtualizado = await _usuarioService.AtualizarUsuarioAsync(currentUserId, dto);
+
+            _logger.LogInformation("Perfil do próprio usuário atualizado: UserId {UserId}", currentUserId);
+
+            return Ok(usuarioAtualizado);
+        }
+
+        [HttpDelete("minha-conta")]
+        [Authorize]
+        public async Task<IActionResult> ExcluirMinhaConta()
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var deletado = await _usuarioService.DeletarUsuarioAsync(currentUserId, currentUserId);
+            if (!deletado)
+            {
+                return NaoEncontrado($"Usuário autenticado não encontrado.", "Usuário não encontrado");
+            }
+
+            _logger.LogWarning("Auditoria: Auto-exclusão de conta de usuário. Id: {Id}", currentUserId);
+
+            return NoContent();
+        }
+
+        [HttpPost("solicitar-verificacao-email")]
+        [Authorize]
+        public async Task<IActionResult> SolicitarVerificacaoEmail()
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var usuario = await _usuarioService.ObterUsuarioPorIdAsync(currentUserId);
+            if (usuario == null)
+            {
+                return NaoEncontrado("Usuário não encontrado.");
+            }
+
+            if (usuario.EmailVerificado)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "E-mail já verificado",
+                    Detail = "O seu e-mail já se encontra verificado."
+                });
+            }
+
+            var codigo = await _verificacaoEmailService.GerarEArmazenarCodigoAsync(currentUserId);
+            await _emailGateway.EnviarEmailAsync(usuario.Email, "Verificação de e-mail", $"Seu código de verificação: {codigo}");
+
+            _logger.LogInformation("Código de verificação de e-mail enviado para o usuário {UserId}", currentUserId);
+
+            return Ok(new { message = "Código de verificação enviado para o seu e-mail." });
+        }
+
+        [HttpPost("verificar-email")]
+        [Authorize]
+        public async Task<IActionResult> ConfirmarVerificacaoEmail([FromBody] ConfirmarCodigoDTO dto)
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var usuario = await _usuarioService.ObterUsuarioPorIdAsync(currentUserId);
+            if (usuario == null)
+            {
+                return NaoEncontrado("Usuário não encontrado.");
+            }
+
+            await _verificacaoEmailService.VerificarCodigoAsync(usuario.Email, dto.Codigo);
+
+            _logger.LogInformation("E-mail verificado com sucesso para o usuário {UserId}", currentUserId);
+
+            return Ok(new { message = "E-mail verificado com sucesso." });
         }
 
         [HttpDelete("{id:int}")]
