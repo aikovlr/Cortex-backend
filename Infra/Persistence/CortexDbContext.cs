@@ -21,6 +21,7 @@ public class CortexDbContext : DbContext
     public DbSet<Sugestao> Sugestoes => Set<Sugestao>();
     public DbSet<Meta> Metas => Set<Meta>();
     public DbSet<PreferenciaNotificacao> PreferenciasNotificacao => Set<PreferenciaNotificacao>();
+    public DbSet<AlertaEnviado> AlertasEnviados => Set<AlertaEnviado>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

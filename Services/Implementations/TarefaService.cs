@@ -43,9 +43,7 @@ namespace Cortex.Services.Implementations
             if (criador == null)
                 throw new KeyNotFoundException("Usuário criador não encontrado.");
 
-            var dataVencimentoUtc = dto.DataVencimento.Kind == DateTimeKind.Utc 
-                ? dto.DataVencimento 
-                : DateTime.SpecifyKind(dto.DataVencimento, DateTimeKind.Utc);
+            var dataVencimentoUtc = dto.DataVencimento.ToUniversalTime();
 
             var tarefa = new Tarefa
             {
@@ -87,13 +85,8 @@ namespace Cortex.Services.Implementations
 
         public async Task<IEnumerable<ConsultaTarefaDTO>> ListarTarefasAsync(FiltroTarefasDTO? filtros = null, int? solicitanteId = null)
         {
-            var dataInicioUtc = filtros?.DataInicio.HasValue == true
-                ? (filtros.DataInicio.Value.Kind == DateTimeKind.Utc ? filtros.DataInicio.Value : DateTime.SpecifyKind(filtros.DataInicio.Value, DateTimeKind.Utc))
-                : (DateTime?)null;
-
-            var dataFimUtc = filtros?.DataFim.HasValue == true
-                ? (filtros.DataFim.Value.Kind == DateTimeKind.Utc ? filtros.DataFim.Value : DateTime.SpecifyKind(filtros.DataFim.Value, DateTimeKind.Utc))
-                : (DateTime?)null;
+            var dataInicioUtc = filtros?.DataInicio?.ToUniversalTime();
+            var dataFimUtc = filtros?.DataFim?.ToUniversalTime();
 
             var tarefas = await _tarefaRepository.ObterTarefasComFiltroAsync(
                 status: filtros?.Status,

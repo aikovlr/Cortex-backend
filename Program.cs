@@ -71,6 +71,7 @@ builder.Services.AddScoped<IMetaRepository, MetaRepository>();
 builder.Services.AddScoped<IAnexoRepository, AnexoRepository>();
 builder.Services.AddScoped<IPreferenciaNotificacaoRepository, PreferenciaNotificacaoRepository>();
 builder.Services.AddScoped<IRelatorioRepository, RelatorioRepository>();
+builder.Services.AddScoped<IAlertaEnviadoRepository, AlertaEnviadoRepository>();
 
 // Injeção de Dependências - Serviços
 builder.Services.AddScoped<IPasswordService, PasswordService>();

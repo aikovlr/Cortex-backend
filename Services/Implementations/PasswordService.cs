@@ -15,7 +15,7 @@ namespace Cortex.Services.Implementations
         public string HashPassword(string password)
         {
             if (string.IsNullOrWhiteSpace(password))
-                throw new ArgumentException("Password cannot be empty", nameof(password));
+                throw new ArgumentException("A senha não pode ser vazia.", nameof(password));
 
             // BCrypt automatically generates a salt and includes it in the hash
             return BCrypt.Net.BCrypt.EnhancedHashPassword(password, BcryptWorkFactor, HashType.SHA384);
@@ -40,30 +40,30 @@ namespace Cortex.Services.Implementations
         public (bool IsValid, string? ErrorMessage) ValidatePassword(string password)
         {
             if (string.IsNullOrWhiteSpace(password))
-                return (false, "Password is required");
+                return (false, "A senha é obrigatória.");
 
             if (password.Length < MinPasswordLength)
-                return (false, $"Password must be at least {MinPasswordLength} characters long");
+                return (false, $"A senha deve ter no mínimo {MinPasswordLength} caracteres.");
 
             if (password.Length > MaxPasswordLength)
-                return (false, $"Password must not exceed {MaxPasswordLength} characters");
+                return (false, $"A senha deve ter no máximo {MaxPasswordLength} caracteres.");
 
             // Check for uppercase letter
             if (!password.Any(char.IsUpper))
-                return (false, "Password must contain at least one uppercase letter");
+                return (false, "A senha deve conter pelo menos uma letra maiúscula.");
 
             // Check for lowercase letter
             if (!password.Any(char.IsLower))
-                return (false, "Password must contain at least one lowercase letter");
+                return (false, "A senha deve conter pelo menos uma letra minúscula.");
 
             // Check for digit
             if (!password.Any(char.IsDigit))
-                return (false, "Password must contain at least one number");
+                return (false, "A senha deve conter pelo menos um número.");
 
             // Check for special character
             var specialChars = "!@#$%^&*()_+-=[]{}|;':\",./<>?`~";
             if (!password.Any(c => specialChars.Contains(c)))
-                return (false, "Password must contain at least one special character");
+                return (false, "A senha deve conter pelo menos um caractere especial.");
 
             return (true, null);
         }

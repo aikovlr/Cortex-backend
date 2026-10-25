@@ -38,12 +38,9 @@ namespace Cortex.Services.Implementations
                 throw new ArgumentException("A meta deve estar vinculada a uma tarefa válida e existente.");
             }
 
-            DateTime? dataFechamentoUtc = null;
-            if (dto.DataFechamento.HasValue)
+            DateTime? dataFechamentoUtc = dto.DataFechamento?.ToUniversalTime();
+            if (dataFechamentoUtc.HasValue)
             {
-                dataFechamentoUtc = dto.DataFechamento.Value.Kind == DateTimeKind.Utc 
-                    ? dto.DataFechamento.Value 
-                    : DateTime.SpecifyKind(dto.DataFechamento.Value, DateTimeKind.Utc);
 
                 // RN15: Metas criadas devem ter uma data de término de no máximo 12 meses
                 var limiteMaximo = DateTime.UtcNow.AddMonths(12);
@@ -141,9 +138,7 @@ namespace Cortex.Services.Implementations
 
             if (dto.DataFechamento.HasValue)
             {
-                var dataUtc = dto.DataFechamento.Value.Kind == DateTimeKind.Utc 
-                    ? dto.DataFechamento.Value 
-                    : DateTime.SpecifyKind(dto.DataFechamento.Value, DateTimeKind.Utc);
+                var dataUtc = dto.DataFechamento.Value.ToUniversalTime();
 
                 // RN15: Validade máxima de 12 meses
                 var limiteMaximo = DateTime.UtcNow.AddMonths(12);

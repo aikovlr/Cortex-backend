@@ -10,7 +10,7 @@ namespace Cortex.Controllers
     [ApiController]
     [Route("")]
     [Authorize]
-    public class MetaController : ControllerBase
+    public class MetaController : BaseController
     {
         private readonly IMetaService _metaService;
         private readonly ILogger<MetaController> _logger;
@@ -82,17 +82,6 @@ namespace Cortex.Controllers
                 "Meta", id, currentUserId);
 
             return NoContent();
-        }
-
-        private int ObterUsuarioIdAutenticado()
-        {
-            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                     ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-
-            if (int.TryParse(claim, out var id))
-                return id;
-
-            throw new UnauthorizedAccessException("Usuário não autenticado ou identificador inválido no token.");
         }
     }
 }

@@ -10,7 +10,7 @@ namespace Cortex.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class TarefaController : ControllerBase
+    public class TarefaController : BaseController
     {
         private readonly ITarefaService _tarefaService;
         private readonly IResponsavelTarefaService _responsavelTarefaService;
@@ -158,17 +158,6 @@ namespace Cortex.Controllers
         {
             var responsaveis = await _responsavelTarefaService.ListarResponsaveisPorTarefaAsync(id);
             return Ok(responsaveis);
-        }
-
-        private int ObterUsuarioIdAutenticado()
-        {
-            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                     ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-
-            if (int.TryParse(claim, out var id))
-                return id;
-
-            throw new UnauthorizedAccessException("Usuário não autenticado ou identificador inválido no token.");
         }
     }
 }

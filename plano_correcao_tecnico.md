@@ -1319,26 +1319,26 @@ public (bool IsValid, string? ErrorMessage) ValidatePassword(string password)
 ## 📋 Checklist de Execução
 
 ### Bloco 1 — Imediato
-- [ ] **SEC-01** — User Secrets configurados; `appsettings.Development.json` limpo
-- [ ] **SEC-02+03** — `VerificacaoEmailService` criado; migration gerada e aplicada
-- [ ] **SEC-04** — `RequireHttpsMetadata` condicional ao ambiente
-- [ ] **SEC-05** — Pipeline de middleware reordenado; rate limiting para verificação de e-mail
-- [ ] **LOG-01** — `VerificarConclusaoMetaAsync` verifica todas as tarefas; `TarefaService` delega ao `MetaService`
-- [ ] **LOG-05** — `StatusSugestao` enum criado; migration gerada; aprovação/rejeição persistida
+- [x] **SEC-01** — User Secrets configurados; `appsettings.Development.json` limpo
+- [x] **SEC-02+03** — `VerificacaoEmailService` criado; migration gerada e aplicada
+- [x] **SEC-04** — `RequireHttpsMetadata` condicional ao ambiente
+- [x] **SEC-05** — Pipeline de middleware reordenado; rate limiting para verificação de e-mail
+- [x] **LOG-01** — `VerificarConclusaoMetaAsync` verifica todas as tarefas; `TarefaService` delega ao `MetaService`
+- [x] **LOG-05** — `StatusSugestao` enum criado; migration gerada; aprovação/rejeição persistida
 
 ### Bloco 2 — Curto Prazo
-- [ ] **SEC-06** — Mensagem de erro de login unificada
-- [ ] **SEC-07** — `ArquivoValidacaoService` criado e injetado em `TarefaService`, `AnexoService`, `UsuarioService`
-- [ ] **LOG-02** — `IEquipeAuthorizationService` criado; `TokenService` sem claims de cargo; todos os services atualizados
-- [ ] **LOG-03** — `AtualizarTarefaDTO` com tipos nullable; `TarefaService` com patch semântico
-- [ ] **LOG-04** — `DeletarUsuarioAsync(id, solicitanteId)` com assinatura corrigida
-- [ ] **ARQ-01** — `IPreferenciaNotificacaoRepository` e `IRelatorioRepository` criados; `CortexDbContext` removido dos services
-- [ ] **ARQ-02** — `[Route("")]` adicionado aos controllers sem rota na classe
+- [x] **SEC-06** — Mensagem de erro de login unificada
+- [x] **SEC-07** — `ArquivoValidacaoService` criado e injetado em `TarefaService`, `AnexoService`, `UsuarioService`
+- [x] **LOG-02** — `IEquipeAuthorizationService` criado; `TokenService` sem claims de cargo; todos os services atualizados
+- [x] **LOG-03** — `AtualizarTarefaDTO` com tipos nullable; `TarefaService` com patch semântico
+- [x] **LOG-04** — `DeletarUsuarioAsync(id, solicitanteId)` com assinatura corrigida
+- [x] **ARQ-01** — `IPreferenciaNotificacaoRepository` e `IRelatorioRepository` criados; `CortexDbContext` removido dos services
+- [x] **ARQ-02** — `[Route("")]` adicionado aos controllers sem rota na classe
 
 ### Bloco 3 — Médio Prazo
-- [ ] **ARQ-03** — `BaseController` criado; todos os controllers herdam dele
-- [ ] **ARQ-04** — `TesteController` removido
-- [ ] **LOG-07** — `AlertaEnviado` entity criada; controle de alerta já enviado implementado
-- [ ] **ARQ-09** — `DateTime.SpecifyKind` substituído por `ToUniversalTime()` em todos os services
-- [ ] **ARQ-10** — Validação de nova senha diferente da atual em `AlterarSenha`
-- [ ] **ARQ-06** — Mensagens do `PasswordService` traduzidas para português
+- [x] **ARQ-03** — `BaseController` criado; todos os controllers herdam dele
+- [x] **ARQ-04** — `TesteController` removido
+- [x] **LOG-07** — `AlertaEnviado` entity criada; controle de alerta já enviado implementado
+- [x] **ARQ-09** — `DateTime.SpecifyKind` substituído por `ToUniversalTime()` em todos os services
+- [x] **ARQ-10** — Validação de nova senha diferente da atual em `AlterarSenha`
+- [x] **ARQ-06** — Mensagens do `PasswordService` traduzidas para português

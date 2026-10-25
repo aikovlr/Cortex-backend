@@ -10,7 +10,7 @@ namespace Cortex.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class UsuarioController : ControllerBase
+    public class UsuarioController : BaseController
     {
         private readonly IUsuarioService _usuarioService;
         private readonly IEquipeAuthorizationService _authService;
@@ -115,17 +115,6 @@ namespace Cortex.Controllers
                 "Usuario", id, currentUserId);
 
             return NoContent();
-        }
-
-        private int ObterUsuarioIdAutenticado()
-        {
-            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                     ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-
-            if (int.TryParse(claim, out var id))
-                return id;
-
-            throw new UnauthorizedAccessException("Usuário não autenticado ou identificador inválido no token.");
         }
     }
 }

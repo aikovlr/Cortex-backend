@@ -8,8 +8,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace Cortex.Controllers
 {
     [ApiController]
+    [Route("")]
     [Authorize]
-    public class NotificacaoController : ControllerBase
+    public class NotificacaoController : BaseController
     {
         private readonly INotificacaoService _notificacaoService;
         private readonly ILogger<NotificacaoController> _logger;
@@ -40,17 +41,6 @@ namespace Cortex.Controllers
                 dto.Canal, currentUserId);
 
             return Ok(preferenciaAtualizada);
-        }
-
-        private int ObterUsuarioIdAutenticado()
-        {
-            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                     ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-
-            if (int.TryParse(claim, out var id))
-                return id;
-
-            throw new UnauthorizedAccessException("Usuário não autenticado ou identificador inválido no token.");
         }
     }
 }

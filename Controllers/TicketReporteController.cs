@@ -10,7 +10,7 @@ namespace Cortex.Controllers
     [ApiController]
     [Route("")]
     [Authorize]
-    public class TicketReporteController : ControllerBase
+    public class TicketReporteController : BaseController
     {
         private readonly ITicketReporteService _ticketReporteService;
         private readonly ILogger<TicketReporteController> _logger;
@@ -63,17 +63,6 @@ namespace Cortex.Controllers
             var currentUserId = ObterUsuarioIdAutenticado();
             var ticketsAbertos = await _ticketReporteService.ListarTicketsAbertosAsync(id, currentUserId);
             return Ok(ticketsAbertos);
-        }
-
-        private int ObterUsuarioIdAutenticado()
-        {
-            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                     ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-
-            if (int.TryParse(claim, out var id))
-                return id;
-
-            throw new UnauthorizedAccessException("Usuário não autenticado ou identificador inválido no token.");
         }
     }
 }

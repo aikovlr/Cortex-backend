@@ -10,7 +10,7 @@ namespace Cortex.Controllers
     [ApiController]
     [Route("")]
     [Authorize]
-    public class AnexoController : ControllerBase
+    public class AnexoController : BaseController
     {
         private readonly IAnexoService _anexoService;
         private readonly ILogger<AnexoController> _logger;
@@ -79,17 +79,6 @@ namespace Cortex.Controllers
                 "Anexo", id, currentUserId);
 
             return NoContent();
-        }
-
-        private int ObterUsuarioIdAutenticado()
-        {
-            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                     ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-
-            if (int.TryParse(claim, out var id))
-                return id;
-
-            throw new UnauthorizedAccessException("Usuário não autenticado ou identificador inválido no token.");
         }
     }
 }
