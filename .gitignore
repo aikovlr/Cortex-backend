@@ -50,3 +50,10 @@ build/
 # Arquivos temporários
 *.tmp
 *.temp
+
+.postman/
+*.postman/
+.postman_collection.json
+.postman_environment.json
+.postman_request.json
+.postman_response.json
