@@ -46,6 +46,15 @@ namespace Cortex.Repositories.Implementations
                 .ToListAsync();
         }
 
+        public async Task<List<Tarefa>> ObterTarefasDaMetaAsync(int metaId)
+        {
+            return await _context.Metas
+                .AsNoTracking()
+                .Where(m => m.Id == metaId)
+                .Select(m => m.Tarefa)
+                .ToListAsync();
+        }
+
         public async Task<Meta> AdicionarMetaAsync(Meta meta)
         {
             _context.Metas.Add(meta);

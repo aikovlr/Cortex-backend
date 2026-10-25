@@ -154,5 +154,67 @@ namespace Cortex.Tests.Unit.Services
             await Assert.ThrowsAsync<ForbiddenException>(() =>
                 _metaService.ObterMetaPorIdAsync(metaId, solicitanteId: outroUsuarioId));
         }
+
+        [Fact]
+        public async Task VerificarConclusaoMeta_RN08_DeveConcluirMeta_QuandoTodasTarefasEstiveremConcluidas()
+        {
+            // Arrange
+            var tarefaId = 1;
+            var meta = new Meta { Id = 10, Nome = "Meta Teste", TarefaId = tarefaId, Concluida = false };
+            var criador = new Usuario { Id = 1, Nome = "Criador", Email = "c@test.com", SenhaHash = "hash" };
+            var tarefaConcluida = new Tarefa 
+            { 
+                Id = tarefaId, 
+                Titulo = "T1", 
+                Status = Status.Concluida,
+                DataVencimento = DateTime.UtcNow.AddDays(1),
+                CriadorId = 1,
+                Criador = criador
+            };
+
+            _metaRepoMock.Setup(r => r.ObterMetasPorTarefaIdAsync(tarefaId))
+                .ReturnsAsync(new List<Meta> { meta });
+            _metaRepoMock.Setup(r => r.ObterTarefasDaMetaAsync(meta.Id))
+                .ReturnsAsync(new List<Tarefa> { tarefaConcluida });
+
+            // Act
+            var totalConcluidas = await _metaService.VerificarConclusaoMetaAsync(tarefaId);
+
+            // Assert
+            Assert.Equal(1, totalConcluidas);
+            Assert.True(meta.Concluida);
+            _metaRepoMock.Verify(r => r.AtualizarMetaAsync(meta), Times.Once);
+        }
+
+        [Fact]
+        public async Task VerificarConclusaoMeta_RN08_NaoDeveConcluirMeta_QuandoHouverTarefaNaoConcluida()
+        {
+            // Arrange
+            var tarefaId = 1;
+            var meta = new Meta { Id = 10, Nome = "Meta Teste", TarefaId = tarefaId, Concluida = false };
+            var criador = new Usuario { Id = 1, Nome = "Criador", Email = "c@test.com", SenhaHash = "hash" };
+            var tarefaPendente = new Tarefa 
+            { 
+                Id = tarefaId, 
+                Titulo = "T1", 
+                Status = Status.Pendente,
+                DataVencimento = DateTime.UtcNow.AddDays(1),
+                CriadorId = 1,
+                Criador = criador
+            };
+
+            _metaRepoMock.Setup(r => r.ObterMetasPorTarefaIdAsync(tarefaId))
+                .ReturnsAsync(new List<Meta> { meta });
+            _metaRepoMock.Setup(r => r.ObterTarefasDaMetaAsync(meta.Id))
+                .ReturnsAsync(new List<Tarefa> { tarefaPendente });
+
+            // Act
+            var totalConcluidas = await _metaService.VerificarConclusaoMetaAsync(tarefaId);
+
+            // Assert
+            Assert.Equal(0, totalConcluidas);
+            Assert.False(meta.Concluida);
+            _metaRepoMock.Verify(r => r.AtualizarMetaAsync(It.IsAny<Meta>()), Times.Never);
+        }
     }
 }

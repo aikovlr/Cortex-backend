@@ -63,9 +63,8 @@ namespace Cortex.Services.Implementations
 
         public async Task<ConsultaSugestaoDTO> AprovarSugestaoAsync(int sugestaoId, int solicitanteId)
         {
-            var sugestao = await _sugestaoRepository.ObterSugestaoPorIdAsync(sugestaoId);
-            if (sugestao == null)
-                throw new KeyNotFoundException("Sugestão não encontrada.");
+            var sugestao = await _sugestaoRepository.ObterSugestaoPorIdAsync(sugestaoId)
+                ?? throw new KeyNotFoundException("Sugestão não encontrada.");
 
             // RN14: Exige aprovação explícita do criador da tarefa
             if (sugestao.Tarefa.CriadorId != solicitanteId)
@@ -73,12 +72,20 @@ namespace Cortex.Services.Implementations
                 throw new ForbiddenException("Apenas o criador da tarefa possui autorização para aprovar sugestões de alteração.");
             }
 
-            // Aplica as alterações na tarefa principal
+            // Impedir re-aprovação ou aprovação de sugestão já rejeitada
+            if (sugestao.Status != StatusSugestao.Pendente)
+                throw new InvalidOperationException($"Esta sugestão já foi {sugestao.Status.ToString().ToLower()} e não pode ser alterada.");
+
+            // Aplica as alterações na tarefa principal (RN14)
             sugestao.Tarefa.Descricao = string.IsNullOrWhiteSpace(sugestao.Tarefa.Descricao)
                 ? $"[Sugestão #{sugestao.Id} Aprovada]: {sugestao.Descricao}"
                 : $"{sugestao.Tarefa.Descricao}\n\n[Sugestão #{sugestao.Id} Aprovada]: {sugestao.Descricao}";
 
             await _tarefaRepository.AtualizarTarefaAsync(sugestao.Tarefa);
+
+            // Persiste o novo status da sugestão
+            sugestao.Status = StatusSugestao.Aprovada;
+            await _sugestaoRepository.AtualizarSugestaoAsync(sugestao);
 
             _logger.LogInformation("Auditoria: Sugestão processada. SugestaoId: {SugestaoId}, TarefaId: {TarefaId}, Acao: {Acao}, SolicitanteId: {SolicitanteId}",
                 sugestao.Id, sugestao.TarefaId, "Aprovada", solicitanteId);
@@ -88,15 +95,21 @@ namespace Cortex.Services.Implementations
 
         public async Task<ConsultaSugestaoDTO> RejeitarSugestaoAsync(int sugestaoId, int solicitanteId)
         {
-            var sugestao = await _sugestaoRepository.ObterSugestaoPorIdAsync(sugestaoId);
-            if (sugestao == null)
-                throw new KeyNotFoundException("Sugestão não encontrada.");
+            var sugestao = await _sugestaoRepository.ObterSugestaoPorIdAsync(sugestaoId)
+                ?? throw new KeyNotFoundException("Sugestão não encontrada.");
 
             // RN14: Apenas o criador da tarefa pode rejeitar
             if (sugestao.Tarefa.CriadorId != solicitanteId)
             {
                 throw new ForbiddenException("Apenas o criador da tarefa possui autorização para rejeitar sugestões de alteração.");
             }
+
+            if (sugestao.Status != StatusSugestao.Pendente)
+                throw new InvalidOperationException($"Esta sugestão já foi {sugestao.Status.ToString().ToLower()} e não pode ser alterada.");
+
+            // Persiste o status de rejeição
+            sugestao.Status = StatusSugestao.Rejeitada;
+            await _sugestaoRepository.AtualizarSugestaoAsync(sugestao);
 
             _logger.LogInformation("Auditoria: Sugestão processada. SugestaoId: {SugestaoId}, TarefaId: {TarefaId}, Acao: {Acao}, SolicitanteId: {SolicitanteId}",
                 sugestao.Id, sugestao.TarefaId, "Rejeitada", solicitanteId);
@@ -131,6 +144,7 @@ namespace Cortex.Services.Implementations
                 Id = sugestao.Id,
                 Descricao = sugestao.Descricao,
                 DataCriacao = sugestao.DataCriacao,
+                Status = sugestao.Status,
                 TarefaId = sugestao.TarefaId,
                 UsuarioId = sugestao.UsuarioId,
                 Usuario = sugestao.Usuario != null ? new ConsultaUsuarioDTO

@@ -55,6 +55,7 @@ builder.Services.AddDbContext<CortexDbContext>(options =>
             npgsqlOptions.MapEnum<TipoEntidade>("TipoEntidade");
             npgsqlOptions.MapEnum<Cargo>("Cargo");
             npgsqlOptions.MapEnum<CanalNotificacao>("CanalNotificacao");
+            npgsqlOptions.MapEnum<StatusSugestao>("StatusSugestao");
         }));
 
 // Injeção de Dependências - Repositórios

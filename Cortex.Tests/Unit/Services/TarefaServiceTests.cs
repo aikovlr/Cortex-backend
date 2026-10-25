@@ -2,6 +2,7 @@ using Cortex.DTOs.Request;
 using Cortex.Entities;
 using Cortex.Repositories.Interface;
 using Cortex.Services.Implementations;
+using Cortex.Services.Interfaces;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -13,7 +14,7 @@ namespace Cortex.Tests.Unit.Services
     {
         private readonly Mock<ITarefaRepository> _tarefaRepoMock;
         private readonly Mock<IUsuarioRepository> _usuarioRepoMock;
-        private readonly Mock<IMetaRepository> _metaRepoMock;
+        private readonly Mock<IMetaService> _metaServiceMock;
         private readonly Mock<IMembroEquipeRepository> _membroEquipeRepoMock;
         private readonly Mock<IWebHostEnvironment> _envMock;
         private readonly Mock<ILogger<TarefaService>> _loggerMock;
@@ -23,7 +24,7 @@ namespace Cortex.Tests.Unit.Services
         {
             _tarefaRepoMock = new Mock<ITarefaRepository>();
             _usuarioRepoMock = new Mock<IUsuarioRepository>();
-            _metaRepoMock = new Mock<IMetaRepository>();
+            _metaServiceMock = new Mock<IMetaService>();
             _membroEquipeRepoMock = new Mock<IMembroEquipeRepository>();
             _envMock = new Mock<IWebHostEnvironment>();
             _loggerMock = new Mock<ILogger<TarefaService>>();
@@ -31,7 +32,7 @@ namespace Cortex.Tests.Unit.Services
             _tarefaService = new TarefaService(
                 _tarefaRepoMock.Object,
                 _usuarioRepoMock.Object,
-                _metaRepoMock.Object,
+                _metaServiceMock.Object,
                 _membroEquipeRepoMock.Object,
                 _envMock.Object,
                 _loggerMock.Object);
@@ -102,15 +103,13 @@ namespace Cortex.Tests.Unit.Services
 
             _tarefaRepoMock.Setup(r => r.ObterTarefaPorIdAsync(tarefaId)).ReturnsAsync(tarefa);
             _usuarioRepoMock.Setup(r => r.ObterUsuarioPorIdAsync(solicitanteId)).ReturnsAsync(tarefa.Criador);
-            _metaRepoMock.Setup(r => r.ObterMetasPorTarefaIdAsync(tarefaId)).ReturnsAsync(new List<Meta> { metaVinculada });
 
             // Act
             var resultado = await _tarefaService.ConcluirTarefaAsync(tarefaId, solicitanteId);
 
             // Assert
             Assert.Equal(Status.Concluida, resultado.Status);
-            Assert.True(metaVinculada.Concluida);
-            _metaRepoMock.Verify(m => m.AtualizarMetaAsync(metaVinculada), Times.Once);
+            _metaServiceMock.Verify(m => m.VerificarConclusaoMetaAsync(tarefaId), Times.Once);
         }
 
         [Fact]
