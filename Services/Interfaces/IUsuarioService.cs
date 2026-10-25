@@ -15,7 +15,5 @@ namespace Cortex.Services.Interfaces
         Task<bool> ValidarSenhaAsync(string email, string senha);
         Task<bool> AlterarSenhaAsync(int usuarioId, string senhaAtual, string novaSenha);
         Task<bool> UsuarioTemTarefasEmAndamentoAsync(int usuarioId);
-        Task<bool> VerificarEmailAsync(string email, string codigo);
-        Task<string> SolicitarCodigoVerificacaoAsync(string email);
     }
 }

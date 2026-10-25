@@ -57,6 +57,8 @@ namespace Cortex.Tests.Integration
                     Email = "seed@cortex.com",
                     SenhaHash = BCrypt.Net.BCrypt.HashPassword("SenhaForte123!"),
                     EmailVerificado = false,
+                    CodigoVerificacaoHash = BCrypt.Net.BCrypt.HashPassword("123456"),
+                    CodigoVerificacaoExpiracao = DateTime.UtcNow.AddMinutes(15),
                     DataCriacao = DateTime.UtcNow
                 };
                 db.Usuarios.Add(user);

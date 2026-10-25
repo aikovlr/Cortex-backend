@@ -8,6 +8,8 @@ namespace Cortex.Entities
         public required string Email { get; set; }
         public required string SenhaHash { get; set; }
         public bool EmailVerificado { get; set; } = false;
+        public string? CodigoVerificacaoHash { get; set; }
+        public DateTime? CodigoVerificacaoExpiracao { get; set; }
         public Anexo? FotoPerfil { get; set; }
         public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
         // navegacao
