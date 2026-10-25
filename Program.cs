@@ -73,6 +73,7 @@ builder.Services.AddScoped<IAnexoRepository, AnexoRepository>();
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
+builder.Services.AddScoped<IVerificacaoEmailService, VerificacaoEmailService>();
 builder.Services.AddScoped<IEquipeService, EquipeService>();
 builder.Services.AddScoped<IMembroEquipeService, MembroEquipeService>();
 builder.Services.AddScoped<ITarefaService, TarefaService>();
@@ -107,7 +108,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = false;
+    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -135,6 +136,13 @@ builder.Services.AddRateLimiter(options =>
         opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
         opt.QueueLimit = 0;
     });
+    options.AddFixedWindowLimiter("verificacao-email-policy", opt =>
+    {
+        opt.PermitLimit = 3;
+        opt.Window = TimeSpan.FromMinutes(5);
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        opt.QueueLimit = 0;
+    });
 });
 
 var app = builder.Build();
@@ -150,9 +158,9 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseRateLimiter();
 
 // Mapeia os Controllers
 app.MapControllers();

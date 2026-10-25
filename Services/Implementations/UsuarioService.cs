@@ -176,37 +176,6 @@ namespace Cortex.Services.Implementations
             return await _usuarioRepository.UsuarioTemTarefasEmAndamentoAsync(usuarioId);
         }
 
-        public async Task<bool> VerificarEmailAsync(string email, string codigo)
-        {
-            var usuario = await _usuarioRepository.ObterUsuarioPorEmailAsync(email);
-            if (usuario == null)
-                throw new KeyNotFoundException("Usuário não encontrado.");
-
-            if (string.IsNullOrWhiteSpace(codigo) || codigo.Length != 6)
-            {
-                throw new ArgumentException("Código de verificação inválido.");
-            }
-
-            usuario.EmailVerificado = true;
-            await _usuarioRepository.AtualizarUsuarioAsync(usuario);
-
-            _logger.LogInformation("Auditoria: E-mail verificado com sucesso para UserId: {UserId}, Email: {Email}",
-                usuario.Id, usuario.Email);
-
-            return true;
-        }
-
-        public async Task<string> SolicitarCodigoVerificacaoAsync(string email)
-        {
-            var usuario = await _usuarioRepository.ObterUsuarioPorEmailAsync(email);
-            if (usuario == null)
-                throw new KeyNotFoundException("Usuário não encontrado.");
-
-            var codigo = "123456";
-
-            _logger.LogInformation("Código de verificação gerado para o e-mail {Email}: {Codigo}", email, codigo);
-            return codigo;
-        }
 
         private async Task<Anexo> SalvarFotoPerfilAsync(IFormFile arquivo)
         {

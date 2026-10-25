@@ -30,6 +30,9 @@ namespace Cortex.Infra.Persistence.Configuration
                 .HasDefaultValue(false)
                 .IsRequired();
 
+            builder.Property(u => u.CodigoVerificacaoHash)
+                .HasMaxLength(255);
+
             builder.Property(u => u.DataCriacao)
                 .IsRequired()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");

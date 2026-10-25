@@ -111,31 +111,5 @@ namespace Cortex.Tests.Unit.Services
 
             Assert.Contains("tarefas em andamento", ex.Message);
         }
-
-        [Fact]
-        public async Task VerificarEmail_DeveAtivarFlagEmailVerificado()
-        {
-            // Arrange
-            var usuario = new Usuario
-            {
-                Id = 10,
-                Nome = "Usuario Não Verificado",
-                Email = "unverified@exemplo.com",
-                SenhaHash = "hash",
-                EmailVerificado = false
-            };
-
-            _usuarioRepoMock
-                .Setup(r => r.ObterUsuarioPorEmailAsync(usuario.Email))
-                .ReturnsAsync(usuario);
-
-            // Act
-            var resultado = await _usuarioService.VerificarEmailAsync(usuario.Email, "123456");
-
-            // Assert
-            Assert.True(resultado);
-            Assert.True(usuario.EmailVerificado);
-            _usuarioRepoMock.Verify(r => r.AtualizarUsuarioAsync(usuario), Times.Once);
-        }
     }
 }

@@ -2,6 +2,7 @@ using Cortex.Infra.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -40,6 +41,13 @@ namespace Cortex.Tests.Integration
             });
 
             builder.UseEnvironment("Testing");
+            builder.ConfigureAppConfiguration((context, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Jwt:Secret"] = "CortexBackendSuperSecretSecurityKey_Min32CharsLong2026!"
+                });
+            });
         }
     }
 }

@@ -395,6 +395,13 @@ namespace Cortex_backend.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("CodigoVerificacaoExpiracao")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CodigoVerificacaoHash")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
                     b.Property<DateTime>("DataCriacao")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")

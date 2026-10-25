@@ -18,6 +18,10 @@ obj/
 # Configurações locais
 appsettings.Development.json
 
+# Configurações de ambiente com segredos
+appsettings.Production.json
+appsettings.Staging.json
+
 # Secrets
 secrets.json
 *.secret
@@ -46,5 +50,3 @@ build/
 # Arquivos temporários
 *.tmp
 *.temp
-
-CLAUDE.md

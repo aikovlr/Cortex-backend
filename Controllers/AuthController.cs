@@ -18,17 +18,23 @@ namespace Cortex.Controllers
         private readonly IUsuarioService _usuarioService;
         private readonly IUsuarioRepository _usuarioRepository;
         private readonly ITokenService _tokenService;
+        private readonly IVerificacaoEmailService _verificacaoEmailService;
+        private readonly IEmailGateway _emailGateway;
         private readonly ILogger<AuthController> _logger;
 
         public AuthController(
             IUsuarioService usuarioService,
             IUsuarioRepository usuarioRepository,
             ITokenService tokenService,
+            IVerificacaoEmailService verificacaoEmailService,
+            IEmailGateway emailGateway,
             ILogger<AuthController> logger)
         {
             _usuarioService = usuarioService;
             _usuarioRepository = usuarioRepository;
             _tokenService = tokenService;
+            _verificacaoEmailService = verificacaoEmailService;
+            _emailGateway = emailGateway;
             _logger = logger;
         }
 
@@ -127,20 +133,27 @@ namespace Cortex.Controllers
             return NoContent();
         }
 
+        [HttpPost("solicitar-verificacao-email")]
+        [AllowAnonymous]
+        [EnableRateLimiting("verificacao-email-policy")]
+        public async Task<IActionResult> SolicitarCodigoVerificacao([FromBody] SolicitarCodigoVerificacaoDTO dto)
+        {
+            var usuario = await _usuarioRepository.ObterUsuarioPorEmailAsync(dto.Email);
+            if (usuario == null)
+                return Ok(new { message = "Se o e-mail existir, um código foi enviado." });
+
+            var codigo = await _verificacaoEmailService.GerarEArmazenarCodigoAsync(usuario.Id);
+            await _emailGateway.EnviarEmailAsync(dto.Email, "Verificação de e-mail", $"Seu código: {codigo}");
+
+            return Ok(new { message = "Se o e-mail existir, um código foi enviado." });
+        }
+
         [HttpPost("verificar-email")]
         [AllowAnonymous]
         public async Task<IActionResult> VerificarEmail([FromBody] VerificarEmailDTO dto)
         {
-            var verificado = await _usuarioService.VerificarEmailAsync(dto.Email, dto.Codigo);
-            return Ok(new { message = "E-mail verificado com sucesso!", email = dto.Email, verificado });
-        }
-
-        [HttpPost("solicitar-verificacao-email")]
-        [AllowAnonymous]
-        public async Task<IActionResult> SolicitarCodigoVerificacao([FromBody] SolicitarCodigoVerificacaoDTO dto)
-        {
-            var codigo = await _usuarioService.SolicitarCodigoVerificacaoAsync(dto.Email);
-            return Ok(new { message = "Código de verificação enviado com sucesso!", email = dto.Email });
+            await _verificacaoEmailService.VerificarCodigoAsync(dto.Email, dto.Codigo);
+            return Ok(new { message = "E-mail verificado com sucesso." });
         }
     }
 }
