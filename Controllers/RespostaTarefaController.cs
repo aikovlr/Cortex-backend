@@ -53,7 +53,7 @@ namespace Cortex.Controllers
             var deletado = await _respostaService.DeletarRespostaAsync(id, currentUserId);
 
             if (!deletado)
-                return NotFound(new { message = "Resposta não encontrada." });
+                return NaoEncontrado("Resposta não encontrada.", "Resposta não encontrada");
 
             _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}",
                 "RespostaTarefa", id, currentUserId);

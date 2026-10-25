@@ -25,5 +25,14 @@ namespace Cortex.Controllers
 
             throw new UnauthorizedAccessException("Usuário não autenticado ou identificador inválido no token.");
         }
+
+        /// <summary>Retorna ProblemDetails padronizado para 404.</summary>
+        protected IActionResult NaoEncontrado(string detalhe, string titulo = "Recurso não encontrado") => NotFound(new ProblemDetails
+        {
+            Status = StatusCodes.Status404NotFound,
+            Title = titulo,
+            Detail = detalhe,
+            Instance = HttpContext.Request.Path
+        });
     }
 }

@@ -52,7 +52,7 @@ namespace Cortex.Controllers
             var meta = await _metaService.ObterMetaPorIdAsync(id, currentUserId);
 
             if (meta == null)
-                return NotFound(new { message = "Meta não encontrada." });
+                return NaoEncontrado("Meta não encontrada.", "Meta não encontrada");
 
             return Ok(meta);
         }
@@ -76,7 +76,7 @@ namespace Cortex.Controllers
             var deletado = await _metaService.DeletarMetaAsync(id, currentUserId);
 
             if (!deletado)
-                return NotFound(new { message = "Meta não encontrada." });
+                return NaoEncontrado("Meta não encontrada.", "Meta não encontrada");
 
             _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}",
                 "Meta", id, currentUserId);

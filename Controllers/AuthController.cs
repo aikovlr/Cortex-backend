@@ -13,7 +13,7 @@ namespace Cortex.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AuthController : ControllerBase
+    public class AuthController : BaseController
     {
         private readonly IUsuarioService _usuarioService;
         private readonly IUsuarioRepository _usuarioRepository;
@@ -111,19 +111,7 @@ namespace Cortex.Controllers
         [Authorize]
         public async Task<IActionResult> AlterarSenha([FromBody] AlterarSenhaDTO dto)
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-                           ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-
-            if (!int.TryParse(userIdClaim, out var usuarioId))
-            {
-                return Unauthorized(new ProblemDetails
-                {
-                    Status = StatusCodes.Status401Unauthorized,
-                    Title = "Não autorizado",
-                    Detail = "Identificador de usuário inválido no token.",
-                    Instance = HttpContext.Request.Path
-                });
-            }
+            var usuarioId = ObterUsuarioIdAutenticado();
 
             await _usuarioService.AlterarSenhaAsync(usuarioId, dto.SenhaAtual, dto.NovaSenha);
 

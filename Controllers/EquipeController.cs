@@ -46,13 +46,7 @@ namespace Cortex.Controllers
 
             if (equipe == null)
             {
-                return NotFound(new ProblemDetails
-                {
-                    Status = StatusCodes.Status404NotFound,
-                    Title = "Equipe não encontrada",
-                    Detail = $"Nenhuma equipe foi encontrada com o ID {id}.",
-                    Instance = HttpContext.Request.Path
-                });
+                return NaoEncontrado($"Nenhuma equipe foi encontrada com o ID {id}.", "Equipe não encontrada");
             }
 
             return Ok(equipe);
@@ -86,13 +80,7 @@ namespace Cortex.Controllers
 
             if (!removida)
             {
-                return NotFound(new ProblemDetails
-                {
-                    Status = StatusCodes.Status404NotFound,
-                    Title = "Equipe não encontrada",
-                    Detail = $"Nenhuma equipe foi encontrada com o ID {id}.",
-                    Instance = HttpContext.Request.Path
-                });
+                return NaoEncontrado($"Nenhuma equipe foi encontrada com o ID {id}.", "Equipe não encontrada");
             }
 
             _logger.LogWarning("Equipe excluída: EquipeId {EquipeId} por SolicitanteId {SolicitanteId}", 
