@@ -1,0 +1,18 @@
+$kind: http-request
+name: /api/Equipe/:id/membros/:membroId/cargo
+url: "{{baseUrl}}/api/Equipe/:id/membros/:membroId/cargo"
+method: PATCH
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: "502"
+  membroId: "502"
+body:
+  type: json
+  content: |-
+    {
+      "cargo": 8527
+    }
+settings: {}
+examples: ./.resources/-api-Equipe-id-membros-membroId-cargo.resources/examples
+order: 1000

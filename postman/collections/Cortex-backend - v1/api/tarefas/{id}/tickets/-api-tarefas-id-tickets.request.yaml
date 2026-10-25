@@ -1,0 +1,18 @@
+$kind: http-request
+name: /api/tarefas/:id/tickets
+url: "{{baseUrl}}/api/tarefas/:id/tickets"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: "502"
+body:
+  type: json
+  content: |-
+    {
+      "descricao": "string",
+      "tarefaId": "-0"
+    }
+settings: {}
+examples: ./.resources/-api-tarefas-id-tickets.resources/examples
+order: 1000

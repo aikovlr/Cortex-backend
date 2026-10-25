@@ -1,0 +1,16 @@
+$kind: http-request
+name: /api/Auth/alterar-senha
+url: "{{baseUrl}}/api/Auth/alterar-senha"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "senhaAtual": "string",
+      "novaSenha": "string"
+    }
+settings: {}
+examples: ./.resources/-api-Auth-alterar-senha.resources/examples
+order: 1000

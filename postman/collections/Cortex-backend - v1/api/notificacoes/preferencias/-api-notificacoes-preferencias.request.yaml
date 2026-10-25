@@ -1,0 +1,7 @@
+$kind: http-request
+name: /api/notificacoes/preferencias
+url: "{{baseUrl}}/api/notificacoes/preferencias"
+method: GET
+settings: {}
+examples: ./.resources/-api-notificacoes-preferencias.resources/examples
+order: 1000

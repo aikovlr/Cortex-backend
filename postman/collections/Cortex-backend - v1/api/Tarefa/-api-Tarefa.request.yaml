@@ -1,0 +1,33 @@
+$kind: http-request
+name: /api/Tarefa
+url: "{{baseUrl}}/api/Tarefa"
+method: POST
+headers:
+  Content-Type: multipart/form-data
+body:
+  type: formdata
+  content:
+    - type: text
+      key: Titulo
+      value: string
+    - type: text
+      key: Descricao
+      value: string
+    - type: text
+      key: DataVencimento
+      value: 2008-09-30T03:42:37.195Z
+    - type: text
+      key: Pontuacao
+      value: "6744337"
+    - type: text
+      key: Status
+      value: "5836"
+    - type: text
+      key: Prioridade
+      value: "7909"
+    - type: text
+      key: Anexos
+      value: string,string
+settings: {}
+examples: ./.resources/-api-Tarefa.resources/examples
+order: 2000

@@ -1,0 +1,9 @@
+$kind: http-request
+name: /api/metas
+url: "{{baseUrl}}/api/metas?usuarioId=0"
+method: GET
+queryParams:
+  usuarioId: "0"
+settings: {}
+examples: ./.resources/-api-metas-1.resources/examples
+order: 3000

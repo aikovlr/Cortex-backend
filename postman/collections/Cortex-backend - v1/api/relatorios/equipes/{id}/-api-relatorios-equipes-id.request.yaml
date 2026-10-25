@@ -1,0 +1,16 @@
+$kind: http-request
+name: /api/relatorios/equipes/:id
+url: "{{baseUrl}}/api/relatorios/equipes/:id?Status=1130&Prioridade=1130&EquipeId=0&ResponsavelId=0&DataInicio=1959-01-09T13:52:22.079Z&DataFim=1959-01-09T13:52:22.079Z"
+method: GET
+queryParams:
+  Status: "1130"
+  Prioridade: "1130"
+  EquipeId: "0"
+  ResponsavelId: "0"
+  DataInicio: 1959-01-09T13:52:22.079Z
+  DataFim: 1959-01-09T13:52:22.079Z
+pathVariables:
+  id: "502"
+settings: {}
+examples: ./.resources/-api-relatorios-equipes-id.resources/examples
+order: 1000

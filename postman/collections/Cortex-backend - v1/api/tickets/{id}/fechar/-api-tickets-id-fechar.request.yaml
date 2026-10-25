@@ -1,0 +1,9 @@
+$kind: http-request
+name: /api/tickets/:id/fechar
+url: "{{baseUrl}}/api/tickets/:id/fechar"
+method: PATCH
+pathVariables:
+  id: "502"
+settings: {}
+examples: ./.resources/-api-tickets-id-fechar.resources/examples
+order: 1000

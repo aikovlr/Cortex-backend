@@ -1,0 +1,9 @@
+$kind: http-request
+name: /api/sugestoes/:id/rejeitar
+url: "{{baseUrl}}/api/sugestoes/:id/rejeitar"
+method: PATCH
+pathVariables:
+  id: "502"
+settings: {}
+examples: ./.resources/-api-sugestoes-id-rejeitar.resources/examples
+order: 1000

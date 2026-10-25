@@ -1,0 +1,18 @@
+$kind: http-request
+name: /api/Tarefa/:id/responsaveis
+url: "{{baseUrl}}/api/Tarefa/:id/responsaveis"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: "502"
+body:
+  type: json
+  content: |-
+    {
+      "tarefaId": "-45951",
+      "usuarioId": "8924126"
+    }
+settings: {}
+examples: ./.resources/-api-Tarefa-id-responsaveis.resources/examples
+order: 3000

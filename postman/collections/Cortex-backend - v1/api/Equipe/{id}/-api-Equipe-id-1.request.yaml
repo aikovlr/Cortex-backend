@@ -1,0 +1,17 @@
+$kind: http-request
+name: /api/Equipe/:id
+url: "{{baseUrl}}/api/Equipe/:id"
+method: PUT
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: "502"
+body:
+  type: json
+  content: |-
+    {
+      "nome": "string"
+    }
+settings: {}
+examples: ./.resources/-api-Equipe-id-1.resources/examples
+order: 3000

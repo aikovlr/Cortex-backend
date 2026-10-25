@@ -1,0 +1,17 @@
+$kind: http-request
+name: /api/metas
+url: "{{baseUrl}}/api/metas"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "nome": "string",
+      "dataFechamento": "2015-01-20T06:11:52.962Z",
+      "tarefaId": "-0"
+    }
+settings: {}
+examples: ./.resources/-api-metas.resources/examples
+order: 2000

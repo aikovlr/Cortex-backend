@@ -1,0 +1,15 @@
+$kind: http-request
+name: /api/Auth/solicitar-verificacao-email
+url: "{{baseUrl}}/api/Auth/solicitar-verificacao-email"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "string"
+    }
+settings: {}
+examples: ./.resources/-api-Auth-solicitar-verificacao-email.resources/examples
+order: 1000

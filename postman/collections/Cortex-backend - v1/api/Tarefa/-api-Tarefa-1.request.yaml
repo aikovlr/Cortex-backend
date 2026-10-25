@@ -1,0 +1,15 @@
+$kind: http-request
+name: /api/Tarefa
+url: "{{baseUrl}}/api/Tarefa?Status=6009&Prioridade=6009&ResponsavelId=0&CriadorId=0&DataInicio=1959-01-09T13:52:22.079Z&DataFim=1959-01-09T13:52:22.079Z&TermoBusca=string"
+method: GET
+queryParams:
+  Status: "6009"
+  Prioridade: "6009"
+  ResponsavelId: "0"
+  CriadorId: "0"
+  DataInicio: 1959-01-09T13:52:22.079Z
+  DataFim: 1959-01-09T13:52:22.079Z
+  TermoBusca: string
+settings: {}
+examples: ./.resources/-api-Tarefa-1.resources/examples
+order: 3000

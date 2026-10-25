@@ -1,0 +1,36 @@
+$kind: http-example
+request:
+  url: "{{baseUrl}}/api/Tarefa/:id"
+  method: PUT
+  headers:
+    Content-Type: multipart/form-data
+  pathVariables:
+    id: "502"
+  body:
+    type: formdata
+    content:
+      - type: text
+        key: Titulo
+        value: string
+      - type: text
+        key: Descricao
+        value: string
+      - type: text
+        key: DataVencimento
+        value: 2022-06-19T12:46:56.122Z
+      - type: text
+        key: Pontuacao
+        value: "-0"
+      - type: text
+        key: Prioridade
+        value: "7971"
+      - type: text
+        key: Anexos
+        value: string,string
+response:
+  statusCode: 200
+  statusText: OK
+  body:
+    type: text
+    content: ""
+order: 1000

@@ -1,0 +1,7 @@
+$kind: http-request
+name: /api/Usuario/solicitar-verificacao-email
+url: "{{baseUrl}}/api/Usuario/solicitar-verificacao-email"
+method: POST
+settings: {}
+examples: ./.resources/-api-Usuario-solicitar-verificacao-email.resources/examples
+order: 1000

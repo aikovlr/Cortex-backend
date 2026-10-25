@@ -1,0 +1,27 @@
+$kind: http-request
+name: /api/Usuario
+url: "{{baseUrl}}/api/Usuario"
+method: POST
+headers:
+  Content-Type: multipart/form-data
+body:
+  type: formdata
+  content:
+    - type: text
+      key: Nome
+      value: string
+    - type: text
+      key: Email
+      value: string
+    - type: text
+      key: Senha
+      value: string
+    - type: text
+      key: Telefone
+      value: string
+    - type: file
+      key: FotoPerfil
+      src: []
+settings: {}
+examples: ./.resources/-api-Usuario.resources/examples
+order: 6000

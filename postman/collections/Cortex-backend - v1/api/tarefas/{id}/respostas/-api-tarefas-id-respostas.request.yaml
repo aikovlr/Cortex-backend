@@ -1,0 +1,20 @@
+$kind: http-request
+name: /api/tarefas/:id/respostas
+url: "{{baseUrl}}/api/tarefas/:id/respostas"
+method: POST
+headers:
+  Content-Type: multipart/form-data
+pathVariables:
+  id: "502"
+body:
+  type: formdata
+  content:
+    - type: text
+      key: TarefaId
+      value: "-0"
+    - type: text
+      key: Anexos
+      value: string,string
+settings: {}
+examples: ./.resources/-api-tarefas-id-respostas.resources/examples
+order: 1000
