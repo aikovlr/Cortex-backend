@@ -162,6 +162,10 @@ namespace Cortex.Services.Implementations
             if (!_passwordService.VerifyPassword(senhaAtual, usuario.SenhaHash))
                 throw new UnauthorizedAccessException("Senha atual incorreta.");
 
+            // Verify new password is not equal to current password
+            if (_passwordService.VerifyPassword(novaSenha, usuario.SenhaHash))
+                throw new ArgumentException("A nova senha não pode ser igual à senha atual.");
+
             // Validate new password (RN02)
             var (isValid, errorMessage) = _passwordService.ValidatePassword(novaSenha);
             if (!isValid)

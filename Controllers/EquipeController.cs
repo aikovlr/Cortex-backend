@@ -10,7 +10,7 @@ namespace Cortex.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class EquipeController : ControllerBase
+    public class EquipeController : BaseController
     {
         private readonly IEquipeService _equipeService;
         private readonly IMembroEquipeService _membroEquipeService;
@@ -145,17 +145,6 @@ namespace Cortex.Controllers
             var currentUserId = ObterUsuarioIdAutenticado();
             var membros = await _membroEquipeService.ListarMembrosPorEquipeAsync(id, currentUserId);
             return Ok(membros);
-        }
-
-        private int ObterUsuarioIdAutenticado()
-        {
-            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                     ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-
-            if (int.TryParse(claim, out var id))
-                return id;
-
-            throw new UnauthorizedAccessException("Usuário não autenticado ou identificador inválido no token.");
         }
     }
 }

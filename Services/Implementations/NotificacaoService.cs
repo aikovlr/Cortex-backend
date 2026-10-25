@@ -11,6 +11,7 @@ namespace Cortex.Services.Implementations
         private readonly IPreferenciaNotificacaoRepository _preferenciaRepository;
         private readonly ITarefaRepository _tarefaRepository;
         private readonly IUsuarioRepository _usuarioRepository;
+        private readonly IAlertaEnviadoRepository _alertaEnviadoRepository;
         private readonly IEmailGateway _emailGateway;
         private readonly IPushGateway _pushGateway;
         private readonly ISmsGateway _smsGateway;
@@ -20,6 +21,7 @@ namespace Cortex.Services.Implementations
             IPreferenciaNotificacaoRepository preferenciaRepository,
             ITarefaRepository tarefaRepository,
             IUsuarioRepository usuarioRepository,
+            IAlertaEnviadoRepository alertaEnviadoRepository,
             IEmailGateway emailGateway,
             IPushGateway pushGateway,
             ISmsGateway smsGateway,
@@ -28,6 +30,7 @@ namespace Cortex.Services.Implementations
             _preferenciaRepository = preferenciaRepository;
             _tarefaRepository = tarefaRepository;
             _usuarioRepository = usuarioRepository;
+            _alertaEnviadoRepository = alertaEnviadoRepository;
             _emailGateway = emailGateway;
             _pushGateway = pushGateway;
             _smsGateway = smsGateway;
@@ -182,13 +185,20 @@ namespace Cortex.Services.Implementations
                         // Se a data de vencimento está dentro da janela de antecedência configurada
                         if (tarefa.DataVencimento <= janelaAlerta)
                         {
-                            var assunto = $"Alerta de Vencimento: Tarefa '{tarefa.Titulo}'";
-                            var mensagem = $"Olá! A tarefa '{tarefa.Titulo}' está próxima do vencimento ({tarefa.DataVencimento:dd/MM/yyyy HH:mm} UTC).";
+                            var jaEnviado = await _alertaEnviadoRepository
+                                .ExisteAlertaEnviadoAsync(usuarioId, tarefa.Id, pref.Canal, agoraUtc.AddHours(-pref.AntecedenciaHoras));
 
-                            var enviado = await EnviarNotificacaoAsync(usuarioId, pref.Canal, assunto, mensagem);
-                            if (enviado)
+                            if (!jaEnviado)
                             {
-                                alertasDisparados++;
+                                var assunto = $"Alerta de Vencimento: Tarefa '{tarefa.Titulo}'";
+                                var mensagem = $"Olá! A tarefa '{tarefa.Titulo}' está próxima do vencimento ({tarefa.DataVencimento:dd/MM/yyyy HH:mm} UTC).";
+
+                                var enviado = await EnviarNotificacaoAsync(usuarioId, pref.Canal, assunto, mensagem);
+                                if (enviado)
+                                {
+                                    await _alertaEnviadoRepository.RegistrarAsync(usuarioId, tarefa.Id, pref.Canal);
+                                    alertasDisparados++;
+                                }
                             }
                         }
                     }

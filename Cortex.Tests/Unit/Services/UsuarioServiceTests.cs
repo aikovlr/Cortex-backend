@@ -148,5 +148,29 @@ namespace Cortex.Tests.Unit.Services
             Assert.True(resultado);
             _usuarioRepoMock.Verify(r => r.RemoverUsuarioAsync(userId), Times.Once);
         }
+
+        [Fact]
+        public async Task AlterarSenhaAsync_NovaSenhaIgualAtual_DeveLancarArgumentException()
+        {
+            // Arrange
+            var userId = 10;
+            var usuario = new Usuario
+            {
+                Id = userId,
+                Nome = "Usuario Teste",
+                Email = "teste@exemplo.com",
+                SenhaHash = "hashAtual"
+            };
+
+            _usuarioRepoMock.Setup(r => r.ObterUsuarioPorIdAsync(userId)).ReturnsAsync(usuario);
+            _passwordServiceMock.Setup(p => p.VerifyPassword("SenhaAtual123!", "hashAtual")).Returns(true);
+            _passwordServiceMock.Setup(p => p.VerifyPassword("SenhaAtual123!", "hashAtual")).Returns(true);
+
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+                _usuarioService.AlterarSenhaAsync(userId, "SenhaAtual123!", "SenhaAtual123!"));
+
+            Assert.Contains("não pode ser igual", ex.Message);
+        }
     }
 }

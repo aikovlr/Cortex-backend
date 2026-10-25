@@ -10,7 +10,7 @@ namespace Cortex.Controllers
     [ApiController]
     [Route("")]
     [Authorize]
-    public class SugestaoController : ControllerBase
+    public class SugestaoController : BaseController
     {
         private readonly ISugestaoService _sugestaoService;
         private readonly ILogger<SugestaoController> _logger;
@@ -67,17 +67,6 @@ namespace Cortex.Controllers
                 id, sugestao.TarefaId, "Rejeitada", currentUserId);
 
             return Ok(sugestao);
-        }
-
-        private int ObterUsuarioIdAutenticado()
-        {
-            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                     ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-
-            if (int.TryParse(claim, out var id))
-                return id;
-
-            throw new UnauthorizedAccessException("Usuário não autenticado ou identificador inválido no token.");
         }
     }
 }
