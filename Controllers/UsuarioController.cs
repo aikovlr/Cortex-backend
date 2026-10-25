@@ -54,13 +54,7 @@ namespace Cortex.Controllers
             var usuario = await _usuarioService.ObterUsuarioPorIdAsync(id);
             if (usuario == null)
             {
-                return NotFound(new ProblemDetails
-                {
-                    Status = StatusCodes.Status404NotFound,
-                    Title = "Usuário não encontrado",
-                    Detail = $"Nenhum usuário foi encontrado com o ID {id}.",
-                    Instance = HttpContext.Request.Path
-                });
+                return NaoEncontrado($"Nenhum usuário foi encontrado com o ID {id}.", "Usuário não encontrado");
             }
 
             return Ok(usuario);
@@ -102,13 +96,7 @@ namespace Cortex.Controllers
             var deletado = await _usuarioService.DeletarUsuarioAsync(id, currentUserId);
             if (!deletado)
             {
-                return NotFound(new ProblemDetails
-                {
-                    Status = StatusCodes.Status404NotFound,
-                    Title = "Usuário não encontrado",
-                    Detail = $"Nenhum usuário foi encontrado com o ID {id}.",
-                    Instance = HttpContext.Request.Path
-                });
+                return NaoEncontrado($"Nenhum usuário foi encontrado com o ID {id}.", "Usuário não encontrado");
             }
 
             _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}", 

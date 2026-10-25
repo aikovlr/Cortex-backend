@@ -35,6 +35,35 @@ namespace Cortex_backend.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "TipoEntidade", "tipo_entidade", new[] { "usuario", "tarefa", "resposta_tarefa" });
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Cortex.Entities.AlertaEnviado", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<CanalNotificacao>("Canal")
+                        .HasColumnType("\"CanalNotificacao\"");
+
+                    b.Property<DateTime>("EnviadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("TarefaId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TarefaId");
+
+                    b.HasIndex("UsuarioId", "TarefaId", "Canal", "EnviadoEm");
+
+                    b.ToTable("AlertasEnviados", (string)null);
+                });
+
             modelBuilder.Entity("Cortex.Entities.Anexo", b =>
                 {
                     b.Property<int>("Id")
@@ -443,6 +472,25 @@ namespace Cortex_backend.Migrations
                         .IsUnique();
 
                     b.ToTable("Usuario", (string)null);
+                });
+
+            modelBuilder.Entity("Cortex.Entities.AlertaEnviado", b =>
+                {
+                    b.HasOne("Cortex.Entities.Tarefa", "Tarefa")
+                        .WithMany()
+                        .HasForeignKey("TarefaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Cortex.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tarefa");
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("Cortex.Entities.Anexo", b =>

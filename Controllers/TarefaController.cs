@@ -55,13 +55,7 @@ namespace Cortex.Controllers
 
             if (tarefa == null)
             {
-                return NotFound(new ProblemDetails
-                {
-                    Status = StatusCodes.Status404NotFound,
-                    Title = "Tarefa não encontrada",
-                    Detail = $"Nenhuma tarefa foi encontrada com o ID {id}.",
-                    Instance = HttpContext.Request.Path
-                });
+                return NaoEncontrado($"Nenhuma tarefa foi encontrada com o ID {id}.", "Tarefa não encontrada");
             }
 
             return Ok(tarefa);
@@ -88,13 +82,7 @@ namespace Cortex.Controllers
 
             if (!deletada)
             {
-                return NotFound(new ProblemDetails
-                {
-                    Status = StatusCodes.Status404NotFound,
-                    Title = "Tarefa não encontrada",
-                    Detail = $"Nenhuma tarefa foi encontrada com o ID {id}.",
-                    Instance = HttpContext.Request.Path
-                });
+                return NaoEncontrado($"Nenhuma tarefa foi encontrada com o ID {id}.", "Tarefa não encontrada");
             }
 
             _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}",

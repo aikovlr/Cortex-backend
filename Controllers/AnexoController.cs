@@ -53,7 +53,7 @@ namespace Cortex.Controllers
         {
             var anexo = await _anexoService.ObterAnexoPorIdAsync(id);
             if (anexo == null)
-                return NotFound(new { message = "Anexo não encontrado." });
+                return NaoEncontrado("Anexo não encontrado.", "Anexo não encontrado");
 
             return Ok(anexo);
         }
@@ -73,7 +73,7 @@ namespace Cortex.Controllers
             var deletado = await _anexoService.DeletarAnexoAsync(id, currentUserId);
 
             if (!deletado)
-                return NotFound(new { message = "Anexo não encontrado." });
+                return NaoEncontrado("Anexo não encontrado.", "Anexo não encontrado");
 
             _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}",
                 "Anexo", id, currentUserId);
