@@ -29,6 +29,8 @@ namespace Cortex_backend.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "Prioridade", "prioridade", new[] { "baixa", "media", "alta", "urgente" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "Status", new[] { "atrasada", "concluida", "pendente" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "Status", "status", new[] { "pendente", "atrasada", "concluida" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "StatusSugestao", new[] { "aprovada", "pendente", "rejeitada" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "StatusSugestao", "status_sugestao", new[] { "pendente", "aprovada", "rejeitada" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "TipoEntidade", new[] { "resposta_tarefa", "tarefa", "usuario" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "TipoEntidade", "tipo_entidade", new[] { "usuario", "tarefa", "resposta_tarefa" });
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -288,6 +290,11 @@ namespace Cortex_backend.Migrations
                         .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<StatusSugestao>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("\"StatusSugestao\"")
+                        .HasDefaultValue(StatusSugestao.Pendente);
 
                     b.Property<int>("TarefaId")
                         .HasColumnType("integer");

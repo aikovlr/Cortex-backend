@@ -13,7 +13,7 @@ namespace Cortex.Services.Implementations
     {
         private readonly ITarefaRepository _tarefaRepository;
         private readonly IUsuarioRepository _usuarioRepository;
-        private readonly IMetaRepository _metaRepository;
+        private readonly IMetaService _metaService;
         private readonly IMembroEquipeRepository _membroEquipeRepository;
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<TarefaService> _logger;
@@ -21,14 +21,14 @@ namespace Cortex.Services.Implementations
         public TarefaService(
             ITarefaRepository tarefaRepository,
             IUsuarioRepository usuarioRepository,
-            IMetaRepository metaRepository,
+            IMetaService metaService,
             IMembroEquipeRepository membroEquipeRepository,
             IWebHostEnvironment environment,
             ILogger<TarefaService> logger)
         {
             _tarefaRepository = tarefaRepository;
             _usuarioRepository = usuarioRepository;
-            _metaRepository = metaRepository;
+            _metaService = metaService;
             _membroEquipeRepository = membroEquipeRepository;
             _environment = environment;
             _logger = logger;
@@ -204,17 +204,8 @@ namespace Cortex.Services.Implementations
             _logger.LogInformation("Auditoria: Tarefa concluída. TarefaId: {TarefaId}, ConcluidaPor: {ConcluidaPor}, Timestamp: {Timestamp}",
                 id, solicitanteId, DateTime.UtcNow);
 
-            // RN08: Conclusão de Metas vinculadas
-            var metasVinculadas = await _metaRepository.ObterMetasPorTarefaIdAsync(id);
-            foreach (var meta in metasVinculadas)
-            {
-                // Se a meta está vinculada a esta tarefa concluída
-                meta.Concluida = true;
-                await _metaRepository.AtualizarMetaAsync(meta);
-
-                _logger.LogInformation("Meta vinculada {MetaId} ('{Nome}') marcada como Concluída após a conclusão da tarefa {TarefaId}",
-                    meta.Id, meta.Nome, id);
-            }
+            // Delega a verificação de metas ao MetaService (SRP — cada serviço cuida do seu domínio)
+            await _metaService.VerificarConclusaoMetaAsync(id);
 
             var tarefaAtualizada = await _tarefaRepository.ObterTarefaPorIdAsync(id);
             return MapToDetalhesDTO(tarefaAtualizada ?? tarefa);

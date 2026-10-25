@@ -20,6 +20,11 @@ namespace Cortex.Infra.Persistence.Configuration
                 .IsRequired()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+            builder.Property(s => s.Status)
+                .HasColumnType("\"StatusSugestao\"")
+                .HasDefaultValue(StatusSugestao.Pendente)
+                .IsRequired();
+
             builder.HasOne(s => s.Usuario)
                 .WithMany(u => u.Sugestoes)
                 .HasForeignKey(s => s.UsuarioId)

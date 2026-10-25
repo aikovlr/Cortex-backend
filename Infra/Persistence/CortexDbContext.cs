@@ -29,6 +29,7 @@ public class CortexDbContext : DbContext
         modelBuilder.HasPostgresEnum<TipoEntidade>("TipoEntidade");
         modelBuilder.HasPostgresEnum<Cargo>("Cargo");
         modelBuilder.HasPostgresEnum<CanalNotificacao>("CanalNotificacao");
+        modelBuilder.HasPostgresEnum<StatusSugestao>("StatusSugestao");
         
         base.OnModelCreating(modelBuilder);
 

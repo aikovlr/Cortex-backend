@@ -194,21 +194,31 @@ namespace Cortex.Services.Implementations
 
         public async Task<int> VerificarConclusaoMetaAsync(int tarefaId)
         {
-            // RN08: Conclusão de Meta vinculada a tarefa
+            // RN08: só marca a meta como Concluída se TODAS as tarefas vinculadas estiverem concluídas
             var metas = await _metaRepository.ObterMetasPorTarefaIdAsync(tarefaId);
-            var tarefasAtualizadas = 0;
+            var metasConcluidas = 0;
 
             foreach (var meta in metas)
             {
-                meta.Concluida = true;
-                await _metaRepository.AtualizarMetaAsync(meta);
-                tarefasAtualizadas++;
+                // Busca TODAS as tarefas vinculadas à esta meta
+                var tarefasDaMeta = await _metaRepository.ObterTarefasDaMetaAsync(meta.Id);
 
-                _logger.LogInformation("Meta {MetaId} ('{Nome}') concluída automaticamente em decorrência da tarefa {TarefaId}",
-                    meta.Id, meta.Nome, tarefaId);
+                // Só conclui se TODAS estiverem concluídas
+                var todasConcluidas = tarefasDaMeta.Count > 0 && tarefasDaMeta.All(t => t.Status == Status.Concluida);
+
+                if (todasConcluidas && meta.Concluida != true)
+                {
+                    meta.Concluida = true;
+                    await _metaRepository.AtualizarMetaAsync(meta);
+                    metasConcluidas++;
+
+                    _logger.LogInformation(
+                        "Meta {MetaId} ('{Nome}') concluída automaticamente — todas as tarefas vinculadas estão concluídas.",
+                        meta.Id, meta.Nome);
+                }
             }
 
-            return tarefasAtualizadas;
+            return metasConcluidas;
         }
 
         private static ConsultaMetaDTO MapToConsultaDTO(Meta meta)
