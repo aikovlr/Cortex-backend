@@ -100,6 +100,15 @@ namespace Cortex.Repositories.Implementations
                 .ToListAsync();
         }
 
+        public async Task<List<Tarefa>> ObterTarefasPendentesAVencerAsync(DateTime dataReferencia)
+        {
+            return await _context.Tarefas
+                .AsNoTracking()
+                .Include(t => t.ResponsaveisTarefas)
+                .Where(t => t.Status == Status.Pendente && t.DataVencimento >= dataReferencia)
+                .ToListAsync();
+        }
+
         public async Task<Tarefa> AdicionarTarefaAsync(Tarefa tarefa)
         {
             _context.Tarefas.Add(tarefa);

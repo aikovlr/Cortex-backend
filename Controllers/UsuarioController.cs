@@ -13,11 +13,16 @@ namespace Cortex.Controllers
     public class UsuarioController : ControllerBase
     {
         private readonly IUsuarioService _usuarioService;
+        private readonly IEquipeAuthorizationService _authService;
         private readonly ILogger<UsuarioController> _logger;
 
-        public UsuarioController(IUsuarioService usuarioService, ILogger<UsuarioController> logger)
+        public UsuarioController(
+            IUsuarioService usuarioService,
+            IEquipeAuthorizationService authService,
+            ILogger<UsuarioController> logger)
         {
             _usuarioService = usuarioService;
+            _authService = authService;
             _logger = logger;
         }
 
@@ -67,7 +72,7 @@ namespace Cortex.Controllers
         public async Task<IActionResult> Atualizar(int id, [FromForm] AtualizarUsuarioDTO dto)
         {
             var currentUserId = ObterUsuarioIdAutenticado();
-            var ehAdminOuDono = User.IsInRole("Admin") || User.IsInRole("Dono");
+            var ehAdminOuDono = await _authService.EhAdminOuDonoDeAlgumaEquipeDoUsuarioAsync(currentUserId, id);
 
             if (currentUserId != id && !ehAdminOuDono)
             {
@@ -87,14 +92,14 @@ namespace Cortex.Controllers
         public async Task<IActionResult> Deletar(int id)
         {
             var currentUserId = ObterUsuarioIdAutenticado();
-            var ehDono = User.IsInRole("Dono");
+            var ehDono = await _authService.EhAdminOuDonoDeAlgumaEquipeDoUsuarioAsync(currentUserId, id);
 
             if (currentUserId != id && !ehDono)
             {
                 throw new ForbiddenException("Você não possui permissão para excluir a conta de outro usuário.");
             }
 
-            var deletado = await _usuarioService.DeletarUsuarioAsync(id);
+            var deletado = await _usuarioService.DeletarUsuarioAsync(id, currentUserId);
             if (!deletado)
             {
                 return NotFound(new ProblemDetails

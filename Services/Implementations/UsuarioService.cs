@@ -120,7 +120,7 @@ namespace Cortex.Services.Implementations
             return MapToConsultaDTO(usuario);
         }
 
-        public async Task<bool> DeletarUsuarioAsync(int id)
+        public async Task<bool> DeletarUsuarioAsync(int id, int solicitanteId)
         {
             var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(id);
             if (usuario == null)
@@ -137,7 +137,7 @@ namespace Cortex.Services.Implementations
             if (removido)
             {
                 _logger.LogWarning("Auditoria: Exclusão de registro. Entidade: {Entidade}, Id: {Id}, DeletadoPor: {DeletadoPor}",
-                    "Usuario", id, id);
+                    "Usuario", id, solicitanteId);
             }
 
             return removido;

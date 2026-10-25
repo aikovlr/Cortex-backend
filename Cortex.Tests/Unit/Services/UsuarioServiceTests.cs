@@ -110,9 +110,43 @@ namespace Cortex.Tests.Unit.Services
 
             // Act & Assert
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                _usuarioService.DeletarUsuarioAsync(userId));
+                _usuarioService.DeletarUsuarioAsync(userId, userId));
 
             Assert.Contains("tarefas em andamento", ex.Message);
+        }
+
+        [Fact]
+        public async Task DeletarUsuario_Sucesso_DeveRemoverERetornarTrue()
+        {
+            // Arrange
+            var userId = 5;
+            var solicitanteId = 1;
+            _usuarioRepoMock
+                .Setup(r => r.ObterUsuarioPorIdAsync(userId))
+                .ReturnsAsync(new Usuario
+                {
+                    Id = userId,
+                    Nome = "Sem Tarefas",
+                    Email = "semtarefas@exemplo.com",
+                    SenhaHash = "hash"
+                });
+
+            _usuarioRepoMock
+                .Setup(r => r.UsuarioTemTarefasEmAndamentoAsync(userId))
+                .ReturnsAsync(false);
+            _usuarioRepoMock
+                .Setup(r => r.UsuarioEhResponsavelPorTarefaEmAndamentoAsync(userId))
+                .ReturnsAsync(false);
+            _usuarioRepoMock
+                .Setup(r => r.RemoverUsuarioAsync(userId))
+                .ReturnsAsync(true);
+
+            // Act
+            var resultado = await _usuarioService.DeletarUsuarioAsync(userId, solicitanteId);
+
+            // Assert
+            Assert.True(resultado);
+            _usuarioRepoMock.Verify(r => r.RemoverUsuarioAsync(userId), Times.Once);
         }
     }
 }
