@@ -45,6 +45,42 @@ namespace Cortex.Tests.Integration
         }
 
         [Fact]
+        public async Task Login_ComEmailNaoVerificado_DeveRetornar403Forbidden()
+        {
+            // Arrange: Seed user with unverified email
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<CortexDbContext>();
+                var user = new Usuario
+                {
+                    Nome = "Usuario Nao Verificado",
+                    Email = "unverified@cortex.com",
+                    SenhaHash = BCrypt.Net.BCrypt.HashPassword("SenhaForte123!"),
+                    EmailVerificado = false,
+                    DataCriacao = DateTime.UtcNow
+                };
+                db.Usuarios.Add(user);
+                await db.SaveChangesAsync();
+            }
+
+            var loginDto = new DadosLoginDTO
+            {
+                Email = "unverified@cortex.com",
+                Senha = "SenhaForte123!"
+            };
+
+            // Act
+            var response = await _client.PostAsJsonAsync("/api/auth/login", loginDto);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+            Assert.NotNull(problem);
+            Assert.Equal(403, problem.Status);
+            Assert.Equal("E-mail não verificado", problem.Title);
+        }
+
+        [Fact]
         public async Task VerificarEmail_ComUsuarioCadastrado_DeveRetornarSucesso()
         {
             // Arrange: Seed user into test database

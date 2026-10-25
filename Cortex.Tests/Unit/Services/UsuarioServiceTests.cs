@@ -172,5 +172,66 @@ namespace Cortex.Tests.Unit.Services
 
             Assert.Contains("não pode ser igual", ex.Message);
         }
+
+        [Fact]
+        public async Task RedefinirSenhaComCodigoAsync_CodigoValido_DeveAtualizarSenhaEConfirmarEmail()
+        {
+            // Arrange
+            var email = "recuperar@exemplo.com";
+            var codigo = "654321";
+            var novaSenha = "NovaSenhaForte123!";
+            var hashCodigo = BCrypt.Net.BCrypt.HashPassword(codigo);
+
+            var usuario = new Usuario
+            {
+                Id = 15,
+                Nome = "Usuario Recuperacao",
+                Email = email,
+                SenhaHash = "hashSenhaAntiga",
+                EmailVerificado = false,
+                CodigoVerificacaoHash = hashCodigo,
+                CodigoVerificacaoExpiracao = DateTime.UtcNow.AddMinutes(10)
+            };
+
+            _usuarioRepoMock.Setup(r => r.ObterUsuarioPorEmailAsync(email)).ReturnsAsync(usuario);
+            _passwordServiceMock.Setup(p => p.VerifyPassword(novaSenha, "hashSenhaAntiga")).Returns(false);
+            _passwordServiceMock.Setup(p => p.ValidatePassword(novaSenha)).Returns((true, string.Empty));
+            _passwordServiceMock.Setup(p => p.HashPassword(novaSenha)).Returns("novoHashSenha");
+
+            // Act
+            var resultado = await _usuarioService.RedefinirSenhaComCodigoAsync(email, codigo, novaSenha);
+
+            // Assert
+            Assert.True(resultado);
+            Assert.Equal("novoHashSenha", usuario.SenhaHash);
+            Assert.Null(usuario.CodigoVerificacaoHash);
+            Assert.Null(usuario.CodigoVerificacaoExpiracao);
+            Assert.True(usuario.EmailVerificado);
+            _usuarioRepoMock.Verify(r => r.AtualizarUsuarioAsync(usuario), Times.Once);
+        }
+
+        [Fact]
+        public async Task RedefinirSenhaComCodigoAsync_CodigoInvalido_DeveLancarArgumentException()
+        {
+            // Arrange
+            var email = "recuperar@exemplo.com";
+            var usuario = new Usuario
+            {
+                Id = 15,
+                Nome = "Usuario Recuperacao",
+                Email = email,
+                SenhaHash = "hashSenhaAntiga",
+                CodigoVerificacaoHash = BCrypt.Net.BCrypt.HashPassword("111111"),
+                CodigoVerificacaoExpiracao = DateTime.UtcNow.AddMinutes(10)
+            };
+
+            _usuarioRepoMock.Setup(r => r.ObterUsuarioPorEmailAsync(email)).ReturnsAsync(usuario);
+
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+                _usuarioService.RedefinirSenhaComCodigoAsync(email, "999999", "NovaSenha123!"));
+
+            Assert.Equal("Código de recuperação inválido.", ex.Message);
+        }
     }
 }
