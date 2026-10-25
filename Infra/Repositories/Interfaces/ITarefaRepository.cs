@@ -16,6 +16,7 @@ namespace Cortex.Repositories.Interface
             DateTime? dataFim = null,
             string? termoBusca = null);
         Task<List<Tarefa>> ObterTarefasVencidasNaoConcluidasAsync(DateTime dataReferencia);
+        Task<List<Tarefa>> ObterTarefasPendentesAVencerAsync(DateTime dataReferencia);
         Task<Tarefa> AdicionarTarefaAsync(Tarefa tarefa);
         Task<Tarefa> AtualizarTarefaAsync(Tarefa tarefa);
         Task<bool> RemoverTarefaAsync(int id);

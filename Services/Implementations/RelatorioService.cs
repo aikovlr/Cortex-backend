@@ -1,9 +1,7 @@
-using Microsoft.EntityFrameworkCore;
 using Cortex.DTOs.Request;
 using Cortex.DTOs.Response;
 using Cortex.Entities;
 using Cortex.Infra.Exceptions;
-using Cortex.Infra.Persistence;
 using Cortex.Repositories.Interface;
 using Cortex.Services.Interfaces;
 
@@ -11,20 +9,23 @@ namespace Cortex.Services.Implementations
 {
     public class RelatorioService : IRelatorioService
     {
-        private readonly CortexDbContext _context;
+        private readonly IRelatorioRepository _relatorioRepository;
         private readonly IUsuarioRepository _usuarioRepository;
         private readonly IEquipeRepository _equipeRepository;
+        private readonly IEquipeAuthorizationService _authService;
         private readonly ILogger<RelatorioService> _logger;
 
         public RelatorioService(
-            CortexDbContext context,
+            IRelatorioRepository relatorioRepository,
             IUsuarioRepository usuarioRepository,
             IEquipeRepository equipeRepository,
+            IEquipeAuthorizationService authService,
             ILogger<RelatorioService> logger)
         {
-            _context = context;
+            _relatorioRepository = relatorioRepository;
             _usuarioRepository = usuarioRepository;
             _equipeRepository = equipeRepository;
+            _authService = authService;
             _logger = logger;
         }
 
@@ -34,65 +35,17 @@ namespace Cortex.Services.Implementations
             if (usuario == null)
                 throw new KeyNotFoundException("Usuário solicitante não encontrado.");
 
-            var ehAdminOuDono = usuario.Equipes.Any(e => e.Cargo == Cargo.Dono || e.Cargo == Cargo.Admin);
-
-            var query = _context.Tarefas
-                .AsNoTracking()
-                .Include(t => t.ResponsaveisTarefas)
-                .AsQueryable();
-
-            // RN09: Usuários comuns (Membro) só podem gerar relatórios de suas próprias tarefas
-            if (!ehAdminOuDono)
+            bool ehAdminOuDono;
+            if (filtro.EquipeId.HasValue)
             {
-                query = query.Where(t => t.CriadorId == solicitanteId || t.ResponsaveisTarefas.Any(rt => rt.UsuarioId == solicitanteId));
+                ehAdminOuDono = await _authService.EhAdminOuDonoDaEquipeAsync(solicitanteId, filtro.EquipeId.Value);
             }
             else
             {
-                // RN10: Dono e Admin podem aplicar filtros gerais livremente
-                if (filtro.ResponsavelId.HasValue)
-                {
-                    query = query.Where(t => t.ResponsaveisTarefas.Any(rt => rt.UsuarioId == filtro.ResponsavelId.Value));
-                }
-
-                if (filtro.EquipeId.HasValue)
-                {
-                    var membrosEquipeIds = await _context.MembrosEquipe
-                        .Where(m => m.EquipeId == filtro.EquipeId.Value)
-                        .Select(m => m.UsuarioId)
-                        .ToListAsync();
-
-                    query = query.Where(t => t.ResponsaveisTarefas.Any(rt => membrosEquipeIds.Contains(rt.UsuarioId)));
-                }
+                ehAdminOuDono = usuario.Equipes.Any(e => e.Cargo == Cargo.Dono || e.Cargo == Cargo.Admin);
             }
 
-            // Filtros comuns
-            if (filtro.Status.HasValue)
-            {
-                query = query.Where(t => t.Status == filtro.Status.Value);
-            }
-
-            if (filtro.Prioridade.HasValue)
-            {
-                query = query.Where(t => t.Prioridade == filtro.Prioridade.Value);
-            }
-
-            if (filtro.DataInicio.HasValue)
-            {
-                var inicioUtc = filtro.DataInicio.Value.Kind == DateTimeKind.Utc 
-                    ? filtro.DataInicio.Value 
-                    : DateTime.SpecifyKind(filtro.DataInicio.Value, DateTimeKind.Utc);
-                query = query.Where(t => t.DataVencimento >= inicioUtc);
-            }
-
-            if (filtro.DataFim.HasValue)
-            {
-                var fimUtc = filtro.DataFim.Value.Kind == DateTimeKind.Utc 
-                    ? filtro.DataFim.Value 
-                    : DateTime.SpecifyKind(filtro.DataFim.Value, DateTimeKind.Utc);
-                query = query.Where(t => t.DataVencimento <= fimUtc);
-            }
-
-            var tarefas = await query.ToListAsync();
+            var tarefas = await _relatorioRepository.ObterTarefasParaRelatorioAsync(solicitanteId, ehAdminOuDono, filtro);
 
             var total = tarefas.Count;
             var concluidas = tarefas.Count(t => t.Status == Status.Concluida);
@@ -137,52 +90,15 @@ namespace Cortex.Services.Implementations
 
         public async Task<RelatorioEquipeDTO> GerarRelatorioEquipeAsync(int equipeId, FiltroRelatorioDTO filtro, int solicitanteId)
         {
-            var equipe = await _context.Equipes
-                .Include(e => e.Membros)
-                    .ThenInclude(m => m.Usuario)
-                .FirstOrDefaultAsync(e => e.Id == equipeId);
+            var equipe = await _equipeRepository.ObterEquipePorIdAsync(equipeId);
 
             if (equipe == null)
                 throw new KeyNotFoundException("Equipe não encontrada.");
 
             // RN10: Apenas Dono ou Admin da equipe podem extrair relatório consolidado
-            var membroSolicitante = equipe.Membros.FirstOrDefault(m => m.UsuarioId == solicitanteId);
-            if (membroSolicitante == null || (membroSolicitante.Cargo != Cargo.Dono && membroSolicitante.Cargo != Cargo.Admin))
-            {
-                throw new ForbiddenException("Apenas o Dono ou Admin da equipe podem gerar relatórios consolidados da equipe (RN10).");
-            }
+            await _authService.ExigirAdminOuDonoDaEquipeAsync(solicitanteId, equipeId);
 
-            var membroIds = equipe.Membros.Select(m => m.UsuarioId).ToList();
-
-            // Busca tarefas atribuídas aos membros da equipe
-            var query = _context.Tarefas
-                .AsNoTracking()
-                .Include(t => t.ResponsaveisTarefas)
-                .Where(t => t.ResponsaveisTarefas.Any(rt => membroIds.Contains(rt.UsuarioId)));
-
-            if (filtro.Status.HasValue)
-                query = query.Where(t => t.Status == filtro.Status.Value);
-
-            if (filtro.Prioridade.HasValue)
-                query = query.Where(t => t.Prioridade == filtro.Prioridade.Value);
-
-            if (filtro.DataInicio.HasValue)
-            {
-                var inicioUtc = filtro.DataInicio.Value.Kind == DateTimeKind.Utc 
-                    ? filtro.DataInicio.Value 
-                    : DateTime.SpecifyKind(filtro.DataInicio.Value, DateTimeKind.Utc);
-                query = query.Where(t => t.DataVencimento >= inicioUtc);
-            }
-
-            if (filtro.DataFim.HasValue)
-            {
-                var fimUtc = filtro.DataFim.Value.Kind == DateTimeKind.Utc 
-                    ? filtro.DataFim.Value 
-                    : DateTime.SpecifyKind(filtro.DataFim.Value, DateTimeKind.Utc);
-                query = query.Where(t => t.DataVencimento <= fimUtc);
-            }
-
-            var tarefasEquipe = await query.ToListAsync();
+            var tarefasEquipe = await _relatorioRepository.ObterTarefasDaEquipeAsync(equipeId, filtro);
 
             var totalGeral = tarefasEquipe.Count;
             var concluidasGeral = tarefasEquipe.Count(t => t.Status == Status.Concluida);

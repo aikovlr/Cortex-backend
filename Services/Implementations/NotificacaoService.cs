@@ -1,8 +1,6 @@
-using Microsoft.EntityFrameworkCore;
 using Cortex.DTOs.Request;
 using Cortex.DTOs.Response;
 using Cortex.Entities;
-using Cortex.Infra.Persistence;
 using Cortex.Repositories.Interface;
 using Cortex.Services.Interfaces;
 
@@ -10,7 +8,8 @@ namespace Cortex.Services.Implementations
 {
     public class NotificacaoService : INotificacaoService
     {
-        private readonly CortexDbContext _context;
+        private readonly IPreferenciaNotificacaoRepository _preferenciaRepository;
+        private readonly ITarefaRepository _tarefaRepository;
         private readonly IUsuarioRepository _usuarioRepository;
         private readonly IEmailGateway _emailGateway;
         private readonly IPushGateway _pushGateway;
@@ -18,14 +17,16 @@ namespace Cortex.Services.Implementations
         private readonly ILogger<NotificacaoService> _logger;
 
         public NotificacaoService(
-            CortexDbContext context,
+            IPreferenciaNotificacaoRepository preferenciaRepository,
+            ITarefaRepository tarefaRepository,
             IUsuarioRepository usuarioRepository,
             IEmailGateway emailGateway,
             IPushGateway pushGateway,
             ISmsGateway smsGateway,
             ILogger<NotificacaoService> logger)
         {
-            _context = context;
+            _preferenciaRepository = preferenciaRepository;
+            _tarefaRepository = tarefaRepository;
             _usuarioRepository = usuarioRepository;
             _emailGateway = emailGateway;
             _pushGateway = pushGateway;
@@ -91,8 +92,7 @@ namespace Cortex.Services.Implementations
                 }
             }
 
-            var preferencia = await _context.PreferenciasNotificacao
-                .FirstOrDefaultAsync(p => p.UsuarioId == usuarioId && p.Canal == dto.Canal);
+            var preferencia = await _preferenciaRepository.ObterPorUsuarioECanalAsync(usuarioId, dto.Canal);
 
             if (preferencia == null)
             {
@@ -106,7 +106,7 @@ namespace Cortex.Services.Implementations
                     AtivoConclusaoMeta = dto.AtivoConclusaoMeta,
                     AtivoTicket = dto.AtivoTicket
                 };
-                _context.PreferenciasNotificacao.Add(preferencia);
+                await _preferenciaRepository.AdicionarAsync(preferencia);
             }
             else
             {
@@ -115,9 +115,8 @@ namespace Cortex.Services.Implementations
                 preferencia.AtivoVencimento = dto.AtivoVencimento;
                 preferencia.AtivoConclusaoMeta = dto.AtivoConclusaoMeta;
                 preferencia.AtivoTicket = dto.AtivoTicket;
+                await _preferenciaRepository.AtualizarAsync(preferencia);
             }
-
-            await _context.SaveChangesAsync();
 
             _logger.LogInformation("Preferência de notificação salva: UsuarioId {UsuarioId}, Canal {Canal}, Antecedência {AntecedenciaHoras}h",
                 usuarioId, dto.Canal, dto.AntecedenciaHoras);
@@ -127,9 +126,7 @@ namespace Cortex.Services.Implementations
 
         public async Task<IEnumerable<PreferenciaNotificacaoDTO>> ObterPreferenciasAsync(int usuarioId)
         {
-            var preferencias = await _context.PreferenciasNotificacao
-                .Where(p => p.UsuarioId == usuarioId)
-                .ToListAsync();
+            var preferencias = await _preferenciaRepository.ObterPorUsuarioAsync(usuarioId);
 
             var resultado = new List<PreferenciaNotificacaoDTO>();
             var canais = Enum.GetValues<CanalNotificacao>();
@@ -166,11 +163,7 @@ namespace Cortex.Services.Implementations
             var agoraUtc = DateTime.UtcNow;
 
             // Busca tarefas pendentes que ainda não venceram (RN12: descartar expiradas)
-            var tarefasPendentes = await _context.Tarefas
-                .AsNoTracking()
-                .Include(t => t.ResponsaveisTarefas)
-                .Where(t => t.Status == Status.Pendente && t.DataVencimento >= agoraUtc)
-                .ToListAsync();
+            var tarefasPendentes = await _tarefaRepository.ObterTarefasPendentesAVencerAsync(agoraUtc);
 
             var alertasDisparados = 0;
 

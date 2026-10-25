@@ -2,6 +2,7 @@ using Cortex.DTOs.Request;
 using Cortex.Entities;
 using Cortex.Infra.Persistence;
 using Cortex.Repositories.Interface;
+using Cortex.Repositories.Implementations;
 using Cortex.Services.Implementations;
 using Cortex.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -34,8 +35,12 @@ namespace Cortex.Tests.Unit.Services
                 .Options;
             _dbContext = new CortexDbContext(options);
 
+            var preferenciaRepo = new PreferenciaNotificacaoRepository(_dbContext);
+            var tarefaRepo = new TarefaRepository(_dbContext);
+
             _notificacaoService = new NotificacaoService(
-                _dbContext,
+                preferenciaRepo,
+                tarefaRepo,
                 _usuarioRepoMock.Object,
                 _emailGatewayMock.Object,
                 _pushGatewayMock.Object,

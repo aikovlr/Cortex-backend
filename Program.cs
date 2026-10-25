@@ -69,6 +69,8 @@ builder.Services.AddScoped<ISugestaoRepository, SugestaoRepository>();
 builder.Services.AddScoped<ITicketReporteRepository, TicketReporteRepository>();
 builder.Services.AddScoped<IMetaRepository, MetaRepository>();
 builder.Services.AddScoped<IAnexoRepository, AnexoRepository>();
+builder.Services.AddScoped<IPreferenciaNotificacaoRepository, PreferenciaNotificacaoRepository>();
+builder.Services.AddScoped<IRelatorioRepository, RelatorioRepository>();
 
 // Injeção de Dependências - Serviços
 builder.Services.AddScoped<IPasswordService, PasswordService>();

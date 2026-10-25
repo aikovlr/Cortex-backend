@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Cortex.Controllers
 {
     [ApiController]
+    [Route("")]
     [Authorize]
     public class TicketReporteController : ControllerBase
     {
