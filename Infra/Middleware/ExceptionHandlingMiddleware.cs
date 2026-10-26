@@ -53,6 +53,20 @@ namespace Cortex.Infra.Middleware
                     Detail = unauthorized.Message,
                     Instance = context.Request.Path
                 },
+                InvalidOperationException invalidOp when invalidOp.InnerException is Npgsql.NpgsqlException || invalidOp.InnerException is System.Net.Sockets.SocketException => new ProblemDetails
+                {
+                    Status = (int)HttpStatusCode.ServiceUnavailable,
+                    Title = "Banco de dados indisponível",
+                    Detail = "Não foi possível conectar ao servidor PostgreSQL (127.0.0.1:5432). Verifique se o serviço do banco está ativo.",
+                    Instance = context.Request.Path
+                },
+                Npgsql.NpgsqlException => new ProblemDetails
+                {
+                    Status = (int)HttpStatusCode.ServiceUnavailable,
+                    Title = "Banco de dados indisponível",
+                    Detail = "Falha de comunicação com o banco de dados PostgreSQL. Verifique se o serviço está em execução.",
+                    Instance = context.Request.Path
+                },
                 InvalidOperationException invalidOp => new ProblemDetails
                 {
                     Status = (int)HttpStatusCode.Conflict,
