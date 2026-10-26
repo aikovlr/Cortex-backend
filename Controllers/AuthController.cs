@@ -21,6 +21,7 @@ namespace Cortex.Controllers
         private readonly IVerificacaoEmailService _verificacaoEmailService;
         private readonly IEmailGateway _emailGateway;
         private readonly ILogger<AuthController> _logger;
+        private readonly IConfiguration _configuration;
 
         public AuthController(
             IUsuarioService usuarioService,
@@ -28,7 +29,8 @@ namespace Cortex.Controllers
             ITokenService tokenService,
             IVerificacaoEmailService verificacaoEmailService,
             IEmailGateway emailGateway,
-            ILogger<AuthController> logger)
+            ILogger<AuthController> logger,
+            IConfiguration configuration)
         {
             _usuarioService = usuarioService;
             _usuarioRepository = usuarioRepository;
@@ -36,6 +38,7 @@ namespace Cortex.Controllers
             _verificacaoEmailService = verificacaoEmailService;
             _emailGateway = emailGateway;
             _logger = logger;
+            _configuration = configuration;
         }
 
         [HttpPost("login")]
@@ -97,6 +100,18 @@ namespace Cortex.Controllers
             _logger.LogInformation("Auditoria: Login bem-sucedido. UserId: {UserId}, Email: {Email}, IP: {IP}, Timestamp: {Timestamp}",
                 usuario.Id, usuario.Email, clientIp, DateTime.UtcNow);
 
+            var expiresInMinutes = int.TryParse(_configuration["Jwt:ExpiresInMinutes"], out var exp) ? exp : 1440;
+
+            // Grava o token JWT em cookie HttpOnly + Secure (RNF01 / Padrão Obrigatório)
+            Response.Cookies.Append("cortex_token", token, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Expires = DateTimeOffset.UtcNow.AddMinutes(expiresInMinutes),
+                Path = "/"
+            });
+
             var response = new LoginResponseDTO
             {
                 Token = token,
@@ -119,6 +134,21 @@ namespace Cortex.Controllers
             };
 
             return Ok(response);
+        }
+
+        [HttpPost("logout")]
+        [AllowAnonymous]
+        public IActionResult Logout()
+        {
+            Response.Cookies.Delete("cortex_token", new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Path = "/"
+            });
+
+            return NoContent();
         }
 
         [HttpPost("alterar-senha")]
