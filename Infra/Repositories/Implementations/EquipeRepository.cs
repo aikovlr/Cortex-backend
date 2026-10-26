@@ -34,13 +34,12 @@ namespace Cortex.Repositories.Implementations
 
         public async Task<List<Equipe>> ObterEquipesPorUsuarioIdAsync(int usuarioId)
         {
-            return await _context.MembrosEquipe
-                .Where(me => me.UsuarioId == usuarioId)
-                .Select(me => me.Equipe)
+            return await _context.Equipes
+                .Where(e => e.Membros.Any(m => m.UsuarioId == usuarioId))
                 .Include(e => e.Membros)
                     .ThenInclude(m => m.Usuario)
                         .ThenInclude(u => u.FotoPerfil)
-                .Distinct()
+                .AsNoTracking()
                 .ToListAsync();
         }
 
