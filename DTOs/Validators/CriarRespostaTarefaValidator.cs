@@ -7,8 +7,6 @@ namespace Cortex.DTOs.Validators
     {
         public CriarRespostaTarefaValidator()
         {
-            RuleFor(x => x.TarefaId)
-                .GreaterThan(0).WithMessage("O identificador da tarefa vinculada à resposta deve ser válido.");
         }
     }
 }

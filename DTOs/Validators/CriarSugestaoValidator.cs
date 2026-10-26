@@ -10,9 +10,6 @@ namespace Cortex.DTOs.Validators
             RuleFor(x => x.Descricao)
                 .NotEmpty().WithMessage("A descrição da sugestão é obrigatória.")
                 .MaximumLength(1000).WithMessage("A descrição da sugestão não pode exceder 1000 caracteres.");
-
-            RuleFor(x => x.TarefaId)
-                .GreaterThan(0).WithMessage("O identificador da tarefa deve ser válido.");
         }
     }
 }
