@@ -82,13 +82,22 @@ namespace Cortex.Controllers
                 _logger.LogWarning("Auditoria: Tentativa de login com e-mail não verificado. UserId: {UserId}, Email: {Email}, IP: {IP}",
                     usuario.Id, usuario.Email, clientIp);
 
-                return StatusCode(StatusCodes.Status403Forbidden, new ProblemDetails
+                // Gera novo código válido por 15 minutos e envia por e-mail / exibe no console para dev
+                var codigo = await _verificacaoEmailService.GerarEArmazenarCodigoAsync(usuario.Id);
+                await _emailGateway.EnviarEmailAsync(usuario.Email, "Verificação de e-mail - Cortex", $"Seu código de verificação é: {codigo}");
+
+                var problem = new ProblemDetails
                 {
                     Status = StatusCodes.Status403Forbidden,
                     Title = "E-mail não verificado",
-                    Detail = "O seu e-mail ainda não foi verificado. Por favor, confirme o código enviado para o seu e-mail antes de acessar a plataforma.",
+                    Detail = "O seu e-mail ainda não foi verificado. Por favor, confirme o código de 6 dígitos enviado para seu e-mail.",
                     Instance = HttpContext.Request.Path
-                });
+                };
+                problem.Extensions["codigoDev"] = codigo;
+                problem.Extensions["expiraEmMinutos"] = 15;
+                problem.Extensions["email"] = usuario.Email;
+
+                return StatusCode(StatusCodes.Status403Forbidden, problem);
             }
 
             var equipePrincipal = usuario.Equipes.OrderBy(e => e.Cargo).FirstOrDefault();
@@ -208,7 +217,12 @@ namespace Cortex.Controllers
             var codigo = await _verificacaoEmailService.GerarEArmazenarCodigoAsync(usuario.Id);
             await _emailGateway.EnviarEmailAsync(dto.Email, "Verificação de e-mail", $"Seu código: {codigo}");
 
-            return Ok(new { message = "Se o e-mail existir, um código foi enviado." });
+            return Ok(new 
+            { 
+                message = "Código de verificação enviado com sucesso.",
+                codigoDev = codigo,
+                expiraEmMinutos = 15
+            });
         }
 
         [HttpPost("verificar-email")]

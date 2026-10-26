@@ -34,8 +34,12 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-// Adiciona suporte a Controllers
-builder.Services.AddControllers();
+// Adiciona suporte a Controllers com serialização amigável de Enums
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 
 // FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
