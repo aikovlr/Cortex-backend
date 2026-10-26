@@ -31,17 +31,18 @@ namespace Cortex.Services.Implementations
 
         public async Task<ConsultaMetaDTO> CriarMetaAsync(CriarMetaDTO dto, int solicitanteId)
         {
-            // RN07: Toda meta deve estar vinculada a no mínimo uma tarefa válida
-            var tarefa = await _tarefaRepository.ObterTarefaPorIdAsync(dto.TarefaId);
-            if (tarefa == null)
+            var tarefaIds = (dto.TarefaIds != null && dto.TarefaIds.Any())
+                ? dto.TarefaIds.Distinct().Where(id => id > 0).ToList()
+                : (dto.TarefaId > 0 ? new List<int> { dto.TarefaId } : new List<int>());
+
+            if (!tarefaIds.Any())
             {
-                throw new ArgumentException("A meta deve estar vinculada a uma tarefa válida e existente.");
+                throw new ArgumentException("A meta deve estar vinculada a no mínimo uma tarefa válida.");
             }
 
             DateTime? dataFechamentoUtc = dto.DataFechamento?.ToUniversalTime();
             if (dataFechamentoUtc.HasValue)
             {
-
                 // RN15: Metas criadas devem ter uma data de término de no máximo 12 meses
                 var limiteMaximo = DateTime.UtcNow.AddMonths(12);
                 if (dataFechamentoUtc > limiteMaximo)
@@ -50,23 +51,41 @@ namespace Cortex.Services.Implementations
                 }
             }
 
-            // RN08: Verifica se a tarefa vinculada já está concluída
-            var concluida = tarefa.Status == Status.Concluida;
+            var tarefas = new List<Tarefa>();
+            foreach (var tId in tarefaIds)
+            {
+                var tarefa = await _tarefaRepository.ObterTarefaPorIdAsync(tId);
+                if (tarefa == null)
+                {
+                    throw new ArgumentException($"A tarefa #{tId} vinculada não foi encontrada.");
+                }
+                tarefas.Add(tarefa);
+            }
+
+            // RN08: Concluida se TODAS as tarefas vinculadas estiverem Concluidas
+            var todasConcluidas = tarefas.All(t => t.Status == Status.Concluida);
 
             var meta = new Meta
             {
                 Nome = dto.Nome,
                 DataFechamento = dataFechamentoUtc,
-                Concluida = concluida,
-                TarefaId = dto.TarefaId,
+                Concluida = todasConcluidas,
+                TarefaId = tarefaIds.First(),
                 UsuarioId = solicitanteId,
-                Tarefa = tarefa
+                Tarefa = tarefas.First()
             };
 
-            await _metaRepository.AdicionarMetaAsync(meta);
+            foreach (var tId in tarefaIds)
+            {
+                meta.MetasTarefas.Add(new MetaTarefa
+                {
+                    TarefaId = tId
+                });
+            }
 
-            _logger.LogInformation("Meta criada: MetaId {MetaId}, Nome '{Nome}', UsuarioId {UsuarioId}, TarefaId {TarefaId}",
-                meta.Id, meta.Nome, solicitanteId, dto.TarefaId);
+            await _metaRepository.AdicionarMetaAsync(meta);
+            _logger.LogInformation("Meta única criada com {QuantidadeTarefas} tarefas vinculadas: MetaId {MetaId}, Nome '{Nome}', UsuarioId {UsuarioId}",
+                tarefaIds.Count, meta.Id, meta.Nome, solicitanteId);
 
             var metaCompleta = await _metaRepository.ObterMetaPorIdAsync(meta.Id);
             return MapToConsultaDTO(metaCompleta ?? meta);
@@ -263,7 +282,35 @@ namespace Cortex.Services.Implementations
                     Status = meta.Tarefa.Status,
                     Prioridade = meta.Tarefa.Prioridade,
                     CriadorId = meta.Tarefa.CriadorId
-                } : null
+                } : null,
+                Tarefas = (meta.MetasTarefas != null && meta.MetasTarefas.Any())
+                    ? meta.MetasTarefas
+                        .Where(mt => mt.Tarefa != null)
+                        .Select(mt => new ConsultaTarefaDTO
+                        {
+                            Id = mt.Tarefa.Id,
+                            Titulo = mt.Tarefa.Titulo,
+                            Descricao = mt.Tarefa.Descricao,
+                            DataVencimento = mt.Tarefa.DataVencimento,
+                            Pontuacao = mt.Tarefa.Pontuacao,
+                            Status = mt.Tarefa.Status,
+                            Prioridade = mt.Tarefa.Prioridade,
+                            CriadorId = mt.Tarefa.CriadorId
+                        }).ToList()
+                    : (meta.Tarefa != null ? new List<ConsultaTarefaDTO>
+                    {
+                        new ConsultaTarefaDTO
+                        {
+                            Id = meta.Tarefa.Id,
+                            Titulo = meta.Tarefa.Titulo,
+                            Descricao = meta.Tarefa.Descricao,
+                            DataVencimento = meta.Tarefa.DataVencimento,
+                            Pontuacao = meta.Tarefa.Pontuacao,
+                            Status = meta.Tarefa.Status,
+                            Prioridade = meta.Tarefa.Prioridade,
+                            CriadorId = meta.Tarefa.CriadorId
+                        }
+                    } : new List<ConsultaTarefaDTO>())
             };
         }
     }

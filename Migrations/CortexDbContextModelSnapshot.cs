@@ -204,6 +204,29 @@ namespace Cortex_backend.Migrations
                     b.ToTable("Meta", (string)null);
                 });
 
+            modelBuilder.Entity("Cortex.Entities.MetaTarefa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("MetaId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TarefaId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MetaId");
+
+                    b.HasIndex("TarefaId");
+
+                    b.ToTable("MetaTarefa", (string)null);
+                });
+
             modelBuilder.Entity("Cortex.Entities.PreferenciaNotificacao", b =>
                 {
                     b.Property<int>("Id")
@@ -555,6 +578,25 @@ namespace Cortex_backend.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("Cortex.Entities.MetaTarefa", b =>
+                {
+                    b.HasOne("Cortex.Entities.Meta", "Meta")
+                        .WithMany("MetasTarefas")
+                        .HasForeignKey("MetaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Cortex.Entities.Tarefa", "Tarefa")
+                        .WithMany("MetasTarefas")
+                        .HasForeignKey("TarefaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Meta");
+
+                    b.Navigation("Tarefa");
+                });
+
             modelBuilder.Entity("Cortex.Entities.PreferenciaNotificacao", b =>
                 {
                     b.HasOne("Cortex.Entities.Usuario", "Usuario")
@@ -658,6 +700,11 @@ namespace Cortex_backend.Migrations
                     b.Navigation("Membros");
                 });
 
+            modelBuilder.Entity("Cortex.Entities.Meta", b =>
+                {
+                    b.Navigation("MetasTarefas");
+                });
+
             modelBuilder.Entity("Cortex.Entities.RespostaTarefa", b =>
                 {
                     b.Navigation("Anexos");
@@ -668,6 +715,8 @@ namespace Cortex_backend.Migrations
                     b.Navigation("Anexos");
 
                     b.Navigation("Metas");
+
+                    b.Navigation("MetasTarefas");
 
                     b.Navigation("ResponsaveisTarefas");
 

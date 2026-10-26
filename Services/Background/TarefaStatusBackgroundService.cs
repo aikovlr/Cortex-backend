@@ -20,19 +20,43 @@ namespace Cortex.Services.Background
         {
             _logger.LogInformation("TarefaStatusBackgroundService iniciado. Intervalo de verificação: {Intervalo}", _intervalo);
 
-            // Executa imediatamente na inicialização
-            await VerificarTarefasAsync(stoppingToken);
-
-            using var timer = new PeriodicTimer(_intervalo);
-
-            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+            try
             {
-                await VerificarTarefasAsync(stoppingToken);
+                // Executa na inicialização se o cancelamento não foi solicitado
+                if (!stoppingToken.IsCancellationRequested)
+                {
+                    await VerificarTarefasAsync(stoppingToken);
+                }
+
+                using var timer = new PeriodicTimer(_intervalo);
+
+                while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+                {
+                    await VerificarTarefasAsync(stoppingToken);
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Shutdown gracioso
+            }
+            catch (ObjectDisposedException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Provedor de serviços descartado durante o shutdown
+            }
+            catch (Exception ex)
+            {
+                if (!stoppingToken.IsCancellationRequested)
+                {
+                    _logger.LogError(ex, "Erro fatal no TarefaStatusBackgroundService.");
+                }
             }
         }
 
         private async Task VerificarTarefasAsync(CancellationToken stoppingToken)
         {
+            if (stoppingToken.IsCancellationRequested)
+                return;
+
             try
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -45,9 +69,20 @@ namespace Cortex.Services.Background
                     _logger.LogInformation("Verificação automática: {Total} tarefa(s) transicionada(s) para status Atrasada.", totalAtrasadas);
                 }
             }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Encerramento normal
+            }
+            catch (ObjectDisposedException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Encerramento do container
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro durante execução periódica do TarefaStatusBackgroundService.");
+                if (!stoppingToken.IsCancellationRequested)
+                {
+                    _logger.LogError(ex, "Erro durante execução periódica do TarefaStatusBackgroundService.");
+                }
             }
         }
     }

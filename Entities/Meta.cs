@@ -11,5 +11,6 @@ namespace Cortex.Entities
         // navegacao
         public Usuario Usuario { get; set; } = null!;
         public Tarefa Tarefa { get; set; } = null!;
+        public ICollection<MetaTarefa> MetasTarefas { get; set; } = new List<MetaTarefa>();
     }
 }

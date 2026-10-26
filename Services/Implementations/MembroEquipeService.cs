@@ -32,9 +32,20 @@ namespace Cortex.Services.Implementations
             if (!equipeExiste)
                 throw new KeyNotFoundException("Equipe não encontrada.");
 
-            var usuarioExiste = await _usuarioRepository.UsuarioExisteAsync(dto.UsuarioId);
-            if (!usuarioExiste)
-                throw new KeyNotFoundException("Usuário a ser adicionado não foi encontrado.");
+            int usuarioId = dto.UsuarioId ?? 0;
+            if (usuarioId <= 0 && !string.IsNullOrWhiteSpace(dto.Email))
+            {
+                var usuarioPorEmail = await _usuarioRepository.ObterUsuarioPorEmailAsync(dto.Email.Trim().ToLower());
+                if (usuarioPorEmail == null)
+                    throw new KeyNotFoundException("Nenhum usuário encontrado com o e-mail informado.");
+                usuarioId = usuarioPorEmail.Id;
+            }
+            else
+            {
+                var usuarioExiste = await _usuarioRepository.UsuarioExisteAsync(usuarioId);
+                if (!usuarioExiste)
+                    throw new KeyNotFoundException("Usuário a ser adicionado não foi encontrado.");
+            }
 
             // RN04: Somente Dono e Admin da equipe podem adicionar membros
             var solicitanteMembro = await _membroEquipeRepository.ObterMembroPorEquipeEUsuarioAsync(dto.EquipeId, solicitanteId);
@@ -49,7 +60,7 @@ namespace Cortex.Services.Implementations
                 throw new ForbiddenException("Administradores só podem adicionar novos usuários com o cargo de Membro.");
             }
 
-            var jaEhMembro = await _membroEquipeRepository.MembroExisteNaEquipeAsync(dto.EquipeId, dto.UsuarioId);
+            var jaEhMembro = await _membroEquipeRepository.MembroExisteNaEquipeAsync(dto.EquipeId, usuarioId);
             if (jaEhMembro)
             {
                 throw new InvalidOperationException("O usuário já faz parte desta equipe.");
@@ -58,7 +69,7 @@ namespace Cortex.Services.Implementations
             var novoMembro = new MembroEquipe
             {
                 EquipeId = dto.EquipeId,
-                UsuarioId = dto.UsuarioId,
+                UsuarioId = usuarioId,
                 Cargo = dto.Cargo,
                 DataEntrada = DateTime.UtcNow
             };

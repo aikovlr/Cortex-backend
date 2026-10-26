@@ -25,26 +25,27 @@ namespace Cortex.Repositories.Implementations
                 .Include(t => t.ResponsaveisTarefas)
                 .AsQueryable();
 
-            if (!ehAdminOuDono && solicitanteId.HasValue)
+            if (filtro.CriadorId.HasValue)
             {
-                query = query.Where(t => t.CriadorId == solicitanteId.Value || t.ResponsaveisTarefas.Any(rt => rt.UsuarioId == solicitanteId.Value));
+                query = query.Where(t => t.CriadorId == filtro.CriadorId.Value);
             }
-            else
+            else if (filtro.ResponsavelId.HasValue)
             {
-                if (filtro.ResponsavelId.HasValue)
-                {
-                    query = query.Where(t => t.ResponsaveisTarefas.Any(rt => rt.UsuarioId == filtro.ResponsavelId.Value));
-                }
+                query = query.Where(t => t.ResponsaveisTarefas.Any(rt => rt.UsuarioId == filtro.ResponsavelId.Value));
+            }
+            else if (filtro.EquipeId.HasValue)
+            {
+                var membrosEquipeIds = await _context.MembrosEquipe
+                    .Where(m => m.EquipeId == filtro.EquipeId.Value)
+                    .Select(m => m.UsuarioId)
+                    .ToListAsync();
 
-                if (filtro.EquipeId.HasValue)
-                {
-                    var membrosEquipeIds = await _context.MembrosEquipe
-                        .Where(m => m.EquipeId == filtro.EquipeId.Value)
-                        .Select(m => m.UsuarioId)
-                        .ToListAsync();
-
-                    query = query.Where(t => t.ResponsaveisTarefas.Any(rt => membrosEquipeIds.Contains(rt.UsuarioId)));
-                }
+                query = query.Where(t => t.ResponsaveisTarefas.Any(rt => membrosEquipeIds.Contains(rt.UsuarioId)));
+            }
+            else if (solicitanteId.HasValue)
+            {
+                // Padrão: apenas as tarefas nas quais o usuário é responsável
+                query = query.Where(t => t.ResponsaveisTarefas.Any(rt => rt.UsuarioId == solicitanteId.Value));
             }
 
             if (filtro.Status.HasValue)
