@@ -11,8 +11,9 @@ namespace Cortex.DTOs.Validators
                 .NotEmpty().WithMessage("O nome da meta é obrigatório.")
                 .MaximumLength(255).WithMessage("O nome da meta não pode exceder 255 caracteres.");
 
-            RuleFor(x => x.TarefaId)
-                .GreaterThan(0).WithMessage("A meta deve estar vinculada a uma tarefa válida.");
+            RuleFor(x => x)
+                .Must(x => x.TarefaId > 0 || (x.TarefaIds != null && x.TarefaIds.Any(id => id > 0)))
+                .WithMessage("A meta deve estar vinculada a pelo menos uma tarefa válida.");
 
             RuleFor(x => x.DataFechamento)
                 .Must(data => !data.HasValue || data.Value <= DateTime.UtcNow.AddMonths(12))

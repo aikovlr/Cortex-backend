@@ -19,6 +19,8 @@ namespace Cortex.Repositories.Implementations
             return await _context.Metas
                 .Include(m => m.Usuario)
                 .Include(m => m.Tarefa)
+                .Include(m => m.MetasTarefas)
+                    .ThenInclude(mt => mt.Tarefa)
                 .FirstOrDefaultAsync(m => m.Id == id);
         }
 
@@ -27,6 +29,8 @@ namespace Cortex.Repositories.Implementations
             return await _context.Metas
                 .Include(m => m.Usuario)
                 .Include(m => m.Tarefa)
+                .Include(m => m.MetasTarefas)
+                    .ThenInclude(mt => mt.Tarefa)
                 .ToListAsync();
         }
 
@@ -35,19 +39,32 @@ namespace Cortex.Repositories.Implementations
             return await _context.Metas
                 .Where(m => m.UsuarioId == usuarioId)
                 .Include(m => m.Tarefa)
+                .Include(m => m.MetasTarefas)
+                    .ThenInclude(mt => mt.Tarefa)
                 .ToListAsync();
         }
 
         public async Task<List<Meta>> ObterMetasPorTarefaIdAsync(int tarefaId)
         {
             return await _context.Metas
-                .Where(m => m.TarefaId == tarefaId)
+                .Where(m => m.TarefaId == tarefaId || m.MetasTarefas.Any(mt => mt.TarefaId == tarefaId))
                 .Include(m => m.Tarefa)
+                .Include(m => m.MetasTarefas)
+                    .ThenInclude(mt => mt.Tarefa)
                 .ToListAsync();
         }
 
         public async Task<List<Tarefa>> ObterTarefasDaMetaAsync(int metaId)
         {
+            var tarefasAssociadas = await _context.MetasTarefas
+                .AsNoTracking()
+                .Where(mt => mt.MetaId == metaId)
+                .Select(mt => mt.Tarefa)
+                .ToListAsync();
+
+            if (tarefasAssociadas.Any())
+                return tarefasAssociadas;
+
             return await _context.Metas
                 .AsNoTracking()
                 .Where(m => m.Id == metaId)

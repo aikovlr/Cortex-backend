@@ -18,5 +18,6 @@ namespace Cortex.Entities
         public ICollection<TicketReporte> Tickets { get; set; } = new List<TicketReporte>();
         public ICollection<Sugestao> Sugestoes { get; set; } = new List<Sugestao>();
         public ICollection<Meta> Metas { get; set; } = new List<Meta>();
+        public ICollection<MetaTarefa> MetasTarefas { get; set; } = new List<MetaTarefa>();
     }
 }

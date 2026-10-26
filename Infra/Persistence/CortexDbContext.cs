@@ -20,6 +20,7 @@ public class CortexDbContext : DbContext
     public DbSet<TicketReporte> TicketReporte => Set<TicketReporte>();
     public DbSet<Sugestao> Sugestoes => Set<Sugestao>();
     public DbSet<Meta> Metas => Set<Meta>();
+    public DbSet<MetaTarefa> MetasTarefas => Set<MetaTarefa>();
     public DbSet<PreferenciaNotificacao> PreferenciasNotificacao => Set<PreferenciaNotificacao>();
     public DbSet<AlertaEnviado> AlertasEnviados => Set<AlertaEnviado>();
 
