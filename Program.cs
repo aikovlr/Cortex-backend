@@ -107,6 +107,30 @@ var jwtSecret = builder.Configuration["Jwt:Secret"]
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "CortexApi";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "CortexClient";
 
+// Configuração de CORS para suportar credenciais e cookies HttpOnly
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("CortexCorsPolicy", policy =>
+    {
+        policy.SetIsOriginAllowed(origin =>
+              {
+                  if (string.IsNullOrWhiteSpace(origin)) return false;
+                  try
+                  {
+                      var uri = new Uri(origin);
+                      return uri.Host == "localhost" || uri.Host == "127.0.0.1";
+                  }
+                  catch
+                  {
+                      return false;
+                  }
+              })
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -126,6 +150,18 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtAudience,
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            // 1. Tenta extrair o token do cookie HttpOnly cortex_token
+            if (context.Request.Cookies.TryGetValue("cortex_token", out var tokenFromCookie) && !string.IsNullOrWhiteSpace(tokenFromCookie))
+            {
+                context.Token = tokenFromCookie;
+            }
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -163,6 +199,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
+app.UseCors("CortexCorsPolicy");
 
 app.UseRateLimiter();
 app.UseAuthentication();

@@ -95,6 +95,7 @@ Podem ser informados como inteiros ou seus nomes como strings:
 }
 ```
 - **Retorno (`200 OK - LoginResponseDTO`)**:
+  - **Set-Cookie**: Grava automaticamente o cookie `cortex_token` com as flags `HttpOnly; Secure; SameSite=None`.
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -116,9 +117,15 @@ Podem ser informados como inteiros ou seus nomes como strings:
 }
 ```
 
-### 1.2 Alterar Senha
+### 1.2 Logout
+- **Método / Rota**: `POST /api/auth/logout`
+- **Autenticação**: Pública (Anônimo)
+- **Descrição**: Remove/expira o cookie de autenticação `cortex_token`.
+- **Retorno**: `204 No Content`
+
+### 1.3 Alterar Senha
 - **Método / Rota**: `POST /api/auth/alterar-senha`
-- **Autenticação**: Bearer Token Obrigatório
+- **Autenticação**: Bearer Token Obrigatório (via Cookie HttpOnly ou Header Authorization)
 - **Content-Type**: `application/json`
 - **Corpo da Requisição (`AlterarSenhaDTO`)**:
 ```json
@@ -129,7 +136,7 @@ Podem ser informados como inteiros ou seus nomes como strings:
 ```
 - **Retorno**: `204 No Content`
 
-### 1.3 Solicitar Verificação de E-mail (Anônimo)
+### 1.4 Solicitar Verificação de E-mail (Anônimo)
 - **Método / Rota**: `POST /api/auth/solicitar-verificacao-email`
 - **Autenticação**: Pública (Anônimo)
 - **Rate Limit**: Ativo (`verificacao-email-policy`)
