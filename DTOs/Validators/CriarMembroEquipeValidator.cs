@@ -11,9 +11,6 @@ namespace Cortex.DTOs.Validators
                 .Must(x => (x.UsuarioId.HasValue && x.UsuarioId.Value > 0) || !string.IsNullOrWhiteSpace(x.Email))
                 .WithMessage("Informe o identificador do usuário ou o e-mail.");
 
-            RuleFor(x => x.EquipeId)
-                .GreaterThan(0).WithMessage("O identificador da equipe deve ser válido.");
-
             RuleFor(x => x.Cargo)
                 .IsInEnum().WithMessage("O cargo informado é inválido.");
         }
