@@ -127,6 +127,21 @@ namespace Cortex.Controllers
             return Ok(usuarioAtualizado);
         }
 
+        [HttpDelete("me/foto")]
+        [Authorize]
+        public async Task<IActionResult> RemoverMinhaFotoPerfil()
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var removido = await _usuarioService.RemoverFotoPerfilAsync(currentUserId);
+            if (!removido)
+            {
+                return NaoEncontrado("Usuário não encontrado.");
+            }
+
+            _logger.LogInformation("Foto de perfil removida para o usuário {UserId}", currentUserId);
+            return NoContent();
+        }
+
         [HttpDelete("minha-conta")]
         [Authorize]
         public async Task<IActionResult> ExcluirMinhaConta()

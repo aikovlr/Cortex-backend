@@ -227,6 +227,32 @@ namespace Cortex.Services.Implementations
             return MapToDetalhesDTO(tarefaAtualizada ?? tarefa);
         }
 
+        public async Task<DetalhesTarefaDTO> CancelarConclusaoTarefaAsync(int id, int solicitanteId)
+        {
+            var tarefa = await _tarefaRepository.ObterTarefaPorIdAsync(id);
+            if (tarefa == null)
+                throw new KeyNotFoundException("Tarefa não encontrada.");
+
+            var ehCriador = tarefa.CriadorId == solicitanteId;
+            var ehResponsavel = tarefa.ResponsaveisTarefas.Any(rt => rt.UsuarioId == solicitanteId);
+            var ehAdminOuDono = await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, tarefa);
+
+            if (!ehCriador && !ehResponsavel && !ehAdminOuDono)
+            {
+                throw new ForbiddenException("Você não possui permissão para cancelar a entrega desta tarefa.");
+            }
+
+            // Retorna para Atrasada se já passou do vencimento, caso contrário para Pendente
+            tarefa.Status = tarefa.DataVencimento < DateTime.UtcNow ? Status.Atrasada : Status.Pendente;
+            await _tarefaRepository.AtualizarTarefaAsync(tarefa);
+
+            _logger.LogInformation("Auditoria: Conclusão da tarefa cancelada. TarefaId: {TarefaId}, CanceladaPor: {CanceladaPor}, NovoStatus: {NovoStatus}, Timestamp: {Timestamp}",
+                id, solicitanteId, tarefa.Status, DateTime.UtcNow);
+
+            var tarefaAtualizada = await _tarefaRepository.ObterTarefaPorIdAsync(id);
+            return MapToDetalhesDTO(tarefaAtualizada ?? tarefa);
+        }
+
         public async Task<int> VerificarTarefasAtrasadasAsync()
         {
             // RN06: Tarefas cuja DataVencimento < UtcNow e Status == Pendente devem transicionar para Atrasada
@@ -340,7 +366,7 @@ namespace Cortex.Services.Implementations
                         } : null
                     } : null
                 }).ToList(),
-                Anexos = tarefa.Anexos.Select(a => new ConsultaAnexoDTO
+                Anexos = tarefa.Anexos.Where(a => a.RespostaTarefaId == null).Select(a => new ConsultaAnexoDTO
                 {
                     Id = a.Id,
                     UrlCaminho = a.UrlCaminho,
@@ -352,8 +378,24 @@ namespace Cortex.Services.Implementations
                 {
                     Id = r.Id,
                     DataResposta = r.DataResposta,
+                    Nota = r.Nota,
                     UsuarioId = r.UsuarioId,
                     TarefaId = r.TarefaId,
+                    Usuario = r.Usuario != null ? new ConsultaUsuarioDTO
+                    {
+                        Id = r.Usuario.Id,
+                        Nome = r.Usuario.Nome,
+                        Email = r.Usuario.Email,
+                        Telefone = r.Usuario.Telefone,
+                        FotoPerfil = r.Usuario.FotoPerfil != null ? new ConsultaAnexoDTO
+                        {
+                            Id = r.Usuario.FotoPerfil.Id,
+                            UrlCaminho = r.Usuario.FotoPerfil.UrlCaminho,
+                            NomeOriginal = r.Usuario.FotoPerfil.NomeOriginal,
+                            MimeType = r.Usuario.FotoPerfil.MimeType,
+                            DataEnvio = r.Usuario.FotoPerfil.DataEnvio
+                        } : null
+                    } : null,
                     Anexos = r.Anexos.Select(ra => new ConsultaAnexoDTO
                     {
                         Id = ra.Id,

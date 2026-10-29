@@ -11,6 +11,7 @@ namespace Cortex.Services.Interfaces
         Task<ConsultaUsuarioDTO?> ObterUsuarioPorEmailAsync(string email);
         Task<IEnumerable<ConsultaUsuarioDTO>> ListarUsuariosAsync();
         Task<ConsultaUsuarioDTO> AtualizarUsuarioAsync(int id, AtualizarUsuarioDTO dto);
+        Task<bool> RemoverFotoPerfilAsync(int usuarioId);
         Task<bool> DeletarUsuarioAsync(int id, int solicitanteId);
         Task<bool> ValidarSenhaAsync(string email, string senha);
         Task<bool> AlterarSenhaAsync(int usuarioId, string senhaAtual, string novaSenha);

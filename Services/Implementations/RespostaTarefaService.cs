@@ -88,7 +88,7 @@ namespace Cortex.Services.Implementations
                         NomeOriginal = arquivo.FileName,
                         MimeType = arquivo.ContentType,
                         UrlCaminho = $"/uploads/respostas/{nomeArquivo}",
-                        TipoEntidade = TipoEntidade.Tarefa,
+                        TipoEntidade = TipoEntidade.RespostaTarefa,
                         DataEnvio = DateTime.UtcNow,
                         TarefaId = dto.TarefaId,
                         RespostaTarefaId = resposta.Id,
@@ -117,6 +117,45 @@ namespace Cortex.Services.Implementations
 
             var respostas = await _respostaRepository.ObterRespostasTarefaPorTarefaIdAsync(tarefaId);
             return respostas.Select(MapToConsultaDTO);
+        }
+
+        public async Task<ConsultaRespostaTarefaDTO> AtribuirNotaAsync(int respostaId, int nota, int solicitanteId)
+        {
+            var resposta = await _respostaRepository.ObterRespostaTarefaPorIdAsync(respostaId);
+            if (resposta == null)
+            {
+                throw new KeyNotFoundException("Resposta não encontrada.");
+            }
+
+            var tarefa = await _tarefaRepository.ObterTarefaPorIdAsync(resposta.TarefaId);
+            if (tarefa == null)
+            {
+                throw new KeyNotFoundException("Tarefa vinculada não encontrada.");
+            }
+
+            var ehCriador = tarefa.CriadorId == solicitanteId;
+            var solicitante = await _usuarioRepository.ObterUsuarioPorIdAsync(solicitanteId);
+            var ehAdminOuDono = solicitante != null && solicitante.Equipes.Any(e => e.Cargo == Cargo.Dono || e.Cargo == Cargo.Admin);
+
+            if (!ehCriador && !ehAdminOuDono)
+            {
+                throw new ForbiddenException("Apenas o criador da tarefa ou administradores podem atribuir nota à resposta.");
+            }
+
+            if (nota < 0 || (tarefa.Pontuacao.HasValue && nota > tarefa.Pontuacao.Value))
+            {
+                var limite = tarefa.Pontuacao.HasValue ? tarefa.Pontuacao.Value : 100;
+                throw new ArgumentException($"A nota atribuída deve estar entre 0 e {limite} pontos.");
+            }
+
+            resposta.Nota = nota;
+            await _respostaRepository.AtualizarRespostaTarefaAsync(resposta);
+
+            _logger.LogInformation("Nota {Nota} atribuída à RespostaId {RespostaId} (TarefaId {TarefaId}) por UsuarioId {UsuarioId}",
+                nota, respostaId, tarefa.Id, solicitanteId);
+
+            var respostaAtualizada = await _respostaRepository.ObterRespostaTarefaPorIdAsync(respostaId);
+            return MapToConsultaDTO(respostaAtualizada ?? resposta);
         }
 
         public async Task<bool> DeletarRespostaAsync(int respostaId, int solicitanteId)
@@ -160,6 +199,7 @@ namespace Cortex.Services.Implementations
             {
                 Id = resposta.Id,
                 DataResposta = resposta.DataResposta,
+                Nota = resposta.Nota,
                 UsuarioId = resposta.UsuarioId,
                 TarefaId = resposta.TarefaId,
                 Usuario = resposta.Usuario != null ? new ConsultaUsuarioDTO
