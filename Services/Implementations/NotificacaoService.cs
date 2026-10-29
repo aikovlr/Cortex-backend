@@ -12,6 +12,7 @@ namespace Cortex.Services.Implementations
         private readonly ITarefaRepository _tarefaRepository;
         private readonly IUsuarioRepository _usuarioRepository;
         private readonly IAlertaEnviadoRepository _alertaEnviadoRepository;
+        private readonly INotificacaoRepository _notificacaoRepository;
         private readonly IEmailGateway _emailGateway;
         private readonly IPushGateway _pushGateway;
         private readonly ISmsGateway _smsGateway;
@@ -22,6 +23,7 @@ namespace Cortex.Services.Implementations
             ITarefaRepository tarefaRepository,
             IUsuarioRepository usuarioRepository,
             IAlertaEnviadoRepository alertaEnviadoRepository,
+            INotificacaoRepository notificacaoRepository,
             IEmailGateway emailGateway,
             IPushGateway pushGateway,
             ISmsGateway smsGateway,
@@ -31,6 +33,7 @@ namespace Cortex.Services.Implementations
             _tarefaRepository = tarefaRepository;
             _usuarioRepository = usuarioRepository;
             _alertaEnviadoRepository = alertaEnviadoRepository;
+            _notificacaoRepository = notificacaoRepository;
             _emailGateway = emailGateway;
             _pushGateway = pushGateway;
             _smsGateway = smsGateway;
@@ -207,6 +210,91 @@ namespace Cortex.Services.Implementations
 
             _logger.LogInformation("Processamento de alertas de vencimento concluído: {Count} alertas enviados", alertasDisparados);
             return alertasDisparados;
+        }
+
+        // ==========================================
+        // Notificações persistidas no Banco de Dados
+        // ==========================================
+
+        public async Task<NotificacaoDTO> CriarNotificacaoAsync(
+            int usuarioId,
+            string tipo,
+            string titulo,
+            string mensagem,
+            string link,
+            bool destaque,
+            int? tarefaId = null)
+        {
+            var notificacao = new Notificacao
+            {
+                UsuarioId = usuarioId,
+                Tipo = tipo,
+                Titulo = titulo,
+                Mensagem = mensagem,
+                Link = link,
+                Destaque = destaque,
+                TarefaId = tarefaId,
+                Lida = false,
+                DataCriacao = DateTime.UtcNow
+            };
+
+            await _notificacaoRepository.AdicionarAsync(notificacao);
+
+            _logger.LogInformation("Notificação persistida no banco: Id {Id}, UsuarioId {UsuarioId}, Tipo {Tipo}",
+                notificacao.Id, usuarioId, tipo);
+
+            return MapNotificacaoToDTO(notificacao);
+        }
+
+        public async Task<IEnumerable<NotificacaoDTO>> ObterNotificacoesUsuarioAsync(int usuarioId)
+        {
+            var notificacoes = await _notificacaoRepository.ObterPorUsuarioAsync(usuarioId);
+            return notificacoes.Select(MapNotificacaoToDTO);
+        }
+
+        public async Task<bool> MarcarComoLidaAsync(int notificacaoId, int usuarioId)
+        {
+            var notif = await _notificacaoRepository.ObterPorIdAsync(notificacaoId);
+            if (notif == null || notif.UsuarioId != usuarioId)
+                return false;
+
+            notif.Lida = true;
+            await _notificacaoRepository.AtualizarAsync(notif);
+            return true;
+        }
+
+        public async Task<bool> MarcarTodasComoLidasAsync(int usuarioId)
+        {
+            await _notificacaoRepository.MarcarTodasComoLidasAsync(usuarioId);
+            return true;
+        }
+
+        public async Task<bool> LimparNotificacoesAsync(int usuarioId)
+        {
+            await _notificacaoRepository.LimparNotificacoesAsync(usuarioId);
+            return true;
+        }
+
+        public async Task<bool> RemoverNotificacaoAsync(int notificacaoId, int usuarioId)
+        {
+            return await _notificacaoRepository.RemoverNotificacaoAsync(notificacaoId, usuarioId);
+        }
+
+        private static NotificacaoDTO MapNotificacaoToDTO(Notificacao n)
+        {
+            return new NotificacaoDTO
+            {
+                Id = n.Id,
+                UsuarioId = n.UsuarioId,
+                Tipo = n.Tipo,
+                Titulo = n.Titulo,
+                Mensagem = n.Mensagem,
+                Link = n.Link,
+                Lida = n.Lida,
+                Destaque = n.Destaque,
+                TarefaId = n.TarefaId,
+                DataCriacao = n.DataCriacao
+            };
         }
 
         private static PreferenciaNotificacaoDTO MapToDTO(PreferenciaNotificacao p)

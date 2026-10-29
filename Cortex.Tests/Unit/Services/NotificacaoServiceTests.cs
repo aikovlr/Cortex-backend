@@ -38,12 +38,14 @@ namespace Cortex.Tests.Unit.Services
             var preferenciaRepo = new PreferenciaNotificacaoRepository(_dbContext);
             var tarefaRepo = new TarefaRepository(_dbContext);
             var alertaEnviadoRepo = new AlertaEnviadoRepository(_dbContext);
+            var notificacaoRepo = new NotificacaoRepository(_dbContext);
 
             _notificacaoService = new NotificacaoService(
                 preferenciaRepo,
                 tarefaRepo,
                 _usuarioRepoMock.Object,
                 alertaEnviadoRepo,
+                notificacaoRepo,
                 _emailGatewayMock.Object,
                 _pushGatewayMock.Object,
                 _smsGatewayMock.Object,

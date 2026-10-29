@@ -15,6 +15,7 @@ namespace Cortex.Services.Implementations
         private readonly IEquipeRepository _equipeRepository;
         private readonly IMembroEquipeRepository _membroEquipeRepository;
         private readonly IEquipeAuthorizationService _authService;
+        private readonly INotificacaoService _notificacaoService;
         private readonly ILogger<TicketReporteService> _logger;
 
         public TicketReporteService(
@@ -24,6 +25,7 @@ namespace Cortex.Services.Implementations
             IEquipeRepository equipeRepository,
             IMembroEquipeRepository membroEquipeRepository,
             IEquipeAuthorizationService authService,
+            INotificacaoService notificacaoService,
             ILogger<TicketReporteService> logger)
         {
             _ticketReporteRepository = ticketReporteRepository;
@@ -32,6 +34,7 @@ namespace Cortex.Services.Implementations
             _equipeRepository = equipeRepository;
             _membroEquipeRepository = membroEquipeRepository;
             _authService = authService;
+            _notificacaoService = notificacaoService;
             _logger = logger;
         }
 
@@ -69,6 +72,25 @@ namespace Cortex.Services.Implementations
             };
 
             await _ticketReporteRepository.AdicionarTicketReporteAsync(ticket);
+
+            if (tarefa.CriadorId > 0)
+            {
+                try
+                {
+                    await _notificacaoService.CriarNotificacaoAsync(
+                        tarefa.CriadorId,
+                        "ticket_criador",
+                        "Novo Ticket de Reporte Aberto",
+                        $"Problema reportado na tarefa \"{tarefa.Titulo}\": {dto.Descricao}",
+                        $"/tarefas-atribuidas/{tarefa.Id}?tab=tickets",
+                        destaque: true,
+                        tarefaId: tarefa.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao criar notificação de ticket para criador {CriadorId}", tarefa.CriadorId);
+                }
+            }
 
             _logger.LogInformation("Auditoria: Abertura de ticket. TicketId: {TicketId}, TarefaId: {TarefaId}, UsuarioId: {UsuarioId}",
                 ticket.Id, dto.TarefaId, solicitanteId);

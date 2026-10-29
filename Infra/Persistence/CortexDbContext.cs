@@ -23,6 +23,7 @@ public class CortexDbContext : DbContext
     public DbSet<MetaTarefa> MetasTarefas => Set<MetaTarefa>();
     public DbSet<PreferenciaNotificacao> PreferenciasNotificacao => Set<PreferenciaNotificacao>();
     public DbSet<AlertaEnviado> AlertasEnviados => Set<AlertaEnviado>();
+    public DbSet<Notificacao> Notificacoes => Set<Notificacao>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
