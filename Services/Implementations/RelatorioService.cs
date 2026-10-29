@@ -83,7 +83,8 @@ namespace Cortex.Services.Implementations
                     Pontuacao = t.Pontuacao,
                     Status = t.Status,
                     Prioridade = t.Prioridade,
-                    CriadorId = t.CriadorId
+                    CriadorId = t.CriadorId,
+                    DataCriacao = t.DataCriacao
                 }).ToList()
             };
         }
@@ -129,7 +130,8 @@ namespace Cortex.Services.Implementations
                     Pontuacao = t.Pontuacao,
                     Status = t.Status,
                     Prioridade = t.Prioridade,
-                    CriadorId = t.CriadorId
+                    CriadorId = t.CriadorId,
+                    DataCriacao = t.DataCriacao
                 }).ToList()
             };
 

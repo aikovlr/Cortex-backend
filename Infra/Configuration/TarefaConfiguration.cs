@@ -33,6 +33,10 @@ namespace Cortex.Infra.Persistence.Configuration
                 .HasColumnType("Prioridade")
                 .IsRequired();
 
+            builder.Property(t => t.DataCriacao)
+                .IsRequired()
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
             // Índices de Performance (RNF09 / Fase 13)
             builder.HasIndex(t => t.Status);
             builder.HasIndex(t => t.DataVencimento);

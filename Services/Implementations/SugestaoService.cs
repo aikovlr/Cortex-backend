@@ -173,7 +173,8 @@ namespace Cortex.Services.Implementations
                     Pontuacao = sugestao.Tarefa.Pontuacao,
                     Status = sugestao.Tarefa.Status,
                     Prioridade = sugestao.Tarefa.Prioridade,
-                    CriadorId = sugestao.Tarefa.CriadorId
+                    CriadorId = sugestao.Tarefa.CriadorId,
+                    DataCriacao = sugestao.Tarefa.DataCriacao
                 } : null
             };
         }

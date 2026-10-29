@@ -12,6 +12,7 @@ namespace Cortex.DTOs.Response
         public Status Status { get; set; }
         public Prioridade Prioridade { get; set; }
         public int CriadorId { get; set; }
+        public DateTime DataCriacao { get; set; }
         public ConsultaUsuarioDTO? Criador { get; set; }
         public List<ConsultaAnexoDTO> Anexos { get; set; } = [];
         public List<ConsultaResponsavelTarefaDTO> Responsaveis { get; set; } = [];

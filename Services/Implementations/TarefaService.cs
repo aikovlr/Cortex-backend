@@ -53,6 +53,7 @@ namespace Cortex.Services.Implementations
                 Pontuacao = dto.Pontuacao,
                 Status = Status.Pendente,
                 Prioridade = dto.Prioridade,
+                DataCriacao = DateTime.UtcNow,
                 CriadorId = criadorId,
                 Criador = criador
             };
@@ -314,7 +315,8 @@ namespace Cortex.Services.Implementations
                 Pontuacao = tarefa.Pontuacao,
                 Status = tarefa.Status,
                 Prioridade = tarefa.Prioridade,
-                CriadorId = tarefa.CriadorId
+                CriadorId = tarefa.CriadorId,
+                DataCriacao = tarefa.DataCriacao
             };
         }
 
@@ -330,6 +332,7 @@ namespace Cortex.Services.Implementations
                 Status = tarefa.Status,
                 Prioridade = tarefa.Prioridade,
                 CriadorId = tarefa.CriadorId,
+                DataCriacao = tarefa.DataCriacao,
                 Criador = tarefa.Criador != null ? new ConsultaUsuarioDTO
                 {
                     Id = tarefa.Criador.Id,

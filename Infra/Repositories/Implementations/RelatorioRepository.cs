@@ -29,7 +29,8 @@ namespace Cortex.Repositories.Implementations
             {
                 query = query.Where(t => t.CriadorId == filtro.CriadorId.Value);
             }
-            else if (filtro.ResponsavelId.HasValue)
+
+            if (filtro.ResponsavelId.HasValue)
             {
                 query = query.Where(t => t.ResponsaveisTarefas.Any(rt => rt.UsuarioId == filtro.ResponsavelId.Value));
             }
@@ -42,7 +43,7 @@ namespace Cortex.Repositories.Implementations
 
                 query = query.Where(t => t.ResponsaveisTarefas.Any(rt => membrosEquipeIds.Contains(rt.UsuarioId)));
             }
-            else if (solicitanteId.HasValue)
+            else if (!filtro.CriadorId.HasValue && solicitanteId.HasValue)
             {
                 // Padrão: apenas as tarefas nas quais o usuário é responsável
                 query = query.Where(t => t.ResponsaveisTarefas.Any(rt => rt.UsuarioId == solicitanteId.Value));
@@ -89,6 +90,9 @@ namespace Cortex.Repositories.Implementations
                 .AsNoTracking()
                 .Include(t => t.ResponsaveisTarefas)
                 .Where(t => t.ResponsaveisTarefas.Any(rt => membroIds.Contains(rt.UsuarioId)));
+
+            if (filtro.ResponsavelId.HasValue)
+                query = query.Where(t => t.ResponsaveisTarefas.Any(rt => rt.UsuarioId == filtro.ResponsavelId.Value));
 
             if (filtro.Status.HasValue)
                 query = query.Where(t => t.Status == filtro.Status.Value);

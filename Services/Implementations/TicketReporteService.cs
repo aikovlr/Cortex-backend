@@ -173,7 +173,8 @@ namespace Cortex.Services.Implementations
                     Pontuacao = ticket.Tarefa.Pontuacao,
                     Status = ticket.Tarefa.Status,
                     Prioridade = ticket.Tarefa.Prioridade,
-                    CriadorId = ticket.Tarefa.CriadorId
+                    CriadorId = ticket.Tarefa.CriadorId,
+                    DataCriacao = ticket.Tarefa.DataCriacao
                 } : null
             };
         }

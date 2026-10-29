@@ -281,7 +281,8 @@ namespace Cortex.Services.Implementations
                     Pontuacao = meta.Tarefa.Pontuacao,
                     Status = meta.Tarefa.Status,
                     Prioridade = meta.Tarefa.Prioridade,
-                    CriadorId = meta.Tarefa.CriadorId
+                    CriadorId = meta.Tarefa.CriadorId,
+                    DataCriacao = meta.Tarefa.DataCriacao
                 } : null,
                 Tarefas = (meta.MetasTarefas != null && meta.MetasTarefas.Any())
                     ? meta.MetasTarefas
@@ -295,7 +296,8 @@ namespace Cortex.Services.Implementations
                             Pontuacao = mt.Tarefa.Pontuacao,
                             Status = mt.Tarefa.Status,
                             Prioridade = mt.Tarefa.Prioridade,
-                            CriadorId = mt.Tarefa.CriadorId
+                            CriadorId = mt.Tarefa.CriadorId,
+                            DataCriacao = mt.Tarefa.DataCriacao
                         }).ToList()
                     : (meta.Tarefa != null ? new List<ConsultaTarefaDTO>
                     {
@@ -308,7 +310,8 @@ namespace Cortex.Services.Implementations
                             Pontuacao = meta.Tarefa.Pontuacao,
                             Status = meta.Tarefa.Status,
                             Prioridade = meta.Tarefa.Prioridade,
-                            CriadorId = meta.Tarefa.CriadorId
+                            CriadorId = meta.Tarefa.CriadorId,
+                            DataCriacao = meta.Tarefa.DataCriacao
                         }
                     } : new List<ConsultaTarefaDTO>())
             };
