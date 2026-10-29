@@ -11,6 +11,7 @@ namespace Cortex.Services.Interfaces
         Task<DetalhesTarefaDTO> AtualizarTarefaAsync(int id, AtualizarTarefaDTO dto, int solicitanteId);
         Task<bool> DeletarTarefaAsync(int id, int solicitanteId);
         Task<DetalhesTarefaDTO> ConcluirTarefaAsync(int id, int solicitanteId);
+        Task<DetalhesTarefaDTO> CancelarConclusaoTarefaAsync(int id, int solicitanteId);
         Task<int> VerificarTarefasAtrasadasAsync();
     }
 }

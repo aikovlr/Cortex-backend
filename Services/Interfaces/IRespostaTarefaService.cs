@@ -7,6 +7,7 @@ namespace Cortex.Services.Interfaces
     {
         Task<ConsultaRespostaTarefaDTO> CriarRespostaAsync(CriarRespostaTarefaDTO dto, int solicitanteId);
         Task<IEnumerable<ConsultaRespostaTarefaDTO>> ListarRespostasPorTarefaAsync(int tarefaId, int solicitanteId);
+        Task<ConsultaRespostaTarefaDTO> AtribuirNotaAsync(int respostaId, int nota, int solicitanteId);
         Task<bool> DeletarRespostaAsync(int respostaId, int solicitanteId);
     }
 }

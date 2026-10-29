@@ -233,5 +233,45 @@ namespace Cortex.Tests.Unit.Services
 
             Assert.Equal("Código de recuperação inválido.", ex.Message);
         }
+
+        [Fact]
+        public async Task RemoverFotoPerfilAsync_QuandoUsuarioPossuiFoto_DeveRemoverFotoEAtualizar()
+        {
+            // Arrange
+            var anexoMock = new Mock<IAnexoRepository>();
+            var serviceComAnexo = new UsuarioService(
+                _usuarioRepoMock.Object,
+                _passwordServiceMock.Object,
+                _arquivoValidacaoServiceMock.Object,
+                _envMock.Object,
+                _loggerMock.Object,
+                anexoMock.Object);
+
+            var usuario = new Usuario
+            {
+                Id = 20,
+                Nome = "Usuario Foto",
+                Email = "foto@exemplo.com",
+                SenhaHash = "hash123",
+                FotoPerfil = new Anexo
+                {
+                    Id = 55,
+                    NomeOriginal = "avatar.png",
+                    UrlCaminho = "/uploads/usuarios/avatar.png",
+                    MimeType = "image/png"
+                }
+            };
+
+            _usuarioRepoMock.Setup(r => r.ObterUsuarioPorIdAsync(20)).ReturnsAsync(usuario);
+
+            // Act
+            var resultado = await serviceComAnexo.RemoverFotoPerfilAsync(20);
+
+            // Assert
+            Assert.True(resultado);
+            Assert.Null(usuario.FotoPerfil);
+            anexoMock.Verify(a => a.RemoverAnexoAsync(55), Times.Once);
+            _usuarioRepoMock.Verify(r => r.AtualizarUsuarioAsync(usuario), Times.Once);
+        }
     }
 }

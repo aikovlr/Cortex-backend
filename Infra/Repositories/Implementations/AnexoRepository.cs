@@ -26,7 +26,7 @@ namespace Cortex.Repositories.Implementations
         public async Task<List<Anexo>> ObterAnexosPorTarefaIdAsync(int tarefaId)
         {
             return await _context.Anexos
-                .Where(a => a.TarefaId == tarefaId)
+                .Where(a => a.TarefaId == tarefaId && a.RespostaTarefaId == null)
                 .OrderByDescending(a => a.DataEnvio)
                 .ToListAsync();
         }

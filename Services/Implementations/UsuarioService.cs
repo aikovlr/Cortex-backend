@@ -15,19 +15,22 @@ namespace Cortex.Services.Implementations
         private readonly IArquivoValidacaoService _arquivoValidacaoService;
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<UsuarioService> _logger;
+        private readonly IAnexoRepository? _anexoRepository;
 
         public UsuarioService(
             IUsuarioRepository usuarioRepository, 
             IPasswordService passwordService,
             IArquivoValidacaoService arquivoValidacaoService,
             IWebHostEnvironment environment,
-            ILogger<UsuarioService> logger)
+            ILogger<UsuarioService> logger,
+            IAnexoRepository? anexoRepository = null)
         {
             _usuarioRepository = usuarioRepository;
             _passwordService = passwordService;
             _arquivoValidacaoService = arquivoValidacaoService;
             _environment = environment;
             _logger = logger;
+            _anexoRepository = anexoRepository;
         }
 
         public async Task<ConsultaUsuarioDTO> CriarUsuarioAsync(CriarUsuarioDTO dto)
@@ -110,14 +113,56 @@ namespace Cortex.Services.Implementations
                 usuario.SenhaHash = _passwordService.HashPassword(dto.Senha);
             }
 
-            if (dto.FotoPerfil != null)
+            if (dto.RemoverFoto && usuario.FotoPerfil != null)
             {
+                await RemoverFotoPerfilInternoAsync(usuario);
+            }
+            else if (dto.FotoPerfil != null)
+            {
+                if (usuario.FotoPerfil != null)
+                {
+                    await RemoverFotoPerfilInternoAsync(usuario);
+                }
                 usuario.FotoPerfil = await SalvarFotoPerfilAsync(dto.FotoPerfil);
             }
 
             await _usuarioRepository.AtualizarUsuarioAsync(usuario);
 
             return MapToConsultaDTO(usuario);
+        }
+
+        public async Task<bool> RemoverFotoPerfilAsync(int usuarioId)
+        {
+            var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(usuarioId);
+            if (usuario == null)
+                return false;
+
+            if (usuario.FotoPerfil != null)
+            {
+                await RemoverFotoPerfilInternoAsync(usuario);
+                await _usuarioRepository.AtualizarUsuarioAsync(usuario);
+            }
+
+            return true;
+        }
+
+        private async Task RemoverFotoPerfilInternoAsync(Usuario usuario)
+        {
+            if (usuario.FotoPerfil == null) return;
+
+            var webRoot = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            var caminhoArquivo = Path.Combine(webRoot, usuario.FotoPerfil.UrlCaminho.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+
+            if (File.Exists(caminhoArquivo))
+            {
+                try { File.Delete(caminhoArquivo); } catch { /* Ignore lock */ }
+            }
+
+            if (_anexoRepository != null)
+            {
+                await _anexoRepository.RemoverAnexoAsync(usuario.FotoPerfil.Id);
+            }
+            usuario.FotoPerfil = null;
         }
 
         public async Task<bool> DeletarUsuarioAsync(int id, int solicitanteId)

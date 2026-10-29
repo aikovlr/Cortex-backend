@@ -310,6 +310,9 @@ namespace Cortex_backend.Migrations
                     b.Property<DateTime>("DataResposta")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("Nota")
+                        .HasColumnType("integer");
+
                     b.Property<int>("TarefaId")
                         .HasColumnType("integer");
 

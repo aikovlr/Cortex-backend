@@ -46,6 +46,18 @@ namespace Cortex.Controllers
             return Ok(respostas);
         }
 
+        [HttpPatch("api/respostas/{id:int}/nota")]
+        public async Task<IActionResult> AtribuirNota(int id, [FromBody] AtribuirNotaRespostaDTO dto)
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var respostaAtualizada = await _respostaService.AtribuirNotaAsync(id, dto.Nota, currentUserId);
+
+            _logger.LogInformation("Nota {Nota} atribuída à RespostaId {RespostaId} por UsuarioId {UsuarioId}",
+                dto.Nota, id, currentUserId);
+
+            return Ok(respostaAtualizada);
+        }
+
         [HttpDelete("api/respostas/{id:int}")]
         public async Task<IActionResult> Deletar(int id)
         {

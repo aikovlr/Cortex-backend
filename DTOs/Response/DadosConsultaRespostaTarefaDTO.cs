@@ -4,6 +4,7 @@ namespace Cortex.DTOs.Response
     {
         public int Id { get; set; }
         public DateTime DataResposta { get; set; }
+        public int? Nota { get; set; }
         public int UsuarioId { get; set; }
         public int TarefaId { get; set; }
         public ConsultaUsuarioDTO? Usuario { get; set; }

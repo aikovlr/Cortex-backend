@@ -103,6 +103,18 @@ namespace Cortex.Controllers
             return Ok(tarefaConcluida);
         }
 
+        [HttpPatch("{id:int}/cancelar-conclusao")]
+        public async Task<IActionResult> CancelarConclusao(int id)
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var tarefaReaberta = await _tarefaService.CancelarConclusaoTarefaAsync(id, currentUserId);
+
+            _logger.LogInformation("Auditoria: Conclusão de tarefa cancelada. TarefaId: {TarefaId}, CanceladaPor: {CanceladaPor}, Timestamp: {Timestamp}",
+                id, currentUserId, DateTime.UtcNow);
+
+            return Ok(tarefaReaberta);
+        }
+
         [HttpPost("{id:int}/responsaveis")]
         public async Task<IActionResult> AtribuirResponsavel(int id, [FromBody] CriarResponsavelTarefaDTO dto)
         {

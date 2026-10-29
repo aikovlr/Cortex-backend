@@ -15,6 +15,9 @@ namespace Cortex.Infra.Persistence.Configuration
             builder.Property(rt => rt.DataResposta)
                 .IsRequired();
 
+            builder.Property(rt => rt.Nota)
+                .IsRequired(false);
+
             builder.HasOne(rt => rt.Usuario)
                 .WithMany(u => u.Respostas)
                 .HasForeignKey(rt => rt.UsuarioId)
