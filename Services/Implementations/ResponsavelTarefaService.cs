@@ -14,6 +14,7 @@ namespace Cortex.Services.Implementations
         private readonly IUsuarioRepository _usuarioRepository;
         private readonly IEquipeRepository _equipeRepository;
         private readonly IMembroEquipeRepository _membroEquipeRepository;
+        private readonly INotificacaoService _notificacaoService;
         private readonly ILogger<ResponsavelTarefaService> _logger;
 
         public ResponsavelTarefaService(
@@ -22,6 +23,7 @@ namespace Cortex.Services.Implementations
             IUsuarioRepository usuarioRepository,
             IEquipeRepository equipeRepository,
             IMembroEquipeRepository membroEquipeRepository,
+            INotificacaoService notificacaoService,
             ILogger<ResponsavelTarefaService> logger)
         {
             _responsavelTarefaRepository = responsavelTarefaRepository;
@@ -29,6 +31,7 @@ namespace Cortex.Services.Implementations
             _usuarioRepository = usuarioRepository;
             _equipeRepository = equipeRepository;
             _membroEquipeRepository = membroEquipeRepository;
+            _notificacaoService = notificacaoService;
             _logger = logger;
         }
 
@@ -58,6 +61,25 @@ namespace Cortex.Services.Implementations
             };
 
             await _responsavelTarefaRepository.AdicionarResponsavelTarefaAsync(novoResponsavel);
+
+            var isUrgente = tarefa.Prioridade == Prioridade.Urgente;
+            try
+            {
+                await _notificacaoService.CriarNotificacaoAsync(
+                    dto.UsuarioId,
+                    isUrgente ? "tarefa_urgente" : "tarefa",
+                    isUrgente ? "Tarefa Urgente Atribuída" : "Nova Tarefa Atribuída",
+                    isUrgente
+                        ? $"Atenção: A tarefa \"{tarefa.Titulo}\" possui prioridade urgente e requer sua atenção imediata."
+                        : $"Você foi designado como responsável pela tarefa \"{tarefa.Titulo}\".",
+                    $"/minhas-tarefas/{tarefa.Id}",
+                    destaque: isUrgente,
+                    tarefaId: tarefa.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao criar notificação de atribuição de tarefa para UsuarioId {UsuarioId}", dto.UsuarioId);
+            }
 
             _logger.LogInformation("Responsável atribuído: UsuarioId {UsuarioId} à TarefaId {TarefaId} por SolicitanteId {SolicitanteId}",
                 dto.UsuarioId, dto.TarefaId, solicitanteId);
@@ -97,6 +119,29 @@ namespace Cortex.Services.Implementations
             if (novosResponsaveis.Count > 0)
             {
                 await _responsavelTarefaRepository.AdicionarResponsaveisEmLoteAsync(novosResponsaveis);
+
+                var isUrgenteEquipe = tarefa.Prioridade == Prioridade.Urgente;
+                foreach (var resp in novosResponsaveis)
+                {
+                    try
+                    {
+                        await _notificacaoService.CriarNotificacaoAsync(
+                            resp.UsuarioId,
+                            isUrgenteEquipe ? "tarefa_urgente" : "tarefa",
+                            isUrgenteEquipe ? "Tarefa Urgente Atribuída" : "Nova Tarefa Atribuída",
+                            isUrgenteEquipe
+                                ? $"Atenção: A tarefa \"{tarefa.Titulo}\" possui prioridade urgente e requer sua atenção imediata."
+                                : $"Você foi designado como responsável pela tarefa \"{tarefa.Titulo}\".",
+                            $"/minhas-tarefas/{tarefa.Id}",
+                            destaque: isUrgenteEquipe,
+                            tarefaId: tarefa.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Erro ao criar notificação de atribuição de tarefa para UsuarioId {UsuarioId}", resp.UsuarioId);
+                    }
+                }
+
                 _logger.LogInformation("Atribuição em lote: {Total} membros da EquipeId {EquipeId} atribuídos à TarefaId {TarefaId}",
                     novosResponsaveis.Count, equipeId, tarefaId);
             }

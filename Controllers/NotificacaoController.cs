@@ -42,5 +42,53 @@ namespace Cortex.Controllers
 
             return Ok(preferenciaAtualizada);
         }
+
+        [HttpGet("api/notificacoes")]
+        public async Task<IActionResult> ObterNotificacoes()
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var notificacoes = await _notificacaoService.ObterNotificacoesUsuarioAsync(currentUserId);
+            return Ok(notificacoes);
+        }
+
+        [HttpPut("api/notificacoes/{id:int}/lida")]
+        public async Task<IActionResult> MarcarComoLida(int id)
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var sucesso = await _notificacaoService.MarcarComoLidaAsync(id, currentUserId);
+            if (!sucesso)
+            {
+                return NaoEncontrado("Notificação não encontrada.", "Notificação não encontrada");
+            }
+            return NoContent();
+        }
+
+        [HttpPut("api/notificacoes/marcar-todas-lidas")]
+        public async Task<IActionResult> MarcarTodasComoLidas()
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            await _notificacaoService.MarcarTodasComoLidasAsync(currentUserId);
+            return NoContent();
+        }
+
+        [HttpDelete("api/notificacoes")]
+        public async Task<IActionResult> LimparNotificacoes()
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            await _notificacaoService.LimparNotificacoesAsync(currentUserId);
+            return NoContent();
+        }
+
+        [HttpDelete("api/notificacoes/{id:int}")]
+        public async Task<IActionResult> RemoverNotificacao(int id)
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var removido = await _notificacaoService.RemoverNotificacaoAsync(id, currentUserId);
+            if (!removido)
+            {
+                return NaoEncontrado("Notificação não encontrada.", "Notificação não encontrada");
+            }
+            return NoContent();
+        }
     }
 }

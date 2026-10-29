@@ -227,6 +227,66 @@ namespace Cortex_backend.Migrations
                     b.ToTable("MetaTarefa", (string)null);
                 });
 
+            modelBuilder.Entity("Cortex.Entities.Notificacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DataCriacao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<bool>("Destaque")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("Lida")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Link")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Mensagem")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("TarefaId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Titulo")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TarefaId");
+
+                    b.HasIndex("UsuarioId", "DataCriacao");
+
+                    b.HasIndex("UsuarioId", "Lida");
+
+                    b.ToTable("Notificacao", (string)null);
+                });
+
             modelBuilder.Entity("Cortex.Entities.PreferenciaNotificacao", b =>
                 {
                     b.Property<int>("Id")
@@ -376,6 +436,11 @@ namespace Cortex_backend.Migrations
 
                     b.Property<int>("CriadorId")
                         .HasColumnType("integer");
+
+                    b.Property<DateTime>("DataCriacao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<DateTime>("DataVencimento")
                         .HasColumnType("timestamp with time zone");
@@ -600,6 +665,24 @@ namespace Cortex_backend.Migrations
                     b.Navigation("Tarefa");
                 });
 
+            modelBuilder.Entity("Cortex.Entities.Notificacao", b =>
+                {
+                    b.HasOne("Cortex.Entities.Tarefa", "Tarefa")
+                        .WithMany("Notificacoes")
+                        .HasForeignKey("TarefaId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Cortex.Entities.Usuario", "Usuario")
+                        .WithMany("Notificacoes")
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tarefa");
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("Cortex.Entities.PreferenciaNotificacao", b =>
                 {
                     b.HasOne("Cortex.Entities.Usuario", "Usuario")
@@ -721,6 +804,8 @@ namespace Cortex_backend.Migrations
 
                     b.Navigation("MetasTarefas");
 
+                    b.Navigation("Notificacoes");
+
                     b.Navigation("ResponsaveisTarefas");
 
                     b.Navigation("Respostas");
@@ -737,6 +822,8 @@ namespace Cortex_backend.Migrations
                     b.Navigation("FotoPerfil");
 
                     b.Navigation("Metas");
+
+                    b.Navigation("Notificacoes");
 
                     b.Navigation("PreferenciasNotificacao");
 

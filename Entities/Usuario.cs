@@ -21,5 +21,6 @@ namespace Cortex.Entities
         public ICollection<Sugestao> Sugestoes { get; set; } = new List<Sugestao>();
         public ICollection<Meta> Metas { get; set; } = new List<Meta>();
         public ICollection<PreferenciaNotificacao> PreferenciasNotificacao { get; set; } = new List<PreferenciaNotificacao>();
+        public ICollection<Notificacao> Notificacoes { get; set; } = new List<Notificacao>();
     }
 }

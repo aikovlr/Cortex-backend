@@ -13,6 +13,7 @@ namespace Cortex.Services.Implementations
         private readonly ITarefaRepository _tarefaRepository;
         private readonly IUsuarioRepository _usuarioRepository;
         private readonly IEquipeAuthorizationService _authService;
+        private readonly INotificacaoService _notificacaoService;
         private readonly ILogger<SugestaoService> _logger;
 
         public SugestaoService(
@@ -20,12 +21,14 @@ namespace Cortex.Services.Implementations
             ITarefaRepository tarefaRepository,
             IUsuarioRepository usuarioRepository,
             IEquipeAuthorizationService authService,
+            INotificacaoService notificacaoService,
             ILogger<SugestaoService> logger)
         {
             _sugestaoRepository = sugestaoRepository;
             _tarefaRepository = tarefaRepository;
             _usuarioRepository = usuarioRepository;
             _authService = authService;
+            _notificacaoService = notificacaoService;
             _logger = logger;
         }
 
@@ -56,6 +59,25 @@ namespace Cortex.Services.Implementations
             };
 
             await _sugestaoRepository.AdicionarSugestaoAsync(sugestao);
+
+            if (tarefa.CriadorId > 0)
+            {
+                try
+                {
+                    await _notificacaoService.CriarNotificacaoAsync(
+                        tarefa.CriadorId,
+                        "sugestao",
+                        "Nova Sugestão de Alteração",
+                        $"Sugestão de alteração enviada na tarefa \"{tarefa.Titulo}\": {dto.Descricao}",
+                        $"/tarefas-atribuidas/{tarefa.Id}?tab=sugestoes",
+                        destaque: false,
+                        tarefaId: tarefa.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao criar notificação de sugestão para criador {CriadorId}", tarefa.CriadorId);
+                }
+            }
 
             _logger.LogInformation("Nova sugestão criada: SugestaoId {SugestaoId}, TarefaId {TarefaId}, UsuarioId {UsuarioId}",
                 sugestao.Id, dto.TarefaId, solicitanteId);
