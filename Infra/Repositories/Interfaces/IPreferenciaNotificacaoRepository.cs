@@ -8,5 +8,6 @@ namespace Cortex.Repositories.Interface
         Task<List<PreferenciaNotificacao>> ObterPorUsuarioAsync(int usuarioId);
         Task<PreferenciaNotificacao> AdicionarAsync(PreferenciaNotificacao preferencia);
         Task<PreferenciaNotificacao> AtualizarAsync(PreferenciaNotificacao preferencia);
+        Task AtualizarAcessibilidadeUsuarioAsync(int usuarioId, string? tema, bool? altoContraste, int? tamanhoFonte);
     }
 }

@@ -10,5 +10,8 @@ namespace Cortex.DTOs.Request
         public bool AtivoVencimento { get; set; } = true;
         public bool AtivoConclusaoMeta { get; set; } = true;
         public bool AtivoTicket { get; set; } = true;
+        public string? Tema { get; set; }
+        public bool? AltoContraste { get; set; }
+        public int? TamanhoFonte { get; set; }
     }
 }

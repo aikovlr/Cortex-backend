@@ -78,7 +78,7 @@ namespace Cortex.Tests.Unit.Services
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 _notificacaoService.ConfigurarPreferenciasAsync(usuario.Id, dto));
 
-            Assert.Contains("RN13", ex.Message);
+            Assert.Contains("verificado", ex.Message);
         }
 
         [Fact]

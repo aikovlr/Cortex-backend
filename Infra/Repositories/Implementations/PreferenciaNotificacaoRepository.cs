@@ -36,5 +36,44 @@ namespace Cortex.Repositories.Implementations
             await _context.SaveChangesAsync();
             return preferencia;
         }
+
+        public async Task AtualizarAcessibilidadeUsuarioAsync(int usuarioId, string? tema, bool? altoContraste, int? tamanhoFonte)
+        {
+            var preferencias = await _context.PreferenciasNotificacao
+                .Where(p => p.UsuarioId == usuarioId)
+                .ToListAsync();
+
+            if (preferencias.Count == 0)
+            {
+                var canais = Enum.GetValues<CanalNotificacao>();
+                foreach (var canal in canais)
+                {
+                    _context.PreferenciasNotificacao.Add(new PreferenciaNotificacao
+                    {
+                        UsuarioId = usuarioId,
+                        Canal = canal,
+                        AntecedenciaHoras = 24,
+                        AtivoNovaAtribuicao = true,
+                        AtivoVencimento = true,
+                        AtivoConclusaoMeta = true,
+                        AtivoTicket = true,
+                        Tema = tema ?? "light",
+                        AltoContraste = altoContraste ?? false,
+                        TamanhoFonte = tamanhoFonte ?? 16
+                    });
+                }
+            }
+            else
+            {
+                foreach (var pref in preferencias)
+                {
+                    if (tema != null) pref.Tema = tema;
+                    if (altoContraste.HasValue) pref.AltoContraste = altoContraste.Value;
+                    if (tamanhoFonte.HasValue) pref.TamanhoFonte = tamanhoFonte.Value;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+        }
     }
 }

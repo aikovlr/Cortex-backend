@@ -16,7 +16,7 @@ Documentação técnica de todos os endpoints REST da API **Cortex Backend**, co
 9. [Tickets de Reporte (`/api/tickets`)](#7-tickets-de-reporte-apitickets)
 10. [Respostas de Tarefas (`/api/respostas`)](#8-respostas-de-tarefas-apirespostas)
 11. [Anexos (`/api/anexos`)](#9-anexos-apianexos)
-12. [Preferências de Notificação (`/api/notificacoes/preferencias`)](#10-preferências-de-notificação-apinotificacoespreferencias)
+12. [Notificações & Preferências (`/api/notificacoes`)](#10-notificações--preferências-apinotificacoes)
 13. [Relatórios (`/api/relatorios`)](#11-relatórios-apirelatorios)
 
 ---
@@ -77,6 +77,14 @@ Podem ser informados como inteiros ou seus nomes como strings:
   - `0` ou `"Tarefa"`
   - `1` ou `"ResponsavelTarefa"`
   - `2` ou `"Usuario"`
+
+- **TipoNotificacao** (Central de Notificações):
+  - `"tarefa"`: Nova atribuição de tarefa
+  - `"tarefa_vencida"`: Tarefa com prazo expirado (destaque vermelho)
+  - `"tarefa_urgente"`: Atribuição ou alerta de tarefa com prioridade urgente (destaque azul)
+  - `"sugestao"`: Nova sugestão de alteração enviada pelo executor (ícone de lâmpada)
+  - `"ticket_criador"`: Abertura de ticket de reporte notificando o criador
+  - `"resposta_ticket"`: Resposta ou encerramento de ticket pelo criador/responsável
 
 ---
 
@@ -232,18 +240,24 @@ Podem ser informados como inteiros ou seus nomes como strings:
 - **Campos Form-Data (`AtualizarUsuarioDTO`)**
 - **Retorno (`200 OK - ConsultaUsuarioDTO`)**
 
-### 2.7 Excluir Própria Conta
+### 2.7 Remover Foto de Perfil Autenticado (`/me/foto`)
+- **Método / Rota**: `DELETE /api/usuario/me/foto`
+- **Autenticação**: Bearer Token Obrigatório
+- **Descrição**: Desvincula e remove fisicamente a foto de perfil do usuário autenticado no servidor de arquivos.
+- **Retorno**: `204 No Content`
+
+### 2.8 Excluir Própria Conta
 - **Método / Rota**: `DELETE /api/usuario/minha-conta`
 - **Autenticação**: Bearer Token Obrigatório
 - **Regra**: Não permite exclusão se houver tarefas `Pendentes` atribuídas ao usuário.
 - **Retorno**: `204 No Content`
 
-### 2.8 Excluir Usuário por ID
+### 2.9 Excluir Usuário por ID
 - **Método / Rota**: `DELETE /api/usuario/{id}`
 - **Autenticação**: Bearer Token Obrigatório (Próprio usuário ou Dono/Admin de equipe compartilhada)
 - **Retorno**: `204 No Content`
 
-### 2.9 Solicitar Verificação de E-mail (Autenticado)
+### 2.10 Solicitar Verificação de E-mail (Autenticado)
 - **Método / Rota**: `POST /api/usuario/solicitar-verificacao-email`
 - **Autenticação**: Bearer Token Obrigatório
 - **Retorno (`200 OK`)**:
@@ -253,7 +267,7 @@ Podem ser informados como inteiros ou seus nomes como strings:
 }
 ```
 
-### 2.10 Confirmar Verificação de E-mail (Autenticado)
+### 2.11 Confirmar Verificação de E-mail (Autenticado)
 - **Método / Rota**: `POST /api/usuario/verificar-email`
 - **Autenticação**: Bearer Token Obrigatório
 - **Content-Type**: `application/json`
@@ -293,6 +307,7 @@ Podem ser informados como inteiros ou seus nomes como strings:
   "titulo": "Implementar endpoints da API",
   "descricao": "Criar documentação e testes",
   "dataVencimento": "2026-11-01T18:00:00Z",
+  "dataCriacao": "2026-10-25T16:00:00Z",
   "pontuacao": 100,
   "status": "Pendente",
   "prioridade": "Alta",
@@ -323,6 +338,7 @@ Podem ser informados como inteiros ou seus nomes como strings:
     "titulo": "Implementar endpoints da API",
     "descricao": "Criar documentação e testes",
     "dataVencimento": "2026-11-01T18:00:00Z",
+    "dataCriacao": "2026-10-25T16:00:00Z",
     "pontuacao": 100,
     "status": "Pendente",
     "prioridade": "Alta",
@@ -359,7 +375,13 @@ Podem ser informados como inteiros ou seus nomes como strings:
 - **Autenticação**: Bearer Token Obrigatório
 - **Retorno (`200 OK - DetalhesTarefaDTO`)**
 
-### 3.7 Atribuir Responsável Individual
+### 3.7 Cancelar Conclusão da Tarefa
+- **Método / Rota**: `PATCH /api/tarefa/{id}/cancelar-conclusao`
+- **Autenticação**: Bearer Token Obrigatório (Criador, Responsável ou Dono/Admin da equipe)
+- **Descrição**: Reverte o status de uma tarefa previamente marcada como concluída. Caso a data atual seja posterior à data de vencimento da tarefa, o status é recalculado para `Atrasada`; caso contrário, reverte para `Pendente`.
+- **Retorno (`200 OK - DetalhesTarefaDTO`)**
+
+### 3.8 Atribuir Responsável Individual
 - **Método / Rota**: `POST /api/tarefa/{id}/responsaveis`
 - **Autenticação**: Bearer Token Obrigatório
 - **Content-Type**: `application/json`
@@ -383,7 +405,7 @@ Podem ser informados como inteiros ou seus nomes como strings:
 }
 ```
 
-### 3.8 Atribuir Equipe Inteira à Tarefa
+### 3.9 Atribuir Equipe Inteira à Tarefa
 - **Método / Rota**: `POST /api/tarefa/{id}/responsaveis/equipe`
 - **Autenticação**: Bearer Token Obrigatório
 - **Content-Type**: `application/json`
@@ -395,12 +417,12 @@ Podem ser informados como inteiros ou seus nomes como strings:
 ```
 - **Retorno (`200 OK - List<ConsultaResponsavelTarefaDTO>`)**
 
-### 3.9 Remover Responsável da Tarefa
+### 3.10 Remover Responsável da Tarefa
 - **Método / Rota**: `DELETE /api/tarefa/{id}/responsaveis/{respId}`
 - **Autenticação**: Bearer Token Obrigatório
 - **Retorno**: `204 No Content`
 
-### 3.10 Listar Responsáveis da Tarefa
+### 3.11 Listar Responsáveis da Tarefa
 - **Método / Rota**: `GET /api/tarefa/{id}/responsaveis`
 - **Autenticação**: Bearer Token Obrigatório
 - **Retorno (`200 OK - List<ConsultaResponsavelTarefaDTO>`)**
@@ -428,7 +450,8 @@ Podem ser informados como inteiros ou seus nomes como strings:
   "membros": [
     {
       "id": 1,
-      "usuarioId": 1,
+      "nota": 95,
+  "usuarioId": 1,
       "equipeId": 1,
       "cargo": "Dono",
       "dataEntrada": "2026-10-25T15:00:00Z"
@@ -537,6 +560,7 @@ Podem ser informados como inteiros ou seus nomes como strings:
   "dataFechamento": "2026-12-31T23:59:59Z",
   "concluida": false,
   "tarefaId": 1,
+  "nota": 95,
   "usuarioId": 1,
   "tarefa": { "id": 1, "titulo": "Implementar endpoints da API" },
   "usuario": { "id": 1, "nome": "João Silva" }
@@ -695,6 +719,7 @@ Podem ser informados como inteiros ou seus nomes como strings:
 {
   "id": 1,
   "dataResposta": "2026-10-25T16:20:00Z",
+  "nota": 95,
   "usuarioId": 1,
   "tarefaId": 1,
   "usuario": { "id": 1, "nome": "João Silva" },
@@ -716,7 +741,31 @@ Podem ser informados como inteiros ou seus nomes como strings:
 - **Autenticação**: Bearer Token Obrigatório
 - **Retorno (`200 OK - List<ConsultaRespostaTarefaDTO>`)**
 
-### 8.3 Deletar Resposta
+### 8.3 Atribuir Nota à Resposta
+- **Método / Rota**: `PATCH /api/respostas/{id}/nota`
+- **Autenticação**: Bearer Token Obrigatório (Criador da tarefa ou Dono/Admin da equipe)
+- **Content-Type**: `application/json`
+- **Regras de Negócio**: A nota deve ser maior ou igual a 0 e menor ou igual à pontuação estipulada para a tarefa (se a tarefa não possuir pontuação definida, o limite padrão é 100).
+- **Corpo da Requisição (`AtribuirNotaRespostaDTO`)**:
+```json
+{
+  "nota": 90
+}
+```
+- **Retorno (`200 OK - ConsultaRespostaTarefaDTO`)**:
+```json
+{
+  "id": 1,
+  "dataResposta": "2026-10-25T16:20:00Z",
+  "nota": 90,
+  "usuarioId": 2,
+  "tarefaId": 1,
+  "usuario": { "id": 2, "nome": "Maria Souza" },
+  "anexos": []
+}
+```
+
+### 8.4 Deletar Resposta
 - **Método / Rota**: `DELETE /api/respostas/{id}`
 - **Autenticação**: Bearer Token Obrigatório (Autor da resposta ou Dono/Admin)
 - **Retorno**: `204 No Content`
@@ -771,9 +820,66 @@ Podem ser informados como inteiros ou seus nomes como strings:
 
 ---
 
-## 10. Preferências de Notificação (`/api/notificacoes/preferencias`)
+## 10. Notificações & Preferências (`/api/notificacoes`)
 
-### 10.1 Obter Preferências do Usuário Autenticado
+Central de notificações in-app persistidas no PostgreSQL e gerenciamento de preferências multi-canal (Email, Push, SMS).
+
+### 10.1 Listar Notificações do Usuário Autenticado
+- **Método / Rota**: `GET /api/notificacoes`
+- **Autenticação**: Bearer Token Obrigatório
+- **Descrição**: Retorna o histórico de notificações recebidas pelo usuário logado, ordenadas da mais recente para a mais antiga. Notificações incluem alertas de atribuição de tarefas, tarefas vencidas (destaque), tarefas com prioridade urgente (destaque), sugestões de alteração e tickets de reporte.
+- **Retorno (`200 OK - List<NotificacaoDTO>`)**:
+```json
+[
+  {
+    "id": 10,
+    "usuarioId": 2,
+    "tipo": "tarefa_vencida",
+    "titulo": "Tarefa Vencida!",
+    "mensagem": "A tarefa 'Elaborar Relatório Trimestral' ultrapassou o prazo de vencimento.",
+    "link": "/minhas-tarefas/5",
+    "lida": false,
+    "destaque": true,
+    "tarefaId": 5,
+    "dataCriacao": "2026-10-29T08:00:00Z"
+  },
+  {
+    "id": 9,
+    "usuarioId": 2,
+    "tipo": "sugestao",
+    "titulo": "Nova sugestão de alteração",
+    "mensagem": "Você recebeu uma nova sugestão na tarefa 'Configurar Servidor'.",
+    "link": "/tarefas-atribuidas/3",
+    "lida": true,
+    "destaque": false,
+    "tarefaId": 3,
+    "dataCriacao": "2026-10-29T07:30:00Z"
+  }
+]
+```
+
+### 10.2 Marcar Notificação Individual como Lida
+- **Método / Rota**: `PUT /api/notificacoes/{id}/lida`
+- **Autenticação**: Bearer Token Obrigatório
+- **Retorno**: `204 No Content`
+
+### 10.3 Marcar Todas as Notificações como Lidas
+- **Método / Rota**: `PUT /api/notificacoes/marcar-todas-lidas`
+- **Autenticação**: Bearer Token Obrigatório
+- **Retorno**: `204 No Content`
+
+### 10.4 Excluir Notificação Específica
+- **Método / Rota**: `DELETE /api/notificacoes/{id}`
+- **Autenticação**: Bearer Token Obrigatório
+- **Retorno**: `204 No Content`
+
+### 10.5 Limpar Histórico de Notificações
+- **Método / Rota**: `DELETE /api/notificacoes`
+- **Autenticação**: Bearer Token Obrigatório
+- **Descrição**: Remove permanentemente todas as notificações associadas ao usuário autenticado.
+- **Retorno**: `204 No Content`
+
+### 10.6 Obter Preferências do Usuário Autenticado
 - **Método / Rota**: `GET /api/notificacoes/preferencias`
 - **Autenticação**: Bearer Token Obrigatório
 - **Retorno (`200 OK - List<PreferenciaNotificacaoDTO>`)**:
@@ -787,12 +893,15 @@ Podem ser informados como inteiros ou seus nomes como strings:
     "ativoNovaAtribuicao": true,
     "ativoVencimento": true,
     "ativoConclusaoMeta": true,
-    "ativoTicket": true
+    "ativoTicket": true,
+    "tema": "light",
+    "altoContraste": false,
+    "tamanhoFonte": 16
   }
 ]
 ```
 
-### 10.2 Configurar Preferência de Notificação por Canal
+### 10.7 Configurar Preferência de Notificação por Canal
 - **Método / Rota**: `PUT /api/notificacoes/preferencias`
 - **Autenticação**: Bearer Token Obrigatório
 - **Content-Type**: `application/json`
@@ -805,10 +914,53 @@ Podem ser informados como inteiros ou seus nomes como strings:
   "ativoNovaAtribuicao": true,
   "ativoVencimento": true,
   "ativoConclusaoMeta": false,
-  "ativoTicket": true
+  "ativoTicket": true,
+  "tema": "light",
+  "altoContraste": false,
+  "tamanhoFonte": 16
 }
 ```
 - **Retorno (`200 OK - PreferenciaNotificacaoDTO`)**
+
+### 10.8 Obter Preferências de Acessibilidade (Sincronização entre Dispositivos)
+- **Método / Rota**: `GET /api/preferencias/acessibilidade`
+- **Rota Alternativa**: `GET /api/usuario/me/preferencias/acessibilidade`
+- **Autenticação**: Bearer Token Obrigatório
+- **Descrição**: Obtém as preferências visuais sincronizadas no banco de dados para renderização fiel em qualquer dispositivo ou navegador.
+- **Retorno (`200 OK - PreferenciaAcessibilidadeDTO`)**:
+```json
+{
+  "tema": "light",
+  "altoContraste": false,
+  "tamanhoFonte": 16
+}
+```
+
+### 10.9 Atualizar Preferências de Acessibilidade
+- **Método / Rota**: `PUT /api/preferencias/acessibilidade`
+- **Rota Alternativa**: `PUT /api/usuario/me/preferencias/acessibilidade`
+- **Autenticação**: Bearer Token Obrigatório
+- **Content-Type**: `application/json`
+- **Regras de Negócio**:
+  - `tema`: Opcional (`"light"` ou `"dark"`).
+  - `altoContraste`: Opcional (`true` ou `false`).
+  - `tamanhoFonte`: Opcional. Deve situar-se estritamente no intervalo de **12px a 24px** e ser **obrigatoriamente um número par** (`12`, `14`, `16`, `18`, `20`, `22` ou `24`).
+- **Corpo da Requisição (`AtualizarPreferenciaAcessibilidadeDTO`)**:
+```json
+{
+  "tema": "dark",
+  "altoContraste": true,
+  "tamanhoFonte": 18
+}
+```
+- **Retorno (`200 OK - PreferenciaAcessibilidadeDTO`)**:
+```json
+{
+  "tema": "dark",
+  "altoContraste": true,
+  "tamanhoFonte": 18
+}
+```
 
 ---
 
@@ -816,14 +968,15 @@ Podem ser informados como inteiros ou seus nomes como strings:
 
 ### 11.1 Gerar Relatório de Tarefas
 - **Método / Rota**: `GET /api/relatorios/tarefas`
-- **Autenticação**: Bearer Token Obrigatório (Usuários com cargo `Membro` visualizam somente suas próprias tarefas)
+- **Autenticação**: Bearer Token Obrigatório (Usuários com cargo `Membro` visualizam somente suas próprias tarefas; `Dono` e `Admin` visualizam tarefas de suas equipes)
 - **Query Params (`FiltroRelatorioDTO`)**:
   - `status` (`Pendente`, `Atrasada`, `Concluida`)
   - `prioridade` (`Baixa`, `Media`, `Alta`, `Urgente`)
-  - `equipeId` (int)
-  - `responsavelId` (int)
-  - `dataInicio` (DateTime UTC)
-  - `dataFim` (DateTime UTC)
+  - `equipeId` (int, opcional)
+  - `responsavelId` (int, opcional - filtragem independente por executor)
+  - `criadorId` (int, opcional - filtragem independente por solicitante)
+  - `dataInicio` (DateTime UTC, opcional)
+  - `dataFim` (DateTime UTC, opcional)
 - **Retorno (`200 OK - RelatorioTarefasDTO`)**:
 ```json
 {
@@ -850,6 +1003,7 @@ Podem ser informados como inteiros ou seus nomes como strings:
       "id": 1,
       "titulo": "Implementar endpoints da API",
       "dataVencimento": "2026-11-01T18:00:00Z",
+      "dataCriacao": "2026-10-25T14:00:00Z",
       "status": "Pendente",
       "prioridade": "Alta"
     }
@@ -861,7 +1015,7 @@ Podem ser informados como inteiros ou seus nomes como strings:
 - **Método / Rota**: `GET /api/relatorios/equipes/{id}`
 - **Autenticação**: Bearer Token Obrigatório (Apenas `Dono` ou `Admin` da equipe)
 - **Query Params (`FiltroRelatorioDTO`)**:
-  - `status`, `prioridade`, `responsavelId`, `dataInicio`, `dataFim`
+  - `status`, `prioridade`, `responsavelId`, `responsaveisIds`, `dataInicio`, `dataFim`
 - **Retorno (`200 OK - RelatorioEquipeDTO`)**:
 ```json
 {

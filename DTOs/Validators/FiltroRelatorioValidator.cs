@@ -37,6 +37,18 @@ namespace Cortex.DTOs.Validators
                 RuleFor(x => x.ResponsavelId!.Value)
                     .GreaterThan(0).WithMessage("O identificador do responsável no filtro deve ser válido.");
             });
+
+            When(x => x.ResponsaveisIds != null && x.ResponsaveisIds.Any(), () =>
+            {
+                RuleForEach(x => x.ResponsaveisIds!)
+                    .GreaterThan(0).WithMessage("Os identificadores dos responsáveis no filtro devem ser válidos.");
+            });
+
+            When(x => x.ResponsavelIds != null && x.ResponsavelIds.Any(), () =>
+            {
+                RuleForEach(x => x.ResponsavelIds!)
+                    .GreaterThan(0).WithMessage("Os identificadores dos responsáveis no filtro devem ser válidos.");
+            });
         }
     }
 }

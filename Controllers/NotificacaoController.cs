@@ -43,6 +43,24 @@ namespace Cortex.Controllers
             return Ok(preferenciaAtualizada);
         }
 
+        [HttpGet("api/preferencias/acessibilidade")]
+        [HttpGet("api/usuario/me/preferencias/acessibilidade")]
+        public async Task<IActionResult> ObterPreferenciasAcessibilidade()
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var acessibilidade = await _notificacaoService.ObterPreferenciaAcessibilidadeAsync(currentUserId);
+            return Ok(acessibilidade);
+        }
+
+        [HttpPut("api/preferencias/acessibilidade")]
+        [HttpPut("api/usuario/me/preferencias/acessibilidade")]
+        public async Task<IActionResult> AtualizarPreferenciasAcessibilidade([FromBody] AtualizarPreferenciaAcessibilidadeDTO dto)
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var acessibilidadeAtualizada = await _notificacaoService.AtualizarPreferenciaAcessibilidadeAsync(currentUserId, dto);
+            return Ok(acessibilidadeAtualizada);
+        }
+
         [HttpGet("api/notificacoes")]
         public async Task<IActionResult> ObterNotificacoes()
         {

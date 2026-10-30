@@ -93,5 +93,71 @@ namespace Cortex.Tests.Unit.Services
             await Assert.ThrowsAsync<ForbiddenException>(() =>
                 _service.GerarRelatorioEquipeAsync(equipeId, new FiltroRelatorioDTO(), solicitanteId));
         }
+
+        [Fact]
+        public async Task GerarRelatorioEquipe_ComFiltroResponsaveis_RetornaApenasMembrosFiltrados()
+        {
+            // Arrange
+            var equipeId = 5;
+            var solicitanteId = 1;
+            var usuario1 = new Usuario { Id = 1, Nome = "Admin", Email = "admin@test.com", SenhaHash = "h" };
+            var usuario2 = new Usuario { Id = 2, Nome = "Membro 2", Email = "m2@test.com", SenhaHash = "h" };
+            var usuario3 = new Usuario { Id = 3, Nome = "Membro 3", Email = "m3@test.com", SenhaHash = "h" };
+
+            var equipe = new Equipe
+            {
+                Id = equipeId,
+                Nome = "Dev Team",
+                DataCriacao = DateTime.UtcNow,
+                Membros = new List<MembroEquipe>
+                {
+                    new() { EquipeId = equipeId, UsuarioId = 1, Usuario = usuario1, Cargo = Cargo.Dono },
+                    new() { EquipeId = equipeId, UsuarioId = 2, Usuario = usuario2, Cargo = Cargo.Membro },
+                    new() { EquipeId = equipeId, UsuarioId = 3, Usuario = usuario3, Cargo = Cargo.Membro }
+                }
+            };
+
+            _equipeRepoMock.Setup(r => r.ObterEquipePorIdAsync(equipeId))
+                .ReturnsAsync(equipe);
+            _authServiceMock.Setup(a => a.ExigirAdminOuDonoDaEquipeAsync(solicitanteId, equipeId))
+                .Returns(Task.CompletedTask);
+
+            var tarefas = new List<Tarefa>
+            {
+                new()
+                {
+                    Id = 10,
+                    Titulo = "T10",
+                    Status = Status.Concluida,
+                    Prioridade = Prioridade.Alta,
+                    DataVencimento = DateTime.UtcNow,
+                    CriadorId = 1,
+                    Criador = usuario1,
+                    ResponsaveisTarefas = new List<ResponsavelTarefa>
+                    {
+                        new() { TarefaId = 10, UsuarioId = 2, Usuario = usuario2 }
+                    }
+                }
+            };
+
+            var filtro = new FiltroRelatorioDTO
+            {
+                ResponsaveisIds = new List<int> { 2 }
+            };
+
+            _relatorioRepoMock.Setup(r => r.ObterTarefasDaEquipeAsync(equipeId, filtro))
+                .ReturnsAsync(tarefas);
+
+            // Act
+            var relatorio = await _service.GerarRelatorioEquipeAsync(equipeId, filtro, solicitanteId);
+
+            // Assert
+            Assert.NotNull(relatorio);
+            Assert.Single(relatorio.DesempenhoMembros);
+            Assert.Equal(2, relatorio.DesempenhoMembros[0].UsuarioId);
+            Assert.Equal("Membro 2", relatorio.DesempenhoMembros[0].Nome);
+            Assert.Equal(1, relatorio.DesempenhoMembros[0].Concluidas);
+            Assert.Equal(1, relatorio.TotalMembros);
+        }
     }
 }

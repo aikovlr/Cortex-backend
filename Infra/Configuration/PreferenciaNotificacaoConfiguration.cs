@@ -35,6 +35,19 @@ namespace Cortex.Infra.Persistence.Configuration
                 .HasDefaultValue(true)
                 .IsRequired();
 
+            builder.Property(p => p.Tema)
+                .HasMaxLength(20)
+                .HasDefaultValue("light")
+                .IsRequired();
+
+            builder.Property(p => p.AltoContraste)
+                .HasDefaultValue(false)
+                .IsRequired();
+
+            builder.Property(p => p.TamanhoFonte)
+                .HasDefaultValue(16)
+                .IsRequired();
+
             builder.HasOne(p => p.Usuario)
                 .WithMany(u => u.PreferenciasNotificacao)
                 .HasForeignKey(p => p.UsuarioId)

@@ -136,8 +136,15 @@ namespace Cortex.Services.Implementations
             };
 
             // Desempenho individual por membro
+            var responsaveisIds = filtro.ObterIdsResponsaveis();
+            var membros = equipe.Membros.AsEnumerable();
+            if (responsaveisIds.Count > 0)
+            {
+                membros = membros.Where(m => responsaveisIds.Contains(m.UsuarioId));
+            }
+
             var desempenhoMembros = new List<DesempenhoMembroDTO>();
-            foreach (var membro in equipe.Membros)
+            foreach (var membro in membros)
             {
                 var tarefasMembro = tarefasEquipe
                     .Where(t => t.ResponsaveisTarefas.Any(rt => rt.UsuarioId == membro.UsuarioId))
@@ -170,7 +177,7 @@ namespace Cortex.Services.Implementations
             {
                 EquipeId = equipe.Id,
                 EquipeNome = equipe.Nome,
-                TotalMembros = equipe.Membros.Count,
+                TotalMembros = responsaveisIds.Count > 0 ? desempenhoMembros.Count : equipe.Membros.Count,
                 MetricasGerais = relatorioGeral,
                 DesempenhoMembros = desempenhoMembros
             };
