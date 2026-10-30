@@ -25,14 +25,15 @@ namespace Cortex.Repositories.Implementations
                 .Include(t => t.ResponsaveisTarefas)
                 .AsQueryable();
 
+            var responsaveisIds = filtro.ObterIdsResponsaveis();
             if (filtro.CriadorId.HasValue)
             {
                 query = query.Where(t => t.CriadorId == filtro.CriadorId.Value);
             }
 
-            if (filtro.ResponsavelId.HasValue)
+            if (responsaveisIds.Count > 0)
             {
-                query = query.Where(t => t.ResponsaveisTarefas.Any(rt => rt.UsuarioId == filtro.ResponsavelId.Value));
+                query = query.Where(t => t.ResponsaveisTarefas.Any(rt => responsaveisIds.Contains(rt.UsuarioId)));
             }
             else if (filtro.EquipeId.HasValue)
             {
@@ -91,8 +92,9 @@ namespace Cortex.Repositories.Implementations
                 .Include(t => t.ResponsaveisTarefas)
                 .Where(t => t.ResponsaveisTarefas.Any(rt => membroIds.Contains(rt.UsuarioId)));
 
-            if (filtro.ResponsavelId.HasValue)
-                query = query.Where(t => t.ResponsaveisTarefas.Any(rt => rt.UsuarioId == filtro.ResponsavelId.Value));
+            var responsaveisIds = filtro.ObterIdsResponsaveis();
+            if (responsaveisIds.Count > 0)
+                query = query.Where(t => t.ResponsaveisTarefas.Any(rt => responsaveisIds.Contains(rt.UsuarioId)));
 
             if (filtro.Status.HasValue)
                 query = query.Where(t => t.Status == filtro.Status.Value);

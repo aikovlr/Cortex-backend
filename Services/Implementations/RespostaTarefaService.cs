@@ -14,6 +14,7 @@ namespace Cortex.Services.Implementations
         private readonly IUsuarioRepository _usuarioRepository;
         private readonly IAnexoRepository _anexoRepository;
         private readonly IWebHostEnvironment _environment;
+        private readonly INotificacaoService? _notificacaoService;
         private readonly ILogger<RespostaTarefaService> _logger;
 
         public RespostaTarefaService(
@@ -22,7 +23,8 @@ namespace Cortex.Services.Implementations
             IUsuarioRepository usuarioRepository,
             IAnexoRepository anexoRepository,
             IWebHostEnvironment environment,
-            ILogger<RespostaTarefaService> logger)
+            ILogger<RespostaTarefaService> logger,
+            INotificacaoService? notificacaoService = null)
         {
             _respostaRepository = respostaRepository;
             _tarefaRepository = tarefaRepository;
@@ -30,6 +32,7 @@ namespace Cortex.Services.Implementations
             _anexoRepository = anexoRepository;
             _environment = environment;
             _logger = logger;
+            _notificacaoService = notificacaoService;
         }
 
         public async Task<ConsultaRespostaTarefaDTO> CriarRespostaAsync(CriarRespostaTarefaDTO dto, int solicitanteId)
@@ -153,6 +156,26 @@ namespace Cortex.Services.Implementations
 
             _logger.LogInformation("Nota {Nota} atribuída à RespostaId {RespostaId} (TarefaId {TarefaId}) por UsuarioId {UsuarioId}",
                 nota, respostaId, tarefa.Id, solicitanteId);
+
+            if (_notificacaoService != null && resposta.UsuarioId > 0 && resposta.UsuarioId != solicitanteId)
+            {
+                try
+                {
+                    var maxPontos = tarefa.Pontuacao.HasValue ? $" de {tarefa.Pontuacao.Value}" : "";
+                    await _notificacaoService.CriarNotificacaoAsync(
+                        resposta.UsuarioId,
+                        "tarefa",
+                        "Avaliação de Resposta Recebida",
+                        $"Sua resposta na tarefa \"{tarefa.Titulo}\" foi avaliada com a nota {nota}{maxPontos}.",
+                        $"/minhas-tarefas/{tarefa.Id}?tab=respostas",
+                        false,
+                        tarefa.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao criar notificação de avaliação para usuario {UsuarioId}", resposta.UsuarioId);
+                }
+            }
 
             var respostaAtualizada = await _respostaRepository.ObterRespostaTarefaPorIdAsync(respostaId);
             return MapToConsultaDTO(respostaAtualizada ?? resposta);

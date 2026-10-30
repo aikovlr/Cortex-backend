@@ -117,6 +117,7 @@ classDiagram
         +int Pontuacao
         +Status Status
         +Prioridade Prioridade
+        +DateTime DataCriacao
         +int CriadorId
     }
 
@@ -129,6 +130,7 @@ classDiagram
     class RespostaTarefa {
         +int Id
         +DateTime DataResposta
+        +int? Nota
         +int UsuarioId
         +int TarefaId
     }
@@ -180,6 +182,32 @@ classDiagram
         +int RespostaTarefaId
     }
 
+    class Notificacao {
+        +int Id
+        +int UsuarioId
+        +string Tipo
+        +string Titulo
+        +string Mensagem
+        +string Link
+        +bool Lida
+        +bool Destaque
+        +int? TarefaId
+        +DateTime DataCriacao
+    }
+
+    class Notificacao {
+        +int Id
+        +int UsuarioId
+        +string Tipo
+        +string Titulo
+        +string Mensagem
+        +string Link
+        +bool Lida
+        +bool Destaque
+        +int? TarefaId
+        +DateTime DataCriacao
+    }
+
     class PreferenciaNotificacao {
         +int Id
         +int UsuarioId
@@ -189,6 +217,9 @@ classDiagram
         +bool AtivoVencimento
         +bool AtivoConclusaoMeta
         +bool AtivoTicket
+        +string Tema
+        +bool AltoContraste
+        +int TamanhoFonte
     }
 
     class AlertaEnviado {
@@ -227,6 +258,8 @@ classDiagram
     RespostaTarefa "1" --> "*" Anexo : anexos_resposta
 
     %% Relacionamentos de Notificações
+    Usuario "1" --> "*" Notificacao : recebe
+    Tarefa "1" --> "*" Notificacao : vinculada
     Usuario "1" --> "*" PreferenciaNotificacao : configura
     Usuario "1" --> "*" AlertaEnviado : recebe
     Tarefa "1" --> "*" AlertaEnviado : alerta_origem
@@ -304,6 +337,7 @@ package "Núcleo de Tarefas e Colaboração" {
         +int Pontuacao
         +Status Status
         +Prioridade Prioridade
+        +DateTime DataCriacao
         +int CriadorId
     }
 
@@ -316,6 +350,7 @@ package "Núcleo de Tarefas e Colaboração" {
     class RespostaTarefa {
         +int Id
         +DateTime DataResposta
+        +int? Nota
         +int UsuarioId
         +int TarefaId
     }
@@ -390,6 +425,9 @@ package "Notificações, Anexos e Auditoria" {
         +bool AtivoVencimento
         +bool AtivoConclusaoMeta
         +bool AtivoTicket
+        +string Tema
+        +bool AltoContraste
+        +int TamanhoFonte
     }
 
     class AlertaEnviado {
@@ -436,6 +474,8 @@ RespostaTarefa "1" --> "*" Anexo : resposta_anexos
 Anexo --> TipoEntidade : classifica
 
 ' Notificações
+Usuario "1" --> "*" Notificacao : recebe
+Tarefa "1" --> "*" Notificacao : vinculada
 Usuario "1" --> "*" PreferenciaNotificacao : configura
 Usuario "1" --> "*" AlertaEnviado : recebe
 Tarefa "1" --> "*" AlertaEnviado : alerta_origem
@@ -462,6 +502,7 @@ classDiagram
         +int Pontuacao
         +Status Status
         +Prioridade Prioridade
+        +DateTime DataCriacao
         +int CriadorId
     }
 
@@ -474,6 +515,7 @@ classDiagram
     class RespostaTarefa {
         +int Id
         +DateTime DataResposta
+        +int? Nota
         +int UsuarioId
         +int TarefaId
     }
@@ -555,6 +597,9 @@ classDiagram
         +bool AtivoVencimento
         +bool AtivoConclusaoMeta
         +bool AtivoTicket
+        +string Tema
+        +bool AltoContraste
+        +int TamanhoFonte
     }
 
     class AlertaEnviado {
@@ -625,6 +670,8 @@ classDiagram
 | **`MetaTarefa`** | `MetasTarefas` | Tabela associativa N:N entre `Meta` e `Tarefa`. |
 | **`TicketReporte`** | `TicketReporte` | Chamado de impedimento aberto pelo executor da tarefa direcionado a administradores e donos (RF008). |
 | **`Anexo`** | `Anexos` | Armazenamento de metadados e caminhos físicos de arquivos associados a tarefas, respostas ou usuários. |
+| **`RespostaTarefa`** | `RespostaTarefa` | Armazena entregas, respostas e devolutivas dos executores, incluindo avaliação e nota atribuída pelo criador da tarefa e anexos comprobatórios. |
+| **`Notificacao`** | `Notificacao` | Central de notificações in-app persistidas no banco com indicação de tipo, rota para navegação rápida, status de leitura e flags visuais de destaque (vencidas/urgentes). |
 | **`PreferenciaNotificacao`** | `PreferenciasNotificacao` | Configurações personalizadas por canal (Email, Push, SMS) e janela de antecedência entre 1h e 168h (RN11). |
 | **`AlertaEnviado`** | `AlertasEnviados` | Registro de disparos efetuados para evitar notificações duplicadas ou fora da janela válida (RN12). |
 
@@ -1498,6 +1545,153 @@ sequenceDiagram
 
 ---
 
+### 4.5. `sd AtribuirNotaResposta`
+
+Fluxo de atribuição de nota/avaliação à resposta de entrega submetida por um responsável na tarefa. O criador da tarefa ou administradores validam o trabalho e aplicam uma nota numérica entre 0 e a pontuação máxima configurada na tarefa.
+
+#### Renderização Mermaid:
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Criador as <<Actor>> Criador / Admin
+    boundary Controller as <<Boundary>> RespostaTarefaController
+    control Service as <<Control>> RespostaTarefaService
+    entity RespRepo as <<Entity>> IRespostaTarefaRepository
+    entity TarefaRepo as <<Entity>> ITarefaRepository
+    database DB as <<Database>> PostgreSQL
+
+    Criador->>Controller: PATCH /api/respostas/{id}/nota { nota: 95 }
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>Service: AtribuirNotaAsync(respostaId, nota, solicitanteId)
+    activate Service
+
+    Service->>RespRepo: ObterRespostaTarefaPorIdAsync(respostaId)
+    activate RespRepo
+    RespRepo->>DB: SELECT * FROM RespostaTarefa WHERE Id = @id
+    DB-->>RespRepo: registro RespostaTarefa
+    RespRepo-->>Service: resposta
+    deactivate RespRepo
+
+    Service->>TarefaRepo: ObterTarefaPorIdAsync(resposta.TarefaId)
+    activate TarefaRepo
+    TarefaRepo->>DB: SELECT * FROM Tarefa WHERE Id = @tarefaId
+    DB-->>TarefaRepo: registro Tarefa
+    TarefaRepo-->>Service: tarefa
+    deactivate TarefaRepo
+
+    Service->>Service: Validar permissão (ehCriador || ehAdminOuDono)
+    Service->>Service: Validar limite da nota (0 <= nota <= pontuacao)
+
+    Service->>RespRepo: AtualizarRespostaAsync(resposta com nova Nota)
+    activate RespRepo
+    RespRepo->>DB: UPDATE RespostaTarefa SET Nota = @nota WHERE Id = @id
+    DB-->>RespRepo: OK
+    RespRepo-->>Service: atualizado
+    deactivate RespRepo
+
+    Service-->>Controller: ConsultaRespostaTarefaDTO
+    deactivate Service
+    Controller-->>Criador: 200 OK (ConsultaRespostaTarefaDTO)
+    deactivate Controller
+```
+
+---
+
+### 4.6. `sd CancelarConclusaoTarefa`
+
+Fluxo para desfazer/reverter a conclusão de uma tarefa. Caso a tarefa tenha sido marcada como concluída precipitadamente, o criador, responsável ou admin podem reabri-la. O sistema avalia dinamicamente se o prazo expirou: caso a data atual ultrapasse `DataVencimento`, o status torna-se `Atrasada`; caso contrário, reverte para `Pendente`.
+
+#### Renderização Mermaid:
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Usuario as <<Actor>> Colaborador / Criador
+    boundary Controller as <<Boundary>> TarefaController
+    control Service as <<Control>> TarefaService
+    entity Repo as <<Entity>> ITarefaRepository
+    database DB as <<Database>> PostgreSQL
+
+    Usuario->>Controller: PATCH /api/tarefa/{id}/cancelar-conclusao
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>Service: CancelarConclusaoTarefaAsync(id, solicitanteId)
+    activate Service
+
+    Service->>Repo: ObterTarefaPorIdAsync(id)
+    activate Repo
+    Repo->>DB: SELECT * FROM Tarefa WHERE Id = @id
+    DB-->>Repo: registro Tarefa
+    Repo-->>Service: tarefa
+    deactivate Repo
+
+    Service->>Service: Validar permissão (ehCriador || ehResponsavel || ehAdminOuDono)
+    Service->>Service: Recalcular Status: DataVencimento < UtcNow ? Atrasada : Pendente
+
+    Service->>Repo: AtualizarTarefaAsync(tarefa)
+    activate Repo
+    Repo->>DB: UPDATE Tarefa SET Status = @status WHERE Id = @id
+    DB-->>Repo: OK
+    Repo-->>Service: atualizado
+    deactivate Repo
+
+    Service-->>Controller: DetalhesTarefaDTO
+    deactivate Service
+    Controller-->>Usuario: 200 OK (DetalhesTarefaDTO)
+    deactivate Controller
+```
+
+---
+
+### 4.7. `sd GerenciarNotificacoes`
+
+Fluxo completo de interação com a Central de Notificações in-app: consulta do histórico ordenado, marcação de alertas lidos e expurgo do histórico pelo usuário autenticado.
+
+#### Renderização Mermaid:
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Colaborador as <<Actor>> Colaborador
+    boundary Controller as <<Boundary>> NotificacaoController
+    control Service as <<Control>> NotificacaoService
+    entity Repo as <<Entity>> INotificacaoRepository
+    database DB as <<Database>> PostgreSQL
+
+    %% 1. Listar Notificações
+    Colaborador->>Controller: GET /api/notificacoes
+    activate Controller
+    Controller->>Service: ObterNotificacoesUsuarioAsync(usuarioId)
+    activate Service
+    Service->>Repo: ObterPorUsuarioIdAsync(usuarioId)
+    activate Repo
+    Repo->>DB: SELECT * FROM Notificacao WHERE UsuarioId = @uId ORDER BY DataCriacao DESC
+    DB-->>Repo: Lista de Notificacao
+    Repo-->>Service: List<Notificacao>
+    deactivate Repo
+    Service-->>Controller: List<NotificacaoDTO>
+    deactivate Service
+    Controller-->>Colaborador: 200 OK (List<NotificacaoDTO>)
+    deactivate Controller
+
+    %% 2. Marcar como Lida
+    Colaborador->>Controller: PUT /api/notificacoes/{id}/lida
+    activate Controller
+    Controller->>Service: MarcarComoLidaAsync(id, usuarioId)
+    activate Service
+    Service->>Repo: MarcarComoLidaAsync(id, usuarioId)
+    activate Repo
+    Repo->>DB: UPDATE Notificacao SET Lida = true WHERE Id = @id AND UsuarioId = @uId
+    DB-->>Repo: 1 linha afetada
+    Repo-->>Service: true
+    deactivate Repo
+    Service-->>Controller: true
+    deactivate Service
+    Controller-->>Colaborador: 204 No Content
+    deactivate Controller
+```
+
+---
+
 ## 5. Diagrama de Componentes (4.4.7 Diagrama de Componentes)
 
 O diagrama de componentes abaixo segue estritamente a modelagem arquitetural apresentada na especificação do sistema, estruturado em **4 pacotes principais** com o ator **Administrador** interagindo com a camada de apresentação:
@@ -1971,6 +2165,8 @@ erDiagram
     Tarefa ||--o{ Anexo : "TarefaId -> Id [CASCADE]"
     RespostaTarefa ||--o{ Anexo : "RespostaTarefaId -> Id [CASCADE]"
     
+    Usuario ||--o{ Notificacao : "UsuarioId -> Id [CASCADE]"
+    Tarefa ||--o{ Notificacao : "TarefaId -> Id [SET NULL]"
     Usuario ||--o{ PreferenciaNotificacao : "UsuarioId -> Id [CASCADE]"
     Usuario ||--o{ AlertaEnviado : "UsuarioId -> Id [CASCADE]"
     Tarefa ||--o{ AlertaEnviado : "TarefaId -> Id [CASCADE]"
@@ -2070,6 +2266,19 @@ erDiagram
         int RespostaTarefaId FK "NULL"
     }
 
+    Notificacao {
+        int Id PK
+        int UsuarioId FK "NOT NULL"
+        varchar Tipo "NOT NULL (50)"
+        varchar Titulo "NOT NULL (200)"
+        varchar Mensagem "NOT NULL (2000)"
+        varchar Link "NOT NULL (500)"
+        boolean Lida "NOT NULL DEFAULT false"
+        boolean Destaque "NOT NULL DEFAULT false"
+        int TarefaId FK "NULL"
+        timestamptz DataCriacao "NOT NULL DEFAULT CURRENT_TIMESTAMP"
+    }
+
     PreferenciaNotificacao {
         int Id PK
         int UsuarioId FK "NOT NULL"
@@ -2079,6 +2288,9 @@ erDiagram
         boolean AtivoVencimento "NOT NULL DEFAULT true"
         boolean AtivoConclusaoMeta "NOT NULL DEFAULT true"
         boolean AtivoTicket "NOT NULL DEFAULT true"
+        varchar Tema "NOT NULL DEFAULT 'light' (20)"
+        boolean AltoContraste "NOT NULL DEFAULT false"
+        int TamanhoFonte "NOT NULL DEFAULT 16 (12 a 24 pares)"
     }
 
     AlertaEnviado {
@@ -2216,6 +2428,9 @@ entity "PreferenciaNotificacao" as PreferenciaNotificacao {
     * AtivoVencimento : BOOLEAN
     * AtivoConclusaoMeta : BOOLEAN
     * AtivoTicket : BOOLEAN
+    * Tema : VARCHAR(20)
+    * AltoContraste : BOOLEAN
+    * TamanhoFonte : INTEGER
 }
 
 entity "AlertaEnviado" as AlertaEnviado {
@@ -2273,6 +2488,8 @@ Tarefa ||--o{ AlertaEnviado : "TarefaId"
 | `Meta` | `UsuarioId`, `TarefaId` | `Usuario(Id)`, `Tarefa(Id)` | `CASCADE` | Metas vinculadas acompanham a integridade do seu proprietário e tarefa base. |
 | `MetaTarefa` | `MetaId`, `TarefaId` | `Meta(Id)`, `Tarefa(Id)` | `CASCADE` | Vínculos N:N mantidos em sincronia automática. |
 | `Anexo` | `UsuarioId`, `TarefaId`, `RespostaTarefaId` | Tabelas de vínculo | `CASCADE` | Quando a entidade de origem é excluída, os metadados do anexo são deletados (com limpeza do arquivo físico em `wwwroot/uploads`). |
+| `Notificacao` | `UsuarioId` | `Usuario(Id)` | `CASCADE` | Notificações in-app expurgadas caso o usuário encerre sua conta. |
+| `Notificacao` | `TarefaId` | `Tarefa(Id)` | `SET NULL` | A notificação é mantida no histórico mesmo se a tarefa associada for excluída. |
 | `PreferenciaNotificacao` | `UsuarioId` | `Usuario(Id)` | `CASCADE` | Configurações personalizadas vinculadas estritamente ao ciclo de vida da conta. |
 | `AlertaEnviado` | `UsuarioId`, `TarefaId` | `Usuario(Id)`, `Tarefa(Id)` | `CASCADE` | Registro transitório de disparos efetuados. |
 
@@ -2455,6 +2672,9 @@ erDiagram
         boolean AtivoNovaAtribuicao "NOT NULL DEFAULT true"
         boolean AtivoConclusaoMeta "NOT NULL DEFAULT true"
         boolean AtivoTicket "NOT NULL DEFAULT true"
+        string Tema "NOT NULL DEFAULT 'light' (light, dark)"
+        boolean AltoContraste "NOT NULL DEFAULT false"
+        int TamanhoFonte "NOT NULL DEFAULT 16 (12 a 24 pares)"
     }
 
     AlertaEnviado {
@@ -2625,7 +2845,7 @@ Armazena os metadados e os caminhos de persistência física dos arquivos e docu
 ---
 
 ### 10.12. Tabela: `PreferenciaNotificacao`
-Armazena as configurações customizadas de alerta e canais de cada usuário.
+Armazena as configurações customizadas de alerta, canais e opções de acessibilidade de cada usuário com sincronização entre dispositivos. Disponível também pela view `Preferencias`.
 
 | Coluna | Tipo PostgreSQL | Chave | Nulo? | Padrão | Descrição & Regras de Negócio |
 | :--- | :--- | :---: | :---: | :---: | :--- |
@@ -2637,6 +2857,9 @@ Armazena as configurações customizadas de alerta e canais de cada usuário.
 | `AtivoVencimento` | `BOOLEAN` | - | NÃO | `true` | Ativa alerta de proximidade de vencimento. |
 | `AtivoConclusaoMeta` | `BOOLEAN` | - | NÃO | `true` | Ativa alerta ao atingir/concluir uma meta vinculada. |
 | `AtivoTicket` | `BOOLEAN` | - | NÃO | `true` | Ativa alerta ao receber abertura de ticket de reporte. |
+| `Tema` | `VARCHAR(20)` | - | NÃO | `'light'` | Tema da interface sincronizado entre dispositivos (`light` ou `dark`). |
+| `AltoContraste` | `BOOLEAN` | - | NÃO | `false` | Modo de alto contraste para visibilidade e legibilidade. |
+| `TamanhoFonte` | `INTEGER` | - | NÃO | `16` | Tamanho base da fonte em px. Range de 12px a 24px, somente números pares (`12, 14, 16, 18, 20, 22, 24`). |
 
 ---
 
@@ -2653,7 +2876,29 @@ Registra os disparos de notificação concluídos para controle de idempotência
 
 ---
 
-### 10.14. Tipos Enumerados Customizados do PostgreSQL (ENUMs)
+### 10.14. Tabela: `Notificacao`
+Central de notificações in-app persistidas no PostgreSQL para alimentação do modal flutuante do front-end e histórico do usuário.
+
+| Coluna | Tipo PostgreSQL | Constraint | Permite Nulo | Default | Descrição / Regra de Negócio |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `Id` | `INTEGER` | PK | NÃO | AUTOINCREMENT | Identificador numérico serial único da notificação. |
+| `UsuarioId` | `INTEGER` | FK (`Usuario.Id`) | NÃO | - | Destinatário da notificação (**CASCADE** na exclusão do usuário). |
+| `Tipo` | `VARCHAR(50)` | - | NÃO | - | Tipo de notificação (`tarefa`, `tarefa_vencida`, `tarefa_urgente`, `sugestao`, `ticket_criador`, `resposta_ticket`). |
+| `Titulo` | `VARCHAR(200)` | - | NÃO | - | Título resumido apresentado no cabeçalho do item. |
+| `Mensagem` | `VARCHAR(2000)`| - | NÃO | - | Texto explicativo detalhado sobre o evento. |
+| `Link` | `VARCHAR(500)` | - | NÃO | - | Rota interna relativa para redirecionamento imediato no frontend. |
+| `Lida` | `BOOLEAN` | - | NÃO | `false` | Status de leitura do alerta pelo usuário destinatário. |
+| `Destaque` | `BOOLEAN` | - | NÃO | `false` | Flag visual de ênfase (destaque vermelho para tarefas vencidas, azul para urgentes). |
+| `TarefaId` | `INTEGER` | FK (`Tarefa.Id`) | SIM | `NULL` | Chave estrangeira opcional vinculada à tarefa de origem (**SET NULL**). |
+| `DataCriacao` | `TIMESTAMPTZ` | - | NÃO | `CURRENT_TIMESTAMP` | Timestamp UTC de disparo e inserção da notificação. |
+
+> **Índices de Performance:**
+> - `IX_Notificacao_UsuarioId_Lida` (`UsuarioId`, `Lida`) para contagem ultra-rápida de notificações não lidas.
+> - `IX_Notificacao_UsuarioId_DataCriacao` (`UsuarioId`, `DataCriacao`) para ordenação cronológica decrescente eficiente.
+
+---
+
+### 10.15. Tipos Enumerados Customizados do PostgreSQL (ENUMs)
 
 O Cortex utiliza tipos `ENUM` nativos registrados no banco de dados via driver `Npgsql` para assegurar integridade de domínio estrita no nível de banco:
 

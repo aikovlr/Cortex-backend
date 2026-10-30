@@ -121,6 +121,25 @@ namespace Cortex.Services.Implementations
             _logger.LogInformation("Ticket de reporte {TicketId} na TarefaId {TarefaId} fechado por SolicitanteId {SolicitanteId}",
                 ticket.Id, ticket.TarefaId, solicitanteId);
 
+            if (ticket.UsuarioId > 0 && ticket.UsuarioId != solicitanteId)
+            {
+                try
+                {
+                    await _notificacaoService.CriarNotificacaoAsync(
+                        ticket.UsuarioId,
+                        "resposta_ticket",
+                        "Ticket de Reporte Resolvido",
+                        $"O problema reportado na tarefa \"{tarefa?.Titulo ?? "Tarefa"}\" foi marcado como resolvido.",
+                        $"/minhas-tarefas/{ticket.TarefaId}?tab=tickets",
+                        false,
+                        ticket.TarefaId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao criar notificação de resolução de ticket para usuario {UsuarioId}", ticket.UsuarioId);
+                }
+            }
+
             return MapToConsultaDTO(ticket);
         }
 

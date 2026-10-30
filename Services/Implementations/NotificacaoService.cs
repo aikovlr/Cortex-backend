@@ -85,7 +85,7 @@ namespace Cortex.Services.Implementations
             // RN11: Janela de antecedência 1h a 168h (7 dias)
             if (dto.AntecedenciaHoras < 1 || dto.AntecedenciaHoras > 168)
             {
-                throw new ArgumentException("A antecedência para disparo de notificações deve ser configurada entre 1 hora e 7 dias (1 a 168 horas) (RN11).");
+                throw new ArgumentException("A antecedência para disparo de notificações deve ser configurada entre 1 hora e 7 dias (1 a 168 horas).");
             }
 
             // RN13: Bloquear ativação por e-mail se e-mail não verificado
@@ -94,7 +94,7 @@ namespace Cortex.Services.Implementations
                 var algumaAtiva = dto.AtivoNovaAtribuicao || dto.AtivoVencimento || dto.AtivoConclusaoMeta || dto.AtivoTicket;
                 if (algumaAtiva)
                 {
-                    throw new InvalidOperationException("O envio de notificações por e-mail só pode ser ativado caso o e-mail do usuário esteja verificado/confirmado (RN13).");
+                    throw new InvalidOperationException("O envio de notificações por e-mail só pode ser ativado caso o e-mail do usuário esteja verificado/confirmado.");
                 }
             }
 
@@ -110,7 +110,10 @@ namespace Cortex.Services.Implementations
                     AtivoNovaAtribuicao = dto.AtivoNovaAtribuicao,
                     AtivoVencimento = dto.AtivoVencimento,
                     AtivoConclusaoMeta = dto.AtivoConclusaoMeta,
-                    AtivoTicket = dto.AtivoTicket
+                    AtivoTicket = dto.AtivoTicket,
+                    Tema = dto.Tema ?? "light",
+                    AltoContraste = dto.AltoContraste ?? false,
+                    TamanhoFonte = dto.TamanhoFonte ?? 16
                 };
                 await _preferenciaRepository.AdicionarAsync(preferencia);
             }
@@ -121,6 +124,9 @@ namespace Cortex.Services.Implementations
                 preferencia.AtivoVencimento = dto.AtivoVencimento;
                 preferencia.AtivoConclusaoMeta = dto.AtivoConclusaoMeta;
                 preferencia.AtivoTicket = dto.AtivoTicket;
+                if (dto.Tema != null) preferencia.Tema = dto.Tema;
+                if (dto.AltoContraste.HasValue) preferencia.AltoContraste = dto.AltoContraste.Value;
+                if (dto.TamanhoFonte.HasValue) preferencia.TamanhoFonte = dto.TamanhoFonte.Value;
                 await _preferenciaRepository.AtualizarAsync(preferencia);
             }
 
@@ -156,12 +162,75 @@ namespace Cortex.Services.Implementations
                         AtivoNovaAtribuicao = true,
                         AtivoVencimento = true,
                         AtivoConclusaoMeta = true,
-                        AtivoTicket = true
+                        AtivoTicket = true,
+                        Tema = "light",
+                        AltoContraste = false,
+                        TamanhoFonte = 16
                     });
                 }
             }
 
             return resultado;
+        }
+
+        public async Task<PreferenciaAcessibilidadeDTO> ObterPreferenciaAcessibilidadeAsync(int usuarioId)
+        {
+            var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(usuarioId);
+            if (usuario == null)
+                throw new KeyNotFoundException("Usuário não encontrado.");
+
+            var preferencias = await _preferenciaRepository.ObterPorUsuarioAsync(usuarioId);
+            var pref = preferencias.FirstOrDefault();
+
+            if (pref != null)
+            {
+                return new PreferenciaAcessibilidadeDTO
+                {
+                    Tema = pref.Tema ?? "light",
+                    AltoContraste = pref.AltoContraste,
+                    TamanhoFonte = pref.TamanhoFonte
+                };
+            }
+
+            return new PreferenciaAcessibilidadeDTO
+            {
+                Tema = "light",
+                AltoContraste = false,
+                TamanhoFonte = 16
+            };
+        }
+
+        public async Task<PreferenciaAcessibilidadeDTO> AtualizarPreferenciaAcessibilidadeAsync(int usuarioId, AtualizarPreferenciaAcessibilidadeDTO dto)
+        {
+            var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(usuarioId);
+            if (usuario == null)
+                throw new KeyNotFoundException("Usuário não encontrado.");
+
+            if (dto.Tema != null && !dto.Tema.Equals("light", StringComparison.OrdinalIgnoreCase) && !dto.Tema.Equals("dark", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("O tema selecionado deve ser 'light' ou 'dark'.");
+            }
+
+            if (dto.TamanhoFonte.HasValue)
+            {
+                var fonte = dto.TamanhoFonte.Value;
+                if (fonte < 12 || fonte > 24 || fonte % 2 != 0)
+                {
+                    throw new ArgumentException("O tamanho da fonte deve estar entre 12px e 24px e ser obrigatoriamente um número par (12, 14, 16, 18, 20, 22 ou 24).");
+                }
+            }
+
+            await _preferenciaRepository.AtualizarAcessibilidadeUsuarioAsync(
+                usuarioId,
+                dto.Tema?.ToLowerInvariant(),
+                dto.AltoContraste,
+                dto.TamanhoFonte
+            );
+
+            _logger.LogInformation("Preferências de acessibilidade atualizadas para o UsuarioId {UsuarioId}: Tema={Tema}, AltoContraste={AltoContraste}, TamanhoFonte={TamanhoFonte}",
+                usuarioId, dto.Tema, dto.AltoContraste, dto.TamanhoFonte);
+
+            return await ObterPreferenciaAcessibilidadeAsync(usuarioId);
         }
 
         public async Task<int> ProcessarAlertasVencimentoAsync()
@@ -308,7 +377,10 @@ namespace Cortex.Services.Implementations
                 AtivoNovaAtribuicao = p.AtivoNovaAtribuicao,
                 AtivoVencimento = p.AtivoVencimento,
                 AtivoConclusaoMeta = p.AtivoConclusaoMeta,
-                AtivoTicket = p.AtivoTicket
+                AtivoTicket = p.AtivoTicket,
+                Tema = p.Tema,
+                AltoContraste = p.AltoContraste,
+                TamanhoFonte = p.TamanhoFonte
             };
         }
     }

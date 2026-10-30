@@ -17,7 +17,7 @@ namespace Cortex.DTOs.Validators
 
             RuleFor(x => x.DataFechamento)
                 .Must(data => !data.HasValue || data.Value <= DateTime.UtcNow.AddMonths(12))
-                .WithMessage("A data de término da meta não pode exceder 12 meses a partir da data de criação (RN15).");
+                .WithMessage("A data de término da meta não pode exceder 12 meses a partir da data de criação.");
         }
     }
 }

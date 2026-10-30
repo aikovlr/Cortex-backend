@@ -9,6 +9,8 @@ namespace Cortex.Services.Interfaces
         Task<bool> EnviarNotificacaoAsync(int usuarioId, CanalNotificacao canal, string assunto, string mensagem);
         Task<PreferenciaNotificacaoDTO> ConfigurarPreferenciasAsync(int usuarioId, ConfigurarPreferenciaDTO dto);
         Task<IEnumerable<PreferenciaNotificacaoDTO>> ObterPreferenciasAsync(int usuarioId);
+        Task<PreferenciaAcessibilidadeDTO> ObterPreferenciaAcessibilidadeAsync(int usuarioId);
+        Task<PreferenciaAcessibilidadeDTO> AtualizarPreferenciaAcessibilidadeAsync(int usuarioId, AtualizarPreferenciaAcessibilidadeDTO dto);
         Task<int> ProcessarAlertasVencimentoAsync();
 
         // Notificações persistidas no banco de dados

@@ -295,6 +295,11 @@ namespace Cortex_backend.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("AltoContraste")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<int>("AntecedenciaHoras")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -322,6 +327,18 @@ namespace Cortex_backend.Migrations
 
                     b.Property<CanalNotificacao>("Canal")
                         .HasColumnType("\"CanalNotificacao\"");
+
+                    b.Property<int>("TamanhoFonte")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(16);
+
+                    b.Property<string>("Tema")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("light");
 
                     b.Property<int>("UsuarioId")
                         .HasColumnType("integer");

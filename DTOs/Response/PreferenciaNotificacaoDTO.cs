@@ -12,5 +12,8 @@ namespace Cortex.DTOs.Response
         public bool AtivoVencimento { get; set; }
         public bool AtivoConclusaoMeta { get; set; }
         public bool AtivoTicket { get; set; }
+        public string Tema { get; set; } = "light";
+        public bool AltoContraste { get; set; } = false;
+        public int TamanhoFonte { get; set; } = 16;
     }
 }

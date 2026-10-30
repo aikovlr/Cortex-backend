@@ -17,6 +17,7 @@ namespace Cortex.Services.Implementations
         private readonly IEquipeAuthorizationService _authService;
         private readonly IArquivoValidacaoService _arquivoValidacaoService;
         private readonly IWebHostEnvironment _environment;
+        private readonly INotificacaoService? _notificacaoService;
         private readonly ILogger<TarefaService> _logger;
 
         public TarefaService(
@@ -26,7 +27,8 @@ namespace Cortex.Services.Implementations
             IEquipeAuthorizationService authService,
             IArquivoValidacaoService arquivoValidacaoService,
             IWebHostEnvironment environment,
-            ILogger<TarefaService> logger)
+            ILogger<TarefaService> logger,
+            INotificacaoService? notificacaoService = null)
         {
             _tarefaRepository = tarefaRepository;
             _usuarioRepository = usuarioRepository;
@@ -35,6 +37,7 @@ namespace Cortex.Services.Implementations
             _arquivoValidacaoService = arquivoValidacaoService;
             _environment = environment;
             _logger = logger;
+            _notificacaoService = notificacaoService;
         }
 
         public async Task<ConsultaTarefaDTO> CriarTarefaAsync(CriarTarefaDTO dto, int criadorId)
@@ -221,6 +224,26 @@ namespace Cortex.Services.Implementations
             _logger.LogInformation("Auditoria: Tarefa concluída. TarefaId: {TarefaId}, ConcluidaPor: {ConcluidaPor}, Timestamp: {Timestamp}",
                 id, solicitanteId, DateTime.UtcNow);
 
+            // Notifica o criador da tarefa sobre a conclusão
+            if (_notificacaoService != null && tarefa.CriadorId > 0 && tarefa.CriadorId != solicitanteId)
+            {
+                try
+                {
+                    await _notificacaoService.CriarNotificacaoAsync(
+                        tarefa.CriadorId,
+                        "tarefa",
+                        "Tarefa Concluída",
+                        $"A tarefa \"{tarefa.Titulo}\" foi concluída/entregue.",
+                        $"/tarefas-atribuidas/{tarefa.Id}",
+                        false,
+                        tarefa.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao criar notificação de conclusão para o criador {CriadorId}", tarefa.CriadorId);
+                }
+            }
+
             // Delega a verificação de metas ao MetaService (SRP — cada serviço cuida do seu domínio)
             await _metaService.VerificarConclusaoMetaAsync(id);
 
@@ -250,13 +273,38 @@ namespace Cortex.Services.Implementations
             _logger.LogInformation("Auditoria: Conclusão da tarefa cancelada. TarefaId: {TarefaId}, CanceladaPor: {CanceladaPor}, NovoStatus: {NovoStatus}, Timestamp: {Timestamp}",
                 id, solicitanteId, tarefa.Status, DateTime.UtcNow);
 
+            // Notifica os responsáveis sobre o cancelamento da entrega
+            if (_notificacaoService != null && tarefa.ResponsaveisTarefas != null)
+            {
+                foreach (var resp in tarefa.ResponsaveisTarefas)
+                {
+                    if (resp.UsuarioId != solicitanteId)
+                    {
+                        try
+                        {
+                            await _notificacaoService.CriarNotificacaoAsync(
+                                resp.UsuarioId,
+                                "tarefa",
+                                "Conclusão de Tarefa Cancelada",
+                                $"A entrega da tarefa \"{tarefa.Titulo}\" foi cancelada e ela voltou ao status pendente.",
+                                $"/minhas-tarefas/{tarefa.Id}",
+                                false,
+                                tarefa.Id);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Erro ao criar notificação de cancelamento de conclusão para {UsuarioId}", resp.UsuarioId);
+                        }
+                    }
+                }
+            }
+
             var tarefaAtualizada = await _tarefaRepository.ObterTarefaPorIdAsync(id);
             return MapToDetalhesDTO(tarefaAtualizada ?? tarefa);
         }
 
         public async Task<int> VerificarTarefasAtrasadasAsync()
         {
-            // RN06: Tarefas cuja DataVencimento < UtcNow e Status == Pendente devem transicionar para Atrasada
             var tarefasVencidas = await _tarefaRepository.ObterTarefasVencidasNaoConcluidasAsync(DateTime.UtcNow);
             var totalAtrasadas = 0;
 
@@ -268,6 +316,28 @@ namespace Cortex.Services.Implementations
 
                 _logger.LogWarning("Tarefa {TarefaId} ('{Titulo}') transitou automaticamente para Atrasada. Vencimento era: {DataVencimento}",
                     tarefa.Id, tarefa.Titulo, tarefa.DataVencimento);
+
+                if (_notificacaoService != null && tarefa.ResponsaveisTarefas != null)
+                {
+                    foreach (var resp in tarefa.ResponsaveisTarefas)
+                    {
+                        try
+                        {
+                            await _notificacaoService.CriarNotificacaoAsync(
+                                resp.UsuarioId,
+                                "tarefa_vencida",
+                                "Tarefa Atrasada",
+                                $"Atenção: A data limite de entrega da tarefa \"{tarefa.Titulo}\" expirou e ela está atrasada.",
+                                $"/minhas-tarefas/{tarefa.Id}",
+                                true,
+                                tarefa.Id);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Erro ao criar notificação de tarefa atrasada para {UsuarioId}", resp.UsuarioId);
+                        }
+                    }
+                }
             }
 
             return totalAtrasadas;

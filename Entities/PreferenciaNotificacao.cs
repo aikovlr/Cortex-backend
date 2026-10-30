@@ -11,6 +11,11 @@ namespace Cortex.Entities
         public bool AtivoConclusaoMeta { get; set; } = true;
         public bool AtivoTicket { get; set; } = true;
 
+        // Preferências de Acessibilidade (Sincronização entre dispositivos)
+        public string Tema { get; set; } = "light";
+        public bool AltoContraste { get; set; } = false;
+        public int TamanhoFonte { get; set; } = 16; // 12px a 24px (números pares)
+
         // Navegação
         public Usuario Usuario { get; set; } = null!;
     }

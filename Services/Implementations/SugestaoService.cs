@@ -101,16 +101,44 @@ namespace Cortex.Services.Implementations
             if (sugestao.Status != StatusSugestao.Pendente)
                 throw new InvalidOperationException($"Esta sugestão já foi {sugestao.Status.ToString().ToLower()} e não pode ser alterada.");
 
-            // Aplica as alterações na tarefa principal (RN14)
-            sugestao.Tarefa.Descricao = string.IsNullOrWhiteSpace(sugestao.Tarefa.Descricao)
-                ? $"[Sugestão #{sugestao.Id} Aprovada]: {sugestao.Descricao}"
-                : $"{sugestao.Tarefa.Descricao}\n\n[Sugestão #{sugestao.Id} Aprovada]: {sugestao.Descricao}";
+            // Aplica as alterações na tarefa principal (RN14) sem prefixo redundante
+            if (!string.IsNullOrWhiteSpace(sugestao.Descricao))
+            {
+                sugestao.Tarefa.Descricao = string.IsNullOrWhiteSpace(sugestao.Tarefa.Descricao)
+                    ? sugestao.Descricao
+                    : $"{sugestao.Tarefa.Descricao}\n\n{sugestao.Descricao}";
 
-            await _tarefaRepository.AtualizarTarefaAsync(sugestao.Tarefa);
+                await _tarefaRepository.AtualizarTarefaAsync(sugestao.Tarefa);
+            }
 
             // Persiste o novo status da sugestão
             sugestao.Status = StatusSugestao.Aprovada;
             await _sugestaoRepository.AtualizarSugestaoAsync(sugestao);
+
+            if (sugestao.UsuarioId > 0)
+            {
+                try
+                {
+                    await _notificacaoService.CriarNotificacaoAsync(
+                        sugestao.UsuarioId,
+                        "sugestao",
+                        "Sugestão Aprovada",
+                        $"Sua sugestão de alteração na tarefa \"{sugestao.Tarefa.Titulo}\" foi aceita!",
+                        $"/minhas-tarefas/{sugestao.TarefaId}?tab=sugestoes",
+                        destaque: false,
+                        tarefaId: sugestao.TarefaId);
+
+                    await _notificacaoService.EnviarNotificacaoAsync(
+                        sugestao.UsuarioId,
+                        CanalNotificacao.Push,
+                        "Sugestão Aprovada",
+                        $"Sua sugestão de alteração na tarefa \"{sugestao.Tarefa.Titulo}\" foi aceita!");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao criar notificação de sugestão aprovada para usuario {UsuarioId}", sugestao.UsuarioId);
+                }
+            }
 
             _logger.LogInformation("Auditoria: Sugestão processada. SugestaoId: {SugestaoId}, TarefaId: {TarefaId}, Acao: {Acao}, SolicitanteId: {SolicitanteId}",
                 sugestao.Id, sugestao.TarefaId, "Aprovada", solicitanteId);
@@ -135,6 +163,25 @@ namespace Cortex.Services.Implementations
             // Persiste o status de rejeição
             sugestao.Status = StatusSugestao.Rejeitada;
             await _sugestaoRepository.AtualizarSugestaoAsync(sugestao);
+
+            if (sugestao.UsuarioId > 0)
+            {
+                try
+                {
+                    await _notificacaoService.CriarNotificacaoAsync(
+                        sugestao.UsuarioId,
+                        "sugestao",
+                        "Sugestão Recusada",
+                        $"Sua sugestão de alteração na tarefa \"{sugestao.Tarefa?.Titulo ?? "Tarefa"}\" foi recusada.",
+                        $"/minhas-tarefas/{sugestao.TarefaId}?tab=sugestoes",
+                        false,
+                        sugestao.TarefaId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao criar notificação de sugestão rejeitada para usuario {UsuarioId}", sugestao.UsuarioId);
+                }
+            }
 
             _logger.LogInformation("Auditoria: Sugestão processada. SugestaoId: {SugestaoId}, TarefaId: {TarefaId}, Acao: {Acao}, SolicitanteId: {SolicitanteId}",
                 sugestao.Id, sugestao.TarefaId, "Rejeitada", solicitanteId);
