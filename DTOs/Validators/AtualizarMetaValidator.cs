@@ -22,6 +22,13 @@ namespace Cortex.DTOs.Validators
                 RuleFor(x => x.TarefaId)
                     .GreaterThan(0).WithMessage("O identificador da tarefa vinculada deve ser válido.");
             });
+
+            When(x => x.TarefaIds != null, () =>
+            {
+                RuleFor(x => x.TarefaIds)
+                    .Must(ids => ids != null && ids.Any(id => id > 0))
+                    .WithMessage("A meta deve estar vinculada a pelo menos uma tarefa válida.");
+            });
         }
     }
 }
