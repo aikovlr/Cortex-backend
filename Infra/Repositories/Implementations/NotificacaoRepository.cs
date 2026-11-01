@@ -61,6 +61,19 @@ namespace Cortex.Repositories.Implementations
             return await _context.Notificacoes.AnyAsync(n => n.UsuarioId == usuarioId && n.Tipo == tipo && n.TarefaId == tarefaId);
         }
 
+        public async Task<Notificacao?> ObterNotificacaoPorUsuarioETarefaAsync(int usuarioId, int tarefaId, string? tipo = null)
+        {
+            var query = _context.Notificacoes
+                .Where(n => n.UsuarioId == usuarioId && n.TarefaId == tarefaId);
+
+            if (!string.IsNullOrEmpty(tipo))
+            {
+                query = query.Where(n => n.Tipo == tipo);
+            }
+
+            return await query.OrderByDescending(n => n.DataCriacao).FirstOrDefaultAsync();
+        }
+
         public async Task LimparNotificacoesAsync(int usuarioId)
         {
             var notificacoes = await _context.Notificacoes

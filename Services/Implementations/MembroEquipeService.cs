@@ -12,24 +12,27 @@ namespace Cortex.Services.Implementations
         private readonly IMembroEquipeRepository _membroEquipeRepository;
         private readonly IEquipeRepository _equipeRepository;
         private readonly IUsuarioRepository _usuarioRepository;
+        private readonly INotificacaoService? _notificacaoService;
         private readonly ILogger<MembroEquipeService> _logger;
 
         public MembroEquipeService(
             IMembroEquipeRepository membroEquipeRepository,
             IEquipeRepository equipeRepository,
             IUsuarioRepository usuarioRepository,
-            ILogger<MembroEquipeService> logger)
+            ILogger<MembroEquipeService> logger,
+            INotificacaoService? notificacaoService = null)
         {
             _membroEquipeRepository = membroEquipeRepository;
             _equipeRepository = equipeRepository;
             _usuarioRepository = usuarioRepository;
             _logger = logger;
+            _notificacaoService = notificacaoService;
         }
 
         public async Task<ConsultaMembroEquipeDTO> AdicionarMembroAsync(CriarMembroEquipeDTO dto, int solicitanteId)
         {
-            var equipeExiste = await _equipeRepository.EquipeExisteAsync(dto.EquipeId);
-            if (!equipeExiste)
+            var equipe = await _equipeRepository.ObterEquipePorIdAsync(dto.EquipeId);
+            if (equipe == null)
                 throw new KeyNotFoundException("Equipe não encontrada.");
 
             int usuarioId = dto.UsuarioId ?? 0;
@@ -75,6 +78,25 @@ namespace Cortex.Services.Implementations
             };
 
             await _membroEquipeRepository.AdicionarMembroEquipeAsync(novoMembro);
+
+            // Notifica o usuário sobre a adição à equipe
+            if (_notificacaoService != null && usuarioId > 0 && usuarioId != solicitanteId)
+            {
+                try
+                {
+                    await _notificacaoService.CriarNotificacaoAsync(
+                        usuarioId,
+                        "equipe",
+                        "Adicionado a uma Equipe",
+                        $"Você foi adicionado à equipe \"{equipe.Nome}\".",
+                        $"/equipes/{dto.EquipeId}",
+                        destaque: false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao criar notificação de adição à equipe para o usuário {UsuarioId}", usuarioId);
+                }
+            }
 
             var membroCompleto = await _membroEquipeRepository.ObterMembroEquipePorIdAsync(novoMembro.Id);
             return MapToConsultaDTO(membroCompleto ?? novoMembro);

@@ -294,6 +294,30 @@ namespace Cortex.Services.Implementations
             bool destaque,
             int? tarefaId = null)
         {
+            // Quando for notificação de conclusão de tarefa, stacka na notificação existente da mesma tarefa para não poluir
+            if (tarefaId.HasValue && titulo.StartsWith("Tarefa Concluída"))
+            {
+                var existente = await _notificacaoRepository
+                    .ObterNotificacaoPorUsuarioETarefaAsync(usuarioId, tarefaId.Value, tipo);
+
+                if (existente != null && existente.Titulo.StartsWith("Tarefa Concluída"))
+                {
+                    existente.Titulo = titulo;
+                    existente.Mensagem = mensagem;
+                    existente.Link = link;
+                    existente.Destaque = destaque;
+                    existente.DataCriacao = DateTime.UtcNow;
+                    existente.Lida = false;
+
+                    await _notificacaoRepository.AtualizarAsync(existente);
+
+                    _logger.LogInformation("Notificação de conclusão stackada: Id {Id}, UsuarioId {UsuarioId}, TarefaId {TarefaId}",
+                        existente.Id, usuarioId, tarefaId.Value);
+
+                    return MapNotificacaoToDTO(existente);
+                }
+            }
+
             var notificacao = new Notificacao
             {
                 UsuarioId = usuarioId,

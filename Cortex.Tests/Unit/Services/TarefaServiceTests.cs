@@ -237,6 +237,14 @@ namespace Cortex.Tests.Unit.Services
             Assert.Equal(Status.Concluida, resultado.Status);
             _respostaRepoMock.Verify(r => r.AdicionarRespostaTarefaAsync(It.Is<RespostaTarefa>(
                 resp => resp.TarefaId == tarefaId && resp.UsuarioId == responsavelId)), Times.Once);
+            _notificacaoServiceMock.Verify(n => n.CriarNotificacaoAsync(
+                tarefa.CriadorId,
+                "tarefa",
+                "Tarefa Concluída",
+                It.Is<string>(msg => msg.Contains("Tarefa sem Anexo")),
+                $"/tarefas-atribuidas/{tarefaId}",
+                false,
+                tarefaId), Times.Once);
         }
 
         [Fact]
@@ -279,6 +287,61 @@ namespace Cortex.Tests.Unit.Services
             // Assert
             Assert.Equal(Status.Concluida, resultado.Status);
             _respostaRepoMock.Verify(r => r.AdicionarRespostaTarefaAsync(It.IsAny<RespostaTarefa>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task ConcluirTarefa_MultiplosResponsaveis_DeveStackarNotificacaoComNomesDosResponsaveis()
+        {
+            // Arrange
+            var tarefaId = 55;
+            var criadorId = 1;
+            var resp1Id = 10;
+            var resp2Id = 11;
+
+            var user1 = new Usuario { Id = resp1Id, Nome = "Alice", Email = "alice@test.com", SenhaHash = "h" };
+            var user2 = new Usuario { Id = resp2Id, Nome = "Bob", Email = "bob@test.com", SenhaHash = "h" };
+
+            var tarefa = new Tarefa
+            {
+                Id = tarefaId,
+                Titulo = "Refatoração do Módulo",
+                DataVencimento = DateTime.UtcNow.AddDays(3),
+                Status = Status.Pendente,
+                Prioridade = Prioridade.Alta,
+                CriadorId = criadorId,
+                Criador = new Usuario { Id = criadorId, Nome = "Criador", Email = "c@test.com", SenhaHash = "h" },
+                ResponsaveisTarefas = new List<ResponsavelTarefa>
+                {
+                    new ResponsavelTarefa { Id = 1, TarefaId = tarefaId, UsuarioId = resp1Id, Usuario = user1 },
+                    new ResponsavelTarefa { Id = 2, TarefaId = tarefaId, UsuarioId = resp2Id, Usuario = user2 }
+                },
+                Respostas = new List<RespostaTarefa>
+                {
+                    new RespostaTarefa { Id = 1, TarefaId = tarefaId, UsuarioId = resp1Id, Usuario = user1 }
+                }
+            };
+
+            _tarefaRepoMock.Setup(r => r.ObterTarefaPorIdAsync(tarefaId)).ReturnsAsync(tarefa);
+            _respostaRepoMock.Setup(r => r.ObterRespostasTarefaPorTarefaIdAsync(tarefaId))
+                .ReturnsAsync(new List<RespostaTarefa>
+                {
+                    new RespostaTarefa { Id = 1, TarefaId = tarefaId, UsuarioId = resp1Id, Usuario = user1 },
+                    new RespostaTarefa { Id = 2, TarefaId = tarefaId, UsuarioId = resp2Id, Usuario = user2 }
+                });
+
+            // Act: Bob (resp2) conclui a tarefa após Alice já ter concluído
+            var resultado = await _tarefaService.ConcluirTarefaAsync(tarefaId, resp2Id);
+
+            // Assert
+            Assert.Equal(Status.Concluida, resultado.Status);
+            _notificacaoServiceMock.Verify(n => n.CriarNotificacaoAsync(
+                criadorId,
+                "tarefa",
+                It.Is<string>(t => t.Contains("(2)")),
+                It.Is<string>(msg => msg.Contains("Alice") && msg.Contains("Bob")),
+                $"/tarefas-atribuidas/{tarefaId}",
+                false,
+                tarefaId), Times.Once);
         }
 
         [Fact]

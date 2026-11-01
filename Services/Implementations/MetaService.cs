@@ -13,6 +13,7 @@ namespace Cortex.Services.Implementations
         private readonly ITarefaRepository _tarefaRepository;
         private readonly IUsuarioRepository _usuarioRepository;
         private readonly IEquipeAuthorizationService _authService;
+        private readonly INotificacaoService? _notificacaoService;
         private readonly ILogger<MetaService> _logger;
 
         public MetaService(
@@ -20,13 +21,15 @@ namespace Cortex.Services.Implementations
             ITarefaRepository tarefaRepository,
             IUsuarioRepository usuarioRepository,
             IEquipeAuthorizationService authService,
-            ILogger<MetaService> logger)
+            ILogger<MetaService> logger,
+            INotificacaoService? notificacaoService = null)
         {
             _metaRepository = metaRepository;
             _tarefaRepository = tarefaRepository;
             _usuarioRepository = usuarioRepository;
             _authService = authService;
             _logger = logger;
+            _notificacaoService = notificacaoService;
         }
 
         public async Task<ConsultaMetaDTO> CriarMetaAsync(CriarMetaDTO dto, int solicitanteId)
@@ -84,6 +87,25 @@ namespace Cortex.Services.Implementations
             }
 
             await _metaRepository.AdicionarMetaAsync(meta);
+
+            if (meta.Concluida == true && _notificacaoService != null && solicitanteId > 0)
+            {
+                try
+                {
+                    await _notificacaoService.CriarNotificacaoAsync(
+                        solicitanteId,
+                        "meta",
+                        "Meta Concluída",
+                        $"Parabéns! A meta \"{meta.Nome}\" foi concluída com sucesso.",
+                        "/metas",
+                        destaque: false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao criar notificação de meta concluída para o usuário {UsuarioId}", solicitanteId);
+                }
+            }
+
             _logger.LogInformation("Meta única criada com {QuantidadeTarefas} tarefas vinculadas: MetaId {MetaId}, Nome '{Nome}', UsuarioId {UsuarioId}",
                 tarefaIds.Count, meta.Id, meta.Nome, solicitanteId);
 
@@ -138,6 +160,8 @@ namespace Cortex.Services.Implementations
             var meta = await _metaRepository.ObterMetaPorIdAsync(id);
             if (meta == null)
                 throw new KeyNotFoundException("Meta não encontrada.");
+
+            var eraConcluida = meta.Concluida == true;
 
             var tarefa = meta.Tarefa ?? await _tarefaRepository.ObterTarefaPorIdAsync(meta.TarefaId);
             var ehAdminOuDono = tarefa != null && await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, tarefa);
@@ -250,6 +274,24 @@ namespace Cortex.Services.Implementations
 
             await _metaRepository.AtualizarMetaAsync(meta);
 
+            if (!eraConcluida && meta.Concluida == true && _notificacaoService != null && meta.UsuarioId > 0)
+            {
+                try
+                {
+                    await _notificacaoService.CriarNotificacaoAsync(
+                        meta.UsuarioId,
+                        "meta",
+                        "Meta Concluída",
+                        $"Parabéns! A meta \"{meta.Nome}\" foi concluída com sucesso.",
+                        "/metas",
+                        destaque: false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao criar notificação de meta concluída para o usuário {UsuarioId}", meta.UsuarioId);
+                }
+            }
+
             _logger.LogInformation("Meta atualizada: MetaId {MetaId} por SolicitanteId {SolicitanteId}",
                 id, solicitanteId);
 
@@ -305,6 +347,24 @@ namespace Cortex.Services.Implementations
                     _logger.LogInformation(
                         "Meta {MetaId} ('{Nome}') concluída automaticamente — todas as tarefas vinculadas estão concluídas.",
                         meta.Id, meta.Nome);
+
+                    if (_notificacaoService != null && meta.UsuarioId > 0)
+                    {
+                        try
+                        {
+                            await _notificacaoService.CriarNotificacaoAsync(
+                                meta.UsuarioId,
+                                "meta",
+                                "Meta Concluída",
+                                $"Parabéns! A meta \"{meta.Nome}\" foi concluída com sucesso.",
+                                "/metas",
+                                destaque: false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Erro ao criar notificação de meta concluída para o usuário {UsuarioId}", meta.UsuarioId);
+                        }
+                    }
                 }
             }
 
