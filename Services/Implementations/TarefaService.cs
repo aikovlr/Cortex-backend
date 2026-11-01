@@ -87,46 +87,35 @@ namespace Cortex.Services.Implementations
             if (tarefa == null)
                 return null;
 
-            // Todo usuário com tarefa finalizada (contendo arquivo ou não) deve aparecer na lista de respostas
+            // Garante que o responsável único possua uma RespostaTarefa quando a tarefa estiver concluída
             if (tarefa.Status == Status.Concluida && _respostaRepository != null)
             {
-                var usuariosAlvo = new HashSet<int>();
-                if (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Any())
-                {
-                    foreach (var resp in tarefa.ResponsaveisTarefas)
-                    {
-                        usuariosAlvo.Add(resp.UsuarioId);
-                    }
-                }
-                else if (tarefa.CriadorId > 0)
-                {
-                    usuariosAlvo.Add(tarefa.CriadorId);
-                }
-
                 var respostasExistentes = tarefa.Respostas ?? new List<RespostaTarefa>();
-                var adicionou = false;
-                foreach (var usuarioId in usuariosAlvo)
+
+                int? usuarioAlvo = null;
+                if (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Count == 1)
                 {
-                    if (!respostasExistentes.Any(r => r.UsuarioId == usuarioId))
-                    {
-                        var novaResposta = new RespostaTarefa
-                        {
-                            TarefaId = id,
-                            UsuarioId = usuarioId,
-                            DataResposta = DateTime.UtcNow
-                        };
-                        await _respostaRepository.AdicionarRespostaTarefaAsync(novaResposta);
-                        adicionou = true;
-                    }
+                    usuarioAlvo = tarefa.ResponsaveisTarefas.First().UsuarioId;
+                }
+                else if (tarefa.CriadorId > 0 && (tarefa.ResponsaveisTarefas == null || !tarefa.ResponsaveisTarefas.Any()))
+                {
+                    usuarioAlvo = tarefa.CriadorId;
                 }
 
-                if (adicionou)
+                if (usuarioAlvo.HasValue && !respostasExistentes.Any(r => r.UsuarioId == usuarioAlvo.Value))
                 {
+                    var novaResposta = new RespostaTarefa
+                    {
+                        TarefaId = id,
+                        UsuarioId = usuarioAlvo.Value,
+                        DataResposta = DateTime.UtcNow
+                    };
+                    await _respostaRepository.AdicionarRespostaTarefaAsync(novaResposta);
                     tarefa = await _tarefaRepository.ObterTarefaPorIdAsync(id) ?? tarefa;
                 }
             }
 
-            return MapToDetalhesDTO(tarefa);
+            return MapToDetalhesDTO(tarefa, solicitanteId);
         }
 
         public async Task<IEnumerable<ConsultaTarefaDTO>> ListarTarefasAsync(FiltroTarefasDTO? filtros = null, int? solicitanteId = null)
@@ -143,7 +132,12 @@ namespace Cortex.Services.Implementations
                 dataFim: dataFimUtc,
                 termoBusca: filtros?.TermoBusca);
 
-            return tarefas.Select(MapToConsultaDTO);
+            // Se a listagem for pela visão do criador (tarefas atribuídas), exibe o status global da tarefa
+            var solicitanteEfetivo = filtros?.CriadorId.HasValue == true && !filtros.ResponsavelId.HasValue
+                ? null
+                : solicitanteId;
+
+            return tarefas.Select(t => MapToConsultaDTO(t, solicitanteEfetivo));
         }
 
         public async Task<DetalhesTarefaDTO> AtualizarTarefaAsync(int id, AtualizarTarefaDTO dto, int solicitanteId)
@@ -243,7 +237,7 @@ namespace Cortex.Services.Implementations
                 id, solicitanteId, camposAlterados);
 
             var tarefaAtualizada = await _tarefaRepository.ObterTarefaPorIdAsync(id);
-            return MapToDetalhesDTO(tarefaAtualizada ?? tarefa);
+            return MapToDetalhesDTO(tarefaAtualizada ?? tarefa, solicitanteId);
         }
 
         public async Task<bool> DeletarTarefaAsync(int id, int solicitanteId)
@@ -286,40 +280,37 @@ namespace Cortex.Services.Implementations
                 throw new ForbiddenException("Você não possui permissão para concluir esta tarefa.");
             }
 
-            tarefa.Status = Status.Concluida;
-            await _tarefaRepository.AtualizarTarefaAsync(tarefa);
-
-            // Garante que todo usuário com tarefa finalizada possua uma RespostaTarefa para aparecer na lista de respostas
-            if (_respostaRepository != null)
+            // Garante que o solicitante que concluiu a tarefa possua uma RespostaTarefa para aparecer na lista de respostas
+            if (_respostaRepository != null && solicitanteId > 0)
             {
-                var usuariosAlvo = new HashSet<int>();
-                if (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Any())
+                var jaPossuiResposta = tarefa.Respostas != null && tarefa.Respostas.Any(r => r.UsuarioId == solicitanteId);
+                if (!jaPossuiResposta)
                 {
-                    foreach (var resp in tarefa.ResponsaveisTarefas)
+                    var novaResposta = new RespostaTarefa
                     {
-                        usuariosAlvo.Add(resp.UsuarioId);
-                    }
+                        TarefaId = id,
+                        UsuarioId = solicitanteId,
+                        DataResposta = DateTime.UtcNow
+                    };
+                    await _respostaRepository.AdicionarRespostaTarefaAsync(novaResposta);
                 }
+            }
 
-                if (solicitanteId > 0 && (usuariosAlvo.Count == 0 || usuariosAlvo.Contains(solicitanteId)))
-                {
-                    usuariosAlvo.Add(solicitanteId);
-                }
+            // Se a tarefa tiver múltiplos responsáveis, apenas marca a tarefa como concluída se todos tiverem concluído
+            var todosConcluiram = true;
+            if (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Count > 1 && _respostaRepository != null)
+            {
+                var respostasAtualizadas = await _respostaRepository.ObterRespostasTarefaPorTarefaIdAsync(id);
+                var idsQueResponderam = respostasAtualizadas.Select(r => r.UsuarioId).ToHashSet();
+                todosConcluiram = tarefa.ResponsaveisTarefas.All(r => idsQueResponderam.Contains(r.UsuarioId));
+            }
 
-                foreach (var usuarioId in usuariosAlvo)
-                {
-                    var jaPossuiResposta = tarefa.Respostas != null && tarefa.Respostas.Any(r => r.UsuarioId == usuarioId);
-                    if (!jaPossuiResposta)
-                    {
-                        var novaResposta = new RespostaTarefa
-                        {
-                            TarefaId = id,
-                            UsuarioId = usuarioId,
-                            DataResposta = DateTime.UtcNow
-                        };
-                        await _respostaRepository.AdicionarRespostaTarefaAsync(novaResposta);
-                    }
-                }
+            var deveMarcarConcluida = todosConcluiram || (!ehResponsavel && (ehCriador || ehAdminOuDono));
+
+            if (deveMarcarConcluida)
+            {
+                tarefa.Status = Status.Concluida;
+                await _tarefaRepository.AtualizarTarefaAsync(tarefa);
             }
 
             _logger.LogInformation("Auditoria: Tarefa concluída. TarefaId: {TarefaId}, ConcluidaPor: {ConcluidaPor}, Timestamp: {Timestamp}",
@@ -349,7 +340,7 @@ namespace Cortex.Services.Implementations
             await _metaService.VerificarConclusaoMetaAsync(id);
 
             var tarefaAtualizada = await _tarefaRepository.ObterTarefaPorIdAsync(id);
-            return MapToDetalhesDTO(tarefaAtualizada ?? tarefa);
+            return MapToDetalhesDTO(tarefaAtualizada ?? tarefa, solicitanteId);
         }
 
         public async Task<DetalhesTarefaDTO> CancelarConclusaoTarefaAsync(int id, int solicitanteId)
@@ -367,16 +358,12 @@ namespace Cortex.Services.Implementations
                 throw new ForbiddenException("Você não possui permissão para cancelar a entrega desta tarefa.");
             }
 
-            // Retorna para Atrasada se já passou do vencimento, caso contrário para Pendente
-            tarefa.Status = tarefa.DataVencimento < DateTime.UtcNow ? Status.Atrasada : Status.Pendente;
-            await _tarefaRepository.AtualizarTarefaAsync(tarefa);
-
-            // Ao cancelar a entrega/conclusão, remove as respostas automáticas geradas sem arquivos e sem nota
+            // Ao cancelar a entrega/conclusão, remove a resposta automática gerada sem nota apenas do solicitante
             if (_respostaRepository != null && tarefa.Respostas != null)
             {
                 var respostasSemAnexoENota = tarefa.Respostas
                     .Where(r => !r.Nota.HasValue && (r.Anexos == null || !r.Anexos.Any()))
-                    .Where(r => r.UsuarioId == solicitanteId || (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Any(rt => rt.UsuarioId == r.UsuarioId)))
+                    .Where(r => r.UsuarioId == solicitanteId)
                     .ToList();
 
                 foreach (var resp in respostasSemAnexoENota)
@@ -384,6 +371,10 @@ namespace Cortex.Services.Implementations
                     await _respostaRepository.RemoverRespostaTarefaAsync(resp.Id);
                 }
             }
+
+            // Retorna para Atrasada se já passou do vencimento, caso contrário para Pendente
+            tarefa.Status = tarefa.DataVencimento < DateTime.UtcNow ? Status.Atrasada : Status.Pendente;
+            await _tarefaRepository.AtualizarTarefaAsync(tarefa);
 
             _logger.LogInformation("Auditoria: Conclusão da tarefa cancelada. TarefaId: {TarefaId}, CanceladaPor: {CanceladaPor}, NovoStatus: {NovoStatus}, Timestamp: {Timestamp}",
                 id, solicitanteId, tarefa.Status, DateTime.UtcNow);
@@ -415,7 +406,7 @@ namespace Cortex.Services.Implementations
             }
 
             var tarefaAtualizada = await _tarefaRepository.ObterTarefaPorIdAsync(id);
-            return MapToDetalhesDTO(tarefaAtualizada ?? tarefa);
+            return MapToDetalhesDTO(tarefaAtualizada ?? tarefa, solicitanteId);
         }
 
         public async Task<int> VerificarTarefasAtrasadasAsync()
@@ -489,7 +480,31 @@ namespace Cortex.Services.Implementations
             };
         }
 
-        private static ConsultaTarefaDTO MapToConsultaDTO(Tarefa tarefa)
+        private static Status ObterStatusEfetivo(Tarefa tarefa, int? solicitanteId)
+        {
+            var statusEfetivo = tarefa.Status;
+
+            if (solicitanteId.HasValue && tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Count > 1)
+            {
+                var solicitanteEhResponsavel = tarefa.ResponsaveisTarefas.Any(rt => rt.UsuarioId == solicitanteId.Value);
+                if (solicitanteEhResponsavel)
+                {
+                    var solicitanteRespondeu = tarefa.Respostas != null && tarefa.Respostas.Any(r => r.UsuarioId == solicitanteId.Value);
+                    if (!solicitanteRespondeu)
+                    {
+                        statusEfetivo = tarefa.DataVencimento < DateTime.UtcNow ? Status.Atrasada : Status.Pendente;
+                    }
+                    else
+                    {
+                        statusEfetivo = Status.Concluida;
+                    }
+                }
+            }
+
+            return statusEfetivo;
+        }
+
+        private static ConsultaTarefaDTO MapToConsultaDTO(Tarefa tarefa, int? solicitanteId = null)
         {
             return new ConsultaTarefaDTO
             {
@@ -498,14 +513,14 @@ namespace Cortex.Services.Implementations
                 Descricao = tarefa.Descricao,
                 DataVencimento = tarefa.DataVencimento,
                 Pontuacao = tarefa.Pontuacao,
-                Status = tarefa.Status,
+                Status = ObterStatusEfetivo(tarefa, solicitanteId),
                 Prioridade = tarefa.Prioridade,
                 CriadorId = tarefa.CriadorId,
                 DataCriacao = tarefa.DataCriacao
             };
         }
 
-        private static DetalhesTarefaDTO MapToDetalhesDTO(Tarefa tarefa)
+        private static DetalhesTarefaDTO MapToDetalhesDTO(Tarefa tarefa, int? solicitanteId = null)
         {
             return new DetalhesTarefaDTO
             {
@@ -514,7 +529,7 @@ namespace Cortex.Services.Implementations
                 Descricao = tarefa.Descricao,
                 DataVencimento = tarefa.DataVencimento,
                 Pontuacao = tarefa.Pontuacao,
-                Status = tarefa.Status,
+                Status = ObterStatusEfetivo(tarefa, solicitanteId),
                 Prioridade = tarefa.Prioridade,
                 CriadorId = tarefa.CriadorId,
                 DataCriacao = tarefa.DataCriacao,

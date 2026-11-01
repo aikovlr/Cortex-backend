@@ -141,10 +141,10 @@ namespace Cortex.Services.Implementations
                         _logger.LogError(ex, "Erro ao criar notificação de atribuição de tarefa para UsuarioId {UsuarioId}", resp.UsuarioId);
                     }
                 }
-
-                _logger.LogInformation("Atribuição em lote: {Total} membros da EquipeId {EquipeId} atribuídos à TarefaId {TarefaId}",
-                    novosResponsaveis.Count, equipeId, tarefaId);
             }
+
+            _logger.LogInformation("Equipe {EquipeId} atribuída à TarefaId {TarefaId} com {Total} novos responsáveis.",
+                equipeId, tarefaId, novosResponsaveis.Count);
 
             return await ListarResponsaveisPorTarefaAsync(tarefaId);
         }

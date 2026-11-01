@@ -64,6 +64,7 @@ namespace Cortex.Repositories.Implementations
                 .Include(t => t.Criador)
                 .Include(t => t.ResponsaveisTarefas)
                     .ThenInclude(rt => rt.Usuario)
+                .Include(t => t.Respostas)
                 .AsQueryable();
 
             if (status.HasValue)
