@@ -10,6 +10,7 @@ namespace Cortex.Repositories.Interface
         Task AtualizarAsync(Notificacao notificacao);
         Task MarcarTodasComoLidasAsync(int usuarioId);
         Task<bool> ExisteNotificacaoAsync(int usuarioId, string tipo, int tarefaId);
+        Task<Notificacao?> ObterNotificacaoPorUsuarioETarefaAsync(int usuarioId, int tarefaId, string? tipo = null);
         Task LimparNotificacoesAsync(int usuarioId);
         Task<bool> RemoverNotificacaoAsync(int id, int usuarioId);
     }

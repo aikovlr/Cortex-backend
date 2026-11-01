@@ -16,6 +16,7 @@ namespace Cortex.Tests.Unit.Services
         private readonly Mock<ITarefaRepository> _tarefaRepoMock;
         private readonly Mock<IUsuarioRepository> _usuarioRepoMock;
         private readonly Mock<IEquipeAuthorizationService> _authServiceMock;
+        private readonly Mock<INotificacaoService> _notificacaoServiceMock;
         private readonly Mock<ILogger<MetaService>> _loggerMock;
         private readonly MetaService _metaService;
 
@@ -25,6 +26,7 @@ namespace Cortex.Tests.Unit.Services
             _tarefaRepoMock = new Mock<ITarefaRepository>();
             _usuarioRepoMock = new Mock<IUsuarioRepository>();
             _authServiceMock = new Mock<IEquipeAuthorizationService>();
+            _notificacaoServiceMock = new Mock<INotificacaoService>();
             _loggerMock = new Mock<ILogger<MetaService>>();
 
             _metaService = new MetaService(
@@ -32,7 +34,8 @@ namespace Cortex.Tests.Unit.Services
                 _tarefaRepoMock.Object,
                 _usuarioRepoMock.Object,
                 _authServiceMock.Object,
-                _loggerMock.Object);
+                _loggerMock.Object,
+                _notificacaoServiceMock.Object);
         }
 
         [Fact]
@@ -308,6 +311,56 @@ namespace Cortex.Tests.Unit.Services
             // Act & Assert
             await Assert.ThrowsAsync<ForbiddenException>(() =>
                 _metaService.AtualizarMetaAsync(metaId, dto, solicitanteId));
+        }
+
+        [Fact]
+        public async Task VerificarConclusaoMeta_QuandoTodasTarefasConcluidas_DeveNotificarUsuario()
+        {
+            // Arrange
+            var tarefaId = 10;
+            var usuarioId = 5;
+            var metaId = 42;
+            var meta = new Meta
+            {
+                Id = metaId,
+                Nome = "Lançar Produto",
+                UsuarioId = usuarioId,
+                Concluida = false,
+                TarefaId = tarefaId
+            };
+
+            var tarefas = new List<Tarefa>
+            {
+                new Tarefa
+                {
+                    Id = tarefaId,
+                    Titulo = "Tarefa 1",
+                    Status = Status.Concluida,
+                    DataVencimento = DateTime.UtcNow.AddDays(1),
+                    CriadorId = 1,
+                    Criador = new Usuario { Id = 1, Nome = "Criador", Email = "c@test.com", SenhaHash = "hash" }
+                }
+            };
+
+            _metaRepoMock.Setup(r => r.ObterMetasPorTarefaIdAsync(tarefaId))
+                .ReturnsAsync(new List<Meta> { meta });
+            _metaRepoMock.Setup(r => r.ObterTarefasDaMetaAsync(metaId))
+                .ReturnsAsync(tarefas);
+
+            // Act
+            var concluidas = await _metaService.VerificarConclusaoMetaAsync(tarefaId);
+
+            // Assert
+            Assert.Equal(1, concluidas);
+            Assert.True(meta.Concluida);
+            _notificacaoServiceMock.Verify(n => n.CriarNotificacaoAsync(
+                usuarioId,
+                "meta",
+                "Meta Concluída",
+                It.Is<string>(msg => msg.Contains("Lançar Produto")),
+                "/metas",
+                false,
+                null), Times.Once);
         }
     }
 }

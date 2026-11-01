@@ -100,11 +100,26 @@ namespace Cortex.Services.Implementations
 
             await ValidarPermissaoGestaoTarefaAsync(tarefa, solicitanteId);
 
+            var membroSolicitante = await _membroEquipeRepository.ObterMembroPorEquipeEUsuarioAsync(equipeId, solicitanteId);
+            if (membroSolicitante == null || (membroSolicitante.Cargo != Cargo.Dono && membroSolicitante.Cargo != Cargo.Admin))
+            {
+                throw new ForbiddenException("Apenas o Dono ou Administradores da equipe possuem permissão para atribuir a equipe a uma tarefa.");
+            }
+
             var membros = await _membroEquipeRepository.ObterMembrosEquipePorEquipeIdAsync(equipeId);
             var novosResponsaveis = new List<ResponsavelTarefa>();
 
             foreach (var membro in membros)
             {
+                // O criador da tarefa não deve ser incluído na lista de responsáveis ao atribuir a uma equipe
+                if (membro.UsuarioId == tarefa.CriadorId)
+                    continue;
+
+                // Hierarquia de cargo: Dono > Admin > Membro
+                // O solicitante só pode atribuir tarefas a membros com cargo inferior na hierarquia
+                if (ObterNivelCargo(membroSolicitante.Cargo) <= ObterNivelCargo(membro.Cargo))
+                    continue;
+
                 var jaAtribuido = await _responsavelTarefaRepository.ResponsavelJaAtribuidoAsync(tarefaId, membro.UsuarioId);
                 if (!jaAtribuido)
                 {
@@ -195,6 +210,17 @@ namespace Cortex.Services.Implementations
             {
                 throw new ForbiddenException("Apenas o criador da tarefa ou administradores possuem permissão para gerenciar responsáveis.");
             }
+        }
+
+        private static int ObterNivelCargo(Cargo cargo)
+        {
+            return cargo switch
+            {
+                Cargo.Dono => 3,
+                Cargo.Admin => 2,
+                Cargo.Membro => 1,
+                _ => 0
+            };
         }
 
         private static ConsultaResponsavelTarefaDTO MapToConsultaDTO(ResponsavelTarefa responsavel)

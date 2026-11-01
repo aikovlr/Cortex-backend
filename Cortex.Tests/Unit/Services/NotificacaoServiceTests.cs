@@ -178,5 +178,46 @@ namespace Cortex.Tests.Unit.Services
             Assert.Equal(0, disparos2);
             _pushGatewayMock.Verify(p => p.EnviarPushAsync(usuario.Id, It.IsAny<string>(), It.IsAny<string>()), Times.Once);
         }
+
+        [Fact]
+        public async Task CriarNotificacao_ConclusaoTarefaMultiplasVezes_DeveStackarNotificacao()
+        {
+            // Arrange
+            var criadorId = 99;
+            var tarefaId = 123;
+
+            // Act 1: Primeiro responsável conclui a tarefa
+            var notif1 = await _notificacaoService.CriarNotificacaoAsync(
+                usuarioId: criadorId,
+                tipo: "tarefa",
+                titulo: "Tarefa Concluída",
+                mensagem: "O responsável Alice concluiu a tarefa \"Deploy em Produção\".",
+                link: $"/tarefas-atribuidas/{tarefaId}",
+                destaque: false,
+                tarefaId: tarefaId);
+
+            // Act 2: Segundo responsável conclui a mesma tarefa -> deve stackar
+            var notif2 = await _notificacaoService.CriarNotificacaoAsync(
+                usuarioId: criadorId,
+                tipo: "tarefa",
+                titulo: "Tarefa Concluída (2)",
+                mensagem: "Os responsáveis Alice e Bob concluíram a tarefa \"Deploy em Produção\".",
+                link: $"/tarefas-atribuidas/{tarefaId}",
+                destaque: false,
+                tarefaId: tarefaId);
+
+            // Assert
+            var notificacoesNoBanco = await _dbContext.Notificacoes
+                .Where(n => n.UsuarioId == criadorId && n.TarefaId == tarefaId)
+                .ToListAsync();
+
+            Assert.Single(notificacoesNoBanco);
+            var notificacaoFinal = notificacoesNoBanco.First();
+            Assert.Equal(notif1.Id, notificacaoFinal.Id);
+            Assert.Equal(notif2.Id, notificacaoFinal.Id);
+            Assert.Equal("Tarefa Concluída (2)", notificacaoFinal.Titulo);
+            Assert.Equal("Os responsáveis Alice e Bob concluíram a tarefa \"Deploy em Produção\".", notificacaoFinal.Mensagem);
+            Assert.False(notificacaoFinal.Lida);
+        }
     }
 }
