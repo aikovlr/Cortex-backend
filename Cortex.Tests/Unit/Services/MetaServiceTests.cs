@@ -220,5 +220,94 @@ namespace Cortex.Tests.Unit.Services
             Assert.False(meta.Concluida);
             _metaRepoMock.Verify(r => r.AtualizarMetaAsync(It.IsAny<Meta>()), Times.Never);
         }
+
+        [Fact]
+        public async Task AtualizarMeta_DeveAtualizarTituloDataETarefasComSucesso()
+        {
+            // Arrange
+            var solicitanteId = 1;
+            var metaId = 10;
+            var criador = new Usuario { Id = solicitanteId, Nome = "Criador", Email = "c@test.com", SenhaHash = "hash" };
+            var tarefaAntiga = new Tarefa
+            {
+                Id = 1,
+                Titulo = "Tarefa 1",
+                Status = Status.Pendente,
+                DataVencimento = DateTime.UtcNow.AddDays(1),
+                CriadorId = solicitanteId,
+                Criador = criador
+            };
+            var tarefaNova = new Tarefa
+            {
+                Id = 2,
+                Titulo = "Tarefa 2",
+                Status = Status.Concluida,
+                DataVencimento = DateTime.UtcNow.AddDays(2),
+                CriadorId = solicitanteId,
+                Criador = criador
+            };
+
+            var meta = new Meta
+            {
+                Id = metaId,
+                Nome = "Nome Antigo",
+                DataFechamento = DateTime.UtcNow.AddMonths(1),
+                TarefaId = 1,
+                UsuarioId = solicitanteId,
+                Tarefa = tarefaAntiga,
+                Concluida = false,
+                MetasTarefas = new List<MetaTarefa>
+                {
+                    new MetaTarefa { Id = 1, MetaId = metaId, TarefaId = 1, Tarefa = tarefaAntiga }
+                }
+            };
+
+            _metaRepoMock.Setup(r => r.ObterMetaPorIdAsync(metaId)).ReturnsAsync(meta);
+            _tarefaRepoMock.Setup(r => r.ObterTarefaPorIdAsync(2)).ReturnsAsync(tarefaNova);
+            _metaRepoMock.Setup(r => r.AtualizarMetaAsync(It.IsAny<Meta>())).ReturnsAsync((Meta m) => m);
+
+            var novaData = DateTime.UtcNow.AddMonths(2);
+            var dto = new AtualizarMetaDTO
+            {
+                Nome = "Novo Nome da Meta",
+                DataFechamento = novaData,
+                TarefaIds = new List<int> { 2 }
+            };
+
+            // Act
+            var resultado = await _metaService.AtualizarMetaAsync(metaId, dto, solicitanteId);
+
+            // Assert
+            Assert.Equal("Novo Nome da Meta", meta.Nome);
+            Assert.True(meta.Concluida); // Tarefa 2 está Concluída, logo meta torna-se concluída
+            Assert.Equal(2, meta.TarefaId);
+            Assert.Single(meta.MetasTarefas);
+            Assert.Equal(2, meta.MetasTarefas.First().TarefaId);
+            _metaRepoMock.Verify(r => r.AtualizarMetaAsync(meta), Times.Once);
+        }
+
+        [Fact]
+        public async Task AtualizarMeta_DeveLancarExcecaoSeSemPermissao()
+        {
+            // Arrange
+            var solicitanteId = 99;
+            var metaId = 10;
+            var meta = new Meta
+            {
+                Id = metaId,
+                Nome = "Meta de Outro",
+                UsuarioId = 1,
+                TarefaId = 1
+            };
+
+            _metaRepoMock.Setup(r => r.ObterMetaPorIdAsync(metaId)).ReturnsAsync(meta);
+            _authServiceMock.Setup(a => a.EhAdminOuDonoDaTarefaAsync(solicitanteId, It.IsAny<Tarefa>())).ReturnsAsync(false);
+
+            var dto = new AtualizarMetaDTO { Nome = "Hacker" };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ForbiddenException>(() =>
+                _metaService.AtualizarMetaAsync(metaId, dto, solicitanteId));
+        }
     }
 }

@@ -57,7 +57,7 @@ namespace Cortex.Services.Implementations
                 var tarefa = await _tarefaRepository.ObterTarefaPorIdAsync(tId);
                 if (tarefa == null)
                 {
-                    throw new ArgumentException($"A tarefa #{tId} vinculada não foi encontrada.");
+                    throw new ArgumentException($"A tarefa #{tId} vinculada não foi encontrada ou não é uma tarefa válida.");
                 }
                 tarefas.Add(tarefa);
             }
@@ -148,9 +148,53 @@ namespace Cortex.Services.Implementations
             }
 
             if (!string.IsNullOrWhiteSpace(dto.Nome))
-                meta.Nome = dto.Nome;
+                meta.Nome = dto.Nome.Trim();
 
-            if (dto.TarefaId > 0 && dto.TarefaId != meta.TarefaId)
+            if (dto.TarefaIds != null)
+            {
+                var novasTarefasIds = dto.TarefaIds.Distinct().Where(tId => tId > 0).ToList();
+                if (!novasTarefasIds.Any())
+                {
+                    throw new ArgumentException("A meta deve estar vinculada a no mínimo uma tarefa válida.");
+                }
+
+                var tarefas = new List<Tarefa>();
+                foreach (var tId in novasTarefasIds)
+                {
+                    var tarefaExistente = await _tarefaRepository.ObterTarefaPorIdAsync(tId);
+                    if (tarefaExistente == null)
+                    {
+                        throw new ArgumentException($"A tarefa #{tId} vinculada não foi encontrada ou não é uma tarefa válida.");
+                    }
+                    tarefas.Add(tarefaExistente);
+                }
+
+                meta.TarefaId = novasTarefasIds.First();
+                meta.Tarefa = tarefas.First();
+
+                var paraRemover = meta.MetasTarefas.Where(mt => !novasTarefasIds.Contains(mt.TarefaId)).ToList();
+                foreach (var item in paraRemover)
+                {
+                    meta.MetasTarefas.Remove(item);
+                }
+
+                var tarefasAtuaisIds = meta.MetasTarefas.Select(mt => mt.TarefaId).ToHashSet();
+                foreach (var tId in novasTarefasIds)
+                {
+                    if (!tarefasAtuaisIds.Contains(tId))
+                    {
+                        meta.MetasTarefas.Add(new MetaTarefa
+                        {
+                            MetaId = meta.Id,
+                            TarefaId = tId,
+                            Tarefa = tarefas.First(t => t.Id == tId)
+                        });
+                    }
+                }
+
+                meta.Concluida = tarefas.All(t => t.Status == Status.Concluida);
+            }
+            else if (dto.TarefaId > 0 && dto.TarefaId != meta.TarefaId)
             {
                 // RN07: Validar se a nova tarefa existe
                 var novaTarefa = await _tarefaRepository.ObterTarefaPorIdAsync(dto.TarefaId);
@@ -160,12 +204,32 @@ namespace Cortex.Services.Implementations
                 meta.TarefaId = dto.TarefaId;
                 meta.Tarefa = novaTarefa;
 
+                var paraRemover = meta.MetasTarefas.Where(mt => mt.TarefaId != dto.TarefaId).ToList();
+                foreach (var item in paraRemover)
+                {
+                    meta.MetasTarefas.Remove(item);
+                }
+
+                if (!meta.MetasTarefas.Any(mt => mt.TarefaId == dto.TarefaId))
+                {
+                    meta.MetasTarefas.Add(new MetaTarefa
+                    {
+                        MetaId = meta.Id,
+                        TarefaId = dto.TarefaId,
+                        Tarefa = novaTarefa
+                    });
+                }
+
                 // RN08: Checar conclusão
                 if (novaTarefa.Status == Status.Concluida)
                     meta.Concluida = true;
             }
 
-            if (dto.DataFechamento.HasValue)
+            if (dto.LimparDataFechamento)
+            {
+                meta.DataFechamento = null;
+            }
+            else if (dto.DataFechamento.HasValue)
             {
                 var dataUtc = dto.DataFechamento.Value.ToUniversalTime();
 
@@ -179,7 +243,7 @@ namespace Cortex.Services.Implementations
                 meta.DataFechamento = dataUtc;
             }
 
-            if (dto.Concluida.HasValue)
+            if (dto.Concluida.HasValue && dto.TarefaIds == null)
             {
                 meta.Concluida = dto.Concluida.Value;
             }
