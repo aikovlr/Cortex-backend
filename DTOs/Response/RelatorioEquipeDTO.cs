@@ -22,5 +22,6 @@ namespace Cortex.DTOs.Response
         public int Pendentes { get; set; }
         public int Atrasadas { get; set; }
         public double TaxaConclusaoPercentual { get; set; }
+        public double? MediaNotas { get; set; }
     }
 }

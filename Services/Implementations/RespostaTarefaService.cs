@@ -106,6 +106,27 @@ namespace Cortex.Services.Implementations
             _logger.LogInformation("Resposta {RespostaId} criada para a TarefaId {TarefaId} por UsuarioId {UsuarioId}",
                 resposta.Id, dto.TarefaId, solicitanteId);
 
+            // Notifica o criador da tarefa sobre a nova resposta recebida
+            if (_notificacaoService != null && tarefa.CriadorId > 0 && tarefa.CriadorId != solicitanteId)
+            {
+                try
+                {
+                    var autorNome = solicitante?.Nome ?? "Um colaborador";
+                    await _notificacaoService.CriarNotificacaoAsync(
+                        tarefa.CriadorId,
+                        "tarefa",
+                        "Nova Resposta Recebida",
+                        $"{autorNome} enviou uma resposta para a tarefa \"{tarefa.Titulo}\".",
+                        $"/tarefas-atribuidas/{tarefa.Id}",
+                        false,
+                        tarefa.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao criar notificação de nova resposta para o criador {CriadorId}", tarefa.CriadorId);
+                }
+            }
+
             var respostaCarregada = await _respostaRepository.ObterRespostaTarefaPorIdAsync(resposta.Id);
             return MapToConsultaDTO(respostaCarregada ?? resposta);
         }
@@ -116,6 +137,38 @@ namespace Cortex.Services.Implementations
             if (tarefa == null)
             {
                 throw new KeyNotFoundException("Tarefa não encontrada.");
+            }
+
+            // Todo usuário com tarefa finalizada (contendo arquivo ou não) deve aparecer na lista de respostas
+            if (tarefa.Status == Status.Concluida)
+            {
+                var usuariosAlvo = new HashSet<int>();
+                if (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Any())
+                {
+                    foreach (var resp in tarefa.ResponsaveisTarefas)
+                    {
+                        usuariosAlvo.Add(resp.UsuarioId);
+                    }
+                }
+                else if (tarefa.CriadorId > 0)
+                {
+                    usuariosAlvo.Add(tarefa.CriadorId);
+                }
+
+                var respostasExistentes = await _respostaRepository.ObterRespostasTarefaPorTarefaIdAsync(tarefaId);
+                foreach (var usuarioId in usuariosAlvo)
+                {
+                    if (!respostasExistentes.Any(r => r.UsuarioId == usuarioId))
+                    {
+                        var novaResposta = new RespostaTarefa
+                        {
+                            TarefaId = tarefaId,
+                            UsuarioId = usuarioId,
+                            DataResposta = DateTime.UtcNow
+                        };
+                        await _respostaRepository.AdicionarRespostaTarefaAsync(novaResposta);
+                    }
+                }
             }
 
             var respostas = await _respostaRepository.ObterRespostasTarefaPorTarefaIdAsync(tarefaId);
@@ -167,7 +220,7 @@ namespace Cortex.Services.Implementations
                         "tarefa",
                         "Avaliação de Resposta Recebida",
                         $"Sua resposta na tarefa \"{tarefa.Titulo}\" foi avaliada com a nota {nota}{maxPontos}.",
-                        $"/minhas-tarefas/{tarefa.Id}?tab=respostas",
+                        $"/minhas-tarefas/{tarefa.Id}",
                         false,
                         tarefa.Id);
                 }

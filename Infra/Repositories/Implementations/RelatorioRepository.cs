@@ -23,6 +23,8 @@ namespace Cortex.Repositories.Implementations
             var query = _context.Tarefas
                 .AsNoTracking()
                 .Include(t => t.ResponsaveisTarefas)
+                    .ThenInclude(rt => rt.Usuario)
+                .Include(t => t.Respostas)
                 .AsQueryable();
 
             var responsaveisIds = filtro.ObterIdsResponsaveis();
@@ -90,6 +92,8 @@ namespace Cortex.Repositories.Implementations
             var query = _context.Tarefas
                 .AsNoTracking()
                 .Include(t => t.ResponsaveisTarefas)
+                    .ThenInclude(rt => rt.Usuario)
+                .Include(t => t.Respostas)
                 .Where(t => t.ResponsaveisTarefas.Any(rt => membroIds.Contains(rt.UsuarioId)));
 
             var responsaveisIds = filtro.ObterIdsResponsaveis();

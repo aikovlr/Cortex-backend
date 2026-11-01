@@ -18,6 +18,7 @@ namespace Cortex.Repositories.Implementations
         {
             return await _context.RespostasTarefa
                 .Include(rt => rt.Usuario)
+                    .ThenInclude(u => u.FotoPerfil)
                 .Include(rt => rt.Tarefa)
                 .Include(rt => rt.Anexos)
                 .FirstOrDefaultAsync(rt => rt.Id == id);
@@ -27,6 +28,7 @@ namespace Cortex.Repositories.Implementations
         {
             return await _context.RespostasTarefa
                 .Include(rt => rt.Usuario)
+                    .ThenInclude(u => u.FotoPerfil)
                 .Include(rt => rt.Anexos)
                 .Where(rt => rt.TarefaId == tarefaId)
                 .OrderByDescending(rt => rt.DataResposta)
@@ -37,6 +39,7 @@ namespace Cortex.Repositories.Implementations
         {
             return await _context.RespostasTarefa
                 .Include(rt => rt.Usuario)
+                    .ThenInclude(u => u.FotoPerfil)
                 .Include(rt => rt.Tarefa)
                 .Include(rt => rt.Anexos)
                 .Where(rt => rt.UsuarioId == usuarioId)
