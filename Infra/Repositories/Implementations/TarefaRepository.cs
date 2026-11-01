@@ -25,6 +25,7 @@ namespace Cortex.Repositories.Implementations
                 .Include(t => t.Anexos)
                 .Include(t => t.Respostas)
                     .ThenInclude(r => r.Usuario)
+                        .ThenInclude(u => u.FotoPerfil)
                 .Include(t => t.Respostas)
                     .ThenInclude(r => r.Anexos)
                 .Include(t => t.Metas)

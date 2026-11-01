@@ -18,6 +18,8 @@ namespace Cortex.Tests.Unit.Services
         private readonly Mock<IEquipeAuthorizationService> _authServiceMock;
         private readonly Mock<IArquivoValidacaoService> _arquivoValidacaoServiceMock;
         private readonly Mock<IWebHostEnvironment> _envMock;
+        private readonly Mock<INotificacaoService> _notificacaoServiceMock;
+        private readonly Mock<IRespostaTarefaRepository> _respostaRepoMock;
         private readonly Mock<ILogger<TarefaService>> _loggerMock;
         private readonly TarefaService _tarefaService;
 
@@ -29,6 +31,8 @@ namespace Cortex.Tests.Unit.Services
             _authServiceMock = new Mock<IEquipeAuthorizationService>();
             _arquivoValidacaoServiceMock = new Mock<IArquivoValidacaoService>();
             _envMock = new Mock<IWebHostEnvironment>();
+            _notificacaoServiceMock = new Mock<INotificacaoService>();
+            _respostaRepoMock = new Mock<IRespostaTarefaRepository>();
             _loggerMock = new Mock<ILogger<TarefaService>>();
 
             _tarefaService = new TarefaService(
@@ -38,7 +42,9 @@ namespace Cortex.Tests.Unit.Services
                 _authServiceMock.Object,
                 _arquivoValidacaoServiceMock.Object,
                 _envMock.Object,
-                _loggerMock.Object);
+                _loggerMock.Object,
+                _notificacaoServiceMock.Object,
+                _respostaRepoMock.Object);
         }
 
         [Fact]
@@ -197,6 +203,181 @@ namespace Cortex.Tests.Unit.Services
             Assert.Equal(50, tarefaOriginal.Pontuacao);
             Assert.Equal(Prioridade.Baixa, tarefaOriginal.Prioridade);
             _tarefaRepoMock.Verify(r => r.AtualizarTarefaAsync(tarefaOriginal), Times.Once);
+        }
+
+        [Fact]
+        public async Task ConcluirTarefa_SemAnexo_DeveCriarRespostaParaResponsavelParaAparecerNaLista()
+        {
+            // Arrange
+            var tarefaId = 20;
+            var responsavelId = 5;
+
+            var tarefa = new Tarefa
+            {
+                Id = tarefaId,
+                Titulo = "Tarefa sem Anexo",
+                DataVencimento = DateTime.UtcNow.AddDays(2),
+                Status = Status.Pendente,
+                Prioridade = Prioridade.Alta,
+                CriadorId = 1,
+                Criador = new Usuario { Id = 1, Nome = "Criador", Email = "c@test.com", SenhaHash = "hash" },
+                ResponsaveisTarefas = new List<ResponsavelTarefa>
+                {
+                    new ResponsavelTarefa { Id = 1, TarefaId = tarefaId, UsuarioId = responsavelId }
+                },
+                Respostas = new List<RespostaTarefa>()
+            };
+
+            _tarefaRepoMock.Setup(r => r.ObterTarefaPorIdAsync(tarefaId)).ReturnsAsync(tarefa);
+
+            // Act
+            var resultado = await _tarefaService.ConcluirTarefaAsync(tarefaId, responsavelId);
+
+            // Assert
+            Assert.Equal(Status.Concluida, resultado.Status);
+            _respostaRepoMock.Verify(r => r.AdicionarRespostaTarefaAsync(It.Is<RespostaTarefa>(
+                resp => resp.TarefaId == tarefaId && resp.UsuarioId == responsavelId)), Times.Once);
+        }
+
+        [Fact]
+        public async Task ConcluirTarefa_JaComResposta_NaoDeveDuplicarResposta()
+        {
+            // Arrange
+            var tarefaId = 21;
+            var responsavelId = 6;
+
+            var tarefa = new Tarefa
+            {
+                Id = tarefaId,
+                Titulo = "Tarefa com Anexo",
+                DataVencimento = DateTime.UtcNow.AddDays(2),
+                Status = Status.Pendente,
+                Prioridade = Prioridade.Alta,
+                CriadorId = 1,
+                Criador = new Usuario { Id = 1, Nome = "Criador", Email = "c@test.com", SenhaHash = "hash" },
+                ResponsaveisTarefas = new List<ResponsavelTarefa>
+                {
+                    new ResponsavelTarefa { Id = 1, TarefaId = tarefaId, UsuarioId = responsavelId }
+                },
+                Respostas = new List<RespostaTarefa>
+                {
+                    new RespostaTarefa
+                    {
+                        Id = 101,
+                        TarefaId = tarefaId,
+                        UsuarioId = responsavelId,
+                        Anexos = new List<Anexo> { new Anexo { Id = 1, NomeOriginal = "arquivo.pdf", MimeType = "application/pdf", UrlCaminho = "/uploads/arquivo.pdf" } }
+                    }
+                }
+            };
+
+            _tarefaRepoMock.Setup(r => r.ObterTarefaPorIdAsync(tarefaId)).ReturnsAsync(tarefa);
+
+            // Act
+            var resultado = await _tarefaService.ConcluirTarefaAsync(tarefaId, responsavelId);
+
+            // Assert
+            Assert.Equal(Status.Concluida, resultado.Status);
+            _respostaRepoMock.Verify(r => r.AdicionarRespostaTarefaAsync(It.IsAny<RespostaTarefa>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task CancelarConclusaoTarefa_DeveRemoverRespostaAutomaticaSemAnexoESemNota()
+        {
+            // Arrange
+            var tarefaId = 22;
+            var responsavelId = 7;
+            var respostaAutomaticaId = 555;
+
+            var tarefa = new Tarefa
+            {
+                Id = tarefaId,
+                Titulo = "Tarefa para Cancelar",
+                DataVencimento = DateTime.UtcNow.AddDays(2),
+                Status = Status.Concluida,
+                Prioridade = Prioridade.Media,
+                CriadorId = 1,
+                Criador = new Usuario { Id = 1, Nome = "Criador", Email = "c@test.com", SenhaHash = "hash" },
+                ResponsaveisTarefas = new List<ResponsavelTarefa>
+                {
+                    new ResponsavelTarefa { Id = 1, TarefaId = tarefaId, UsuarioId = responsavelId }
+                },
+                Respostas = new List<RespostaTarefa>
+                {
+                    new RespostaTarefa
+                    {
+                        Id = respostaAutomaticaId,
+                        TarefaId = tarefaId,
+                        UsuarioId = responsavelId,
+                        Nota = null,
+                        Anexos = new List<Anexo>()
+                    }
+                }
+            };
+
+            _tarefaRepoMock.Setup(r => r.ObterTarefaPorIdAsync(tarefaId)).ReturnsAsync(tarefa);
+
+            // Act
+            var resultado = await _tarefaService.CancelarConclusaoTarefaAsync(tarefaId, responsavelId);
+
+            // Assert
+            Assert.Equal(Status.Pendente, resultado.Status);
+            _respostaRepoMock.Verify(r => r.RemoverRespostaTarefaAsync(respostaAutomaticaId), Times.Once);
+        }
+
+        [Fact]
+        public async Task AtualizarTarefa_DeveNotificarResponsaveis()
+        {
+            // Arrange
+            var tarefaId = 30;
+            var criadorId = 1;
+            var responsavelId1 = 10;
+            var responsavelId2 = 20;
+
+            var tarefa = new Tarefa
+            {
+                Id = tarefaId,
+                Titulo = "Titulo Original",
+                DataVencimento = DateTime.UtcNow.AddDays(5),
+                Status = Status.Pendente,
+                Prioridade = Prioridade.Media,
+                CriadorId = criadorId,
+                Criador = new Usuario { Id = criadorId, Nome = "Criador", Email = "c@test.com", SenhaHash = "hash" },
+                ResponsaveisTarefas = new List<ResponsavelTarefa>
+                {
+                    new ResponsavelTarefa { Id = 1, TarefaId = tarefaId, UsuarioId = responsavelId1 },
+                    new ResponsavelTarefa { Id = 2, TarefaId = tarefaId, UsuarioId = responsavelId2 }
+                }
+            };
+
+            _tarefaRepoMock.Setup(r => r.ObterTarefaPorIdAsync(tarefaId)).ReturnsAsync(tarefa);
+
+            var dto = new AtualizarTarefaDTO
+            {
+                Titulo = "Novo Titulo Atualizado"
+            };
+
+            // Act
+            await _tarefaService.AtualizarTarefaAsync(tarefaId, dto, solicitanteId: criadorId);
+
+            // Assert
+            _notificacaoServiceMock.Verify(n => n.CriarNotificacaoAsync(
+                responsavelId1,
+                "tarefa",
+                "Tarefa Atualizada",
+                It.Is<string>(msg => msg.Contains("Novo Titulo Atualizado")),
+                $"/minhas-tarefas/{tarefaId}",
+                false,
+                tarefaId), Times.Once);
+
+            _notificacaoServiceMock.Verify(n => n.CriarNotificacaoAsync(
+                responsavelId2,
+                "tarefa",
+                "Tarefa Atualizada",
+                It.Is<string>(msg => msg.Contains("Novo Titulo Atualizado")),
+                $"/minhas-tarefas/{tarefaId}",
+                false,
+                tarefaId), Times.Once);
         }
     }
 }

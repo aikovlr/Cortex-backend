@@ -53,14 +53,78 @@ namespace Cortex.Services.Implementations
             var pendentes = tarefas.Count(t => t.Status == Status.Pendente);
             var taxa = total > 0 ? Math.Round((double)concluidas / total * 100, 2) : 0;
 
+            // Média de notas
+            List<int> notas;
+            if (filtro.CriadorId.HasValue)
+            {
+                notas = tarefas
+                    .SelectMany(t => t.Respostas)
+                    .Where(r => r.Nota.HasValue)
+                    .Select(r => r.Nota!.Value)
+                    .ToList();
+            }
+            else
+            {
+                notas = tarefas
+                    .SelectMany(t => t.Respostas)
+                    .Where(r => r.UsuarioId == solicitanteId && r.Nota.HasValue)
+                    .Select(r => r.Nota!.Value)
+                    .ToList();
+            }
+
+            double? mediaNotas = notas.Count > 0 ? Math.Round(notas.Average(), 1) : null;
+
+            // Desempenho individual por responsável (visão de tarefas criadas ou quando houver responsáveis)
+            var desempenhoResponsaveis = new List<DesempenhoResponsavelDTO>();
+            var responsaveisDistintos = tarefas
+                .SelectMany(t => t.ResponsaveisTarefas)
+                .Where(rt => rt.Usuario != null)
+                .Select(rt => rt.Usuario)
+                .DistinctBy(u => u.Id)
+                .ToList();
+
+            foreach (var resp in responsaveisDistintos)
+            {
+                var tarefasDoResp = tarefas
+                    .Where(t => t.ResponsaveisTarefas.Any(rt => rt.UsuarioId == resp.Id))
+                    .ToList();
+
+                var totalResp = tarefasDoResp.Count;
+                var concluidasResp = tarefasDoResp.Count(t => t.Status == Status.Concluida);
+                var atrasadasResp = tarefasDoResp.Count(t => t.Status == Status.Atrasada);
+                var pendentesResp = tarefasDoResp.Count(t => t.Status == Status.Pendente);
+                var taxaResp = totalResp > 0 ? Math.Round((double)concluidasResp / totalResp * 100, 2) : 0;
+
+                var notasResp = tarefasDoResp
+                    .SelectMany(t => t.Respostas)
+                    .Where(r => r.UsuarioId == resp.Id && r.Nota.HasValue)
+                    .Select(r => r.Nota!.Value)
+                    .ToList();
+
+                double? mediaNotasResp = notasResp.Count > 0 ? Math.Round(notasResp.Average(), 1) : null;
+
+                desempenhoResponsaveis.Add(new DesempenhoResponsavelDTO
+                {
+                    UsuarioId = resp.Id,
+                    Nome = resp.Nome,
+                    Email = resp.Email,
+                    TotalAtribuidas = totalResp,
+                    Concluidas = concluidasResp,
+                    Atrasadas = atrasadasResp,
+                    Pendentes = pendentesResp,
+                    TaxaConclusaoPercentual = taxaResp,
+                    MediaNotas = mediaNotasResp
+                });
+            }
+
             var porPrioridade = Enum.GetValues<Prioridade>()
                 .ToDictionary(p => p.ToString(), p => tarefas.Count(t => t.Prioridade == p));
 
             var porStatus = Enum.GetValues<Status>()
                 .ToDictionary(s => s.ToString(), s => tarefas.Count(t => t.Status == s));
 
-            _logger.LogInformation("Relatório de tarefas gerado para SolicitanteId {SolicitanteId}: Total {Total}, Concluídas {Concluidas}",
-                solicitanteId, total, concluidas);
+            _logger.LogInformation("Relatório de tarefas gerado para SolicitanteId {SolicitanteId}: Total {Total}, Concluídas {Concluidas}, Média Notas {MediaNotas}",
+                solicitanteId, total, concluidas, mediaNotas);
 
             return new RelatorioTarefasDTO
             {
@@ -69,6 +133,8 @@ namespace Cortex.Services.Implementations
                 Atrasadas = atrasadas,
                 Pendentes = pendentes,
                 TaxaConclusaoPercentual = taxa,
+                MediaNotas = mediaNotas,
+                DesempenhoResponsaveis = desempenhoResponsaveis,
                 PorPrioridade = porPrioridade,
                 PorStatus = porStatus,
                 PeriodoInicio = filtro.DataInicio,
@@ -107,6 +173,13 @@ namespace Cortex.Services.Implementations
             var pendentesGeral = tarefasEquipe.Count(t => t.Status == Status.Pendente);
             var taxaGeral = totalGeral > 0 ? Math.Round((double)concluidasGeral / totalGeral * 100, 2) : 0;
 
+            var notasEquipe = tarefasEquipe
+                .SelectMany(t => t.Respostas)
+                .Where(r => r.Nota.HasValue)
+                .Select(r => r.Nota!.Value)
+                .ToList();
+            double? mediaNotasGeral = notasEquipe.Count > 0 ? Math.Round(notasEquipe.Average(), 1) : null;
+
             var relatorioGeral = new RelatorioTarefasDTO
             {
                 TotalTarefas = totalGeral,
@@ -114,6 +187,7 @@ namespace Cortex.Services.Implementations
                 Atrasadas = atrasadasGeral,
                 Pendentes = pendentesGeral,
                 TaxaConclusaoPercentual = taxaGeral,
+                MediaNotas = mediaNotasGeral,
                 PorPrioridade = Enum.GetValues<Prioridade>()
                     .ToDictionary(p => p.ToString(), p => tarefasEquipe.Count(t => t.Prioridade == p)),
                 PorStatus = Enum.GetValues<Status>()
@@ -156,6 +230,14 @@ namespace Cortex.Services.Implementations
                 var pendentesMembro = tarefasMembro.Count(t => t.Status == Status.Pendente);
                 var taxaMembro = totalMembro > 0 ? Math.Round((double)concluidasMembro / totalMembro * 100, 2) : 0;
 
+                var notasMembro = tarefasMembro
+                    .SelectMany(t => t.Respostas)
+                    .Where(r => r.UsuarioId == membro.UsuarioId && r.Nota.HasValue)
+                    .Select(r => r.Nota!.Value)
+                    .ToList();
+
+                double? mediaNotasMembro = notasMembro.Count > 0 ? Math.Round(notasMembro.Average(), 1) : null;
+
                 desempenhoMembros.Add(new DesempenhoMembroDTO
                 {
                     UsuarioId = membro.UsuarioId,
@@ -166,7 +248,8 @@ namespace Cortex.Services.Implementations
                     Concluidas = concluidasMembro,
                     Atrasadas = atrasadasMembro,
                     Pendentes = pendentesMembro,
-                    TaxaConclusaoPercentual = taxaMembro
+                    TaxaConclusaoPercentual = taxaMembro,
+                    MediaNotas = mediaNotasMembro
                 });
             }
 

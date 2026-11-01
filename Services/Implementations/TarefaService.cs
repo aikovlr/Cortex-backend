@@ -18,6 +18,7 @@ namespace Cortex.Services.Implementations
         private readonly IArquivoValidacaoService _arquivoValidacaoService;
         private readonly IWebHostEnvironment _environment;
         private readonly INotificacaoService? _notificacaoService;
+        private readonly IRespostaTarefaRepository? _respostaRepository;
         private readonly ILogger<TarefaService> _logger;
 
         public TarefaService(
@@ -28,7 +29,8 @@ namespace Cortex.Services.Implementations
             IArquivoValidacaoService arquivoValidacaoService,
             IWebHostEnvironment environment,
             ILogger<TarefaService> logger,
-            INotificacaoService? notificacaoService = null)
+            INotificacaoService? notificacaoService = null,
+            IRespostaTarefaRepository? respostaRepository = null)
         {
             _tarefaRepository = tarefaRepository;
             _usuarioRepository = usuarioRepository;
@@ -38,6 +40,7 @@ namespace Cortex.Services.Implementations
             _environment = environment;
             _logger = logger;
             _notificacaoService = notificacaoService;
+            _respostaRepository = respostaRepository;
         }
 
         public async Task<ConsultaTarefaDTO> CriarTarefaAsync(CriarTarefaDTO dto, int criadorId)
@@ -83,6 +86,45 @@ namespace Cortex.Services.Implementations
             var tarefa = await _tarefaRepository.ObterTarefaPorIdAsync(id);
             if (tarefa == null)
                 return null;
+
+            // Todo usuário com tarefa finalizada (contendo arquivo ou não) deve aparecer na lista de respostas
+            if (tarefa.Status == Status.Concluida && _respostaRepository != null)
+            {
+                var usuariosAlvo = new HashSet<int>();
+                if (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Any())
+                {
+                    foreach (var resp in tarefa.ResponsaveisTarefas)
+                    {
+                        usuariosAlvo.Add(resp.UsuarioId);
+                    }
+                }
+                else if (tarefa.CriadorId > 0)
+                {
+                    usuariosAlvo.Add(tarefa.CriadorId);
+                }
+
+                var respostasExistentes = tarefa.Respostas ?? new List<RespostaTarefa>();
+                var adicionou = false;
+                foreach (var usuarioId in usuariosAlvo)
+                {
+                    if (!respostasExistentes.Any(r => r.UsuarioId == usuarioId))
+                    {
+                        var novaResposta = new RespostaTarefa
+                        {
+                            TarefaId = id,
+                            UsuarioId = usuarioId,
+                            DataResposta = DateTime.UtcNow
+                        };
+                        await _respostaRepository.AdicionarRespostaTarefaAsync(novaResposta);
+                        adicionou = true;
+                    }
+                }
+
+                if (adicionou)
+                {
+                    tarefa = await _tarefaRepository.ObterTarefaPorIdAsync(id) ?? tarefa;
+                }
+            }
 
             return MapToDetalhesDTO(tarefa);
         }
@@ -171,6 +213,32 @@ namespace Cortex.Services.Implementations
 
             await _tarefaRepository.AtualizarTarefaAsync(tarefa);
 
+            // Notifica os responsáveis sobre as alterações na tarefa
+            if (_notificacaoService != null && tarefa.ResponsaveisTarefas != null && camposAlterados.Count > 0)
+            {
+                foreach (var resp in tarefa.ResponsaveisTarefas)
+                {
+                    if (resp.UsuarioId > 0 && resp.UsuarioId != solicitanteId)
+                    {
+                        try
+                        {
+                            await _notificacaoService.CriarNotificacaoAsync(
+                                resp.UsuarioId,
+                                "tarefa",
+                                "Tarefa Atualizada",
+                                $"A tarefa \"{tarefa.Titulo}\" foi alterada.",
+                                $"/minhas-tarefas/{tarefa.Id}",
+                                false,
+                                tarefa.Id);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Erro ao criar notificação de atualização para o responsável {UsuarioId}", resp.UsuarioId);
+                        }
+                    }
+                }
+            }
+
             _logger.LogInformation("Auditoria: Tarefa alterada. TarefaId: {TarefaId}, AlteradoPor: {AlteradoPor}, CamposAlterados: {CamposAlterados}",
                 id, solicitanteId, camposAlterados);
 
@@ -221,6 +289,39 @@ namespace Cortex.Services.Implementations
             tarefa.Status = Status.Concluida;
             await _tarefaRepository.AtualizarTarefaAsync(tarefa);
 
+            // Garante que todo usuário com tarefa finalizada possua uma RespostaTarefa para aparecer na lista de respostas
+            if (_respostaRepository != null)
+            {
+                var usuariosAlvo = new HashSet<int>();
+                if (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Any())
+                {
+                    foreach (var resp in tarefa.ResponsaveisTarefas)
+                    {
+                        usuariosAlvo.Add(resp.UsuarioId);
+                    }
+                }
+
+                if (solicitanteId > 0 && (usuariosAlvo.Count == 0 || usuariosAlvo.Contains(solicitanteId)))
+                {
+                    usuariosAlvo.Add(solicitanteId);
+                }
+
+                foreach (var usuarioId in usuariosAlvo)
+                {
+                    var jaPossuiResposta = tarefa.Respostas != null && tarefa.Respostas.Any(r => r.UsuarioId == usuarioId);
+                    if (!jaPossuiResposta)
+                    {
+                        var novaResposta = new RespostaTarefa
+                        {
+                            TarefaId = id,
+                            UsuarioId = usuarioId,
+                            DataResposta = DateTime.UtcNow
+                        };
+                        await _respostaRepository.AdicionarRespostaTarefaAsync(novaResposta);
+                    }
+                }
+            }
+
             _logger.LogInformation("Auditoria: Tarefa concluída. TarefaId: {TarefaId}, ConcluidaPor: {ConcluidaPor}, Timestamp: {Timestamp}",
                 id, solicitanteId, DateTime.UtcNow);
 
@@ -269,6 +370,20 @@ namespace Cortex.Services.Implementations
             // Retorna para Atrasada se já passou do vencimento, caso contrário para Pendente
             tarefa.Status = tarefa.DataVencimento < DateTime.UtcNow ? Status.Atrasada : Status.Pendente;
             await _tarefaRepository.AtualizarTarefaAsync(tarefa);
+
+            // Ao cancelar a entrega/conclusão, remove as respostas automáticas geradas sem arquivos e sem nota
+            if (_respostaRepository != null && tarefa.Respostas != null)
+            {
+                var respostasSemAnexoENota = tarefa.Respostas
+                    .Where(r => !r.Nota.HasValue && (r.Anexos == null || !r.Anexos.Any()))
+                    .Where(r => r.UsuarioId == solicitanteId || (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Any(rt => rt.UsuarioId == r.UsuarioId)))
+                    .ToList();
+
+                foreach (var resp in respostasSemAnexoENota)
+                {
+                    await _respostaRepository.RemoverRespostaTarefaAsync(resp.Id);
+                }
+            }
 
             _logger.LogInformation("Auditoria: Conclusão da tarefa cancelada. TarefaId: {TarefaId}, CanceladaPor: {CanceladaPor}, NovoStatus: {NovoStatus}, Timestamp: {Timestamp}",
                 id, solicitanteId, tarefa.Status, DateTime.UtcNow);

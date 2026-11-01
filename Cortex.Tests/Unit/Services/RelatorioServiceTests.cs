@@ -159,5 +159,117 @@ namespace Cortex.Tests.Unit.Services
             Assert.Equal(1, relatorio.DesempenhoMembros[0].Concluidas);
             Assert.Equal(1, relatorio.TotalMembros);
         }
+
+        [Fact]
+        public async Task GerarRelatorioTarefas_CalculaMediaNotas_EDesempenhoResponsaveis()
+        {
+            // Arrange
+            var solicitanteId = 1;
+            var usuario = new Usuario
+            {
+                Id = solicitanteId,
+                Nome = "Gestor",
+                Email = "gestor@test.com",
+                SenhaHash = "hash"
+            };
+
+            _usuarioRepoMock.Setup(r => r.ObterUsuarioPorIdAsync(solicitanteId)).ReturnsAsync(usuario);
+
+            var resp1 = new Usuario { Id = 10, Nome = "Colaborador 1", Email = "c1@test.com", SenhaHash = "h" };
+            var resp2 = new Usuario { Id = 20, Nome = "Colaborador 2", Email = "c2@test.com", SenhaHash = "h" };
+
+            var tarefas = new List<Tarefa>
+            {
+                new()
+                {
+                    Id = 1,
+                    Titulo = "T1",
+                    DataVencimento = DateTime.UtcNow,
+                    CriadorId = solicitanteId,
+                    Criador = usuario,
+                    Status = Status.Concluida,
+                    ResponsaveisTarefas = new List<ResponsavelTarefa> { new() { TarefaId = 1, UsuarioId = 10, Usuario = resp1 } },
+                    Respostas = new List<RespostaTarefa> { new() { Id = 1, TarefaId = 1, UsuarioId = 10, Nota = 90 } }
+                },
+                new()
+                {
+                    Id = 2,
+                    Titulo = "T2",
+                    DataVencimento = DateTime.UtcNow,
+                    CriadorId = solicitanteId,
+                    Criador = usuario,
+                    Status = Status.Concluida,
+                    ResponsaveisTarefas = new List<ResponsavelTarefa> { new() { TarefaId = 2, UsuarioId = 20, Usuario = resp2 } },
+                    Respostas = new List<RespostaTarefa> { new() { Id = 2, TarefaId = 2, UsuarioId = 20, Nota = 80 } }
+                }
+            };
+
+            var filtro = new FiltroRelatorioDTO { CriadorId = solicitanteId };
+            _relatorioRepoMock.Setup(r => r.ObterTarefasParaRelatorioAsync(solicitanteId, false, filtro))
+                .ReturnsAsync(tarefas);
+
+            // Act
+            var relatorio = await _service.GerarRelatorioTarefasAsync(filtro, solicitanteId);
+
+            // Assert
+            Assert.Equal(85.0, relatorio.MediaNotas);
+            Assert.Equal(2, relatorio.DesempenhoResponsaveis.Count);
+            var d1 = relatorio.DesempenhoResponsaveis.First(d => d.UsuarioId == 10);
+            Assert.Equal(90.0, d1.MediaNotas);
+            Assert.Equal(1, d1.Concluidas);
+            Assert.Equal(100.0, d1.TaxaConclusaoPercentual);
+        }
+
+        [Fact]
+        public async Task GerarRelatorioEquipe_CalculaMediaNotas_PorMembroEDaEquipe()
+        {
+            // Arrange
+            var equipeId = 5;
+            var solicitanteId = 1;
+            var usuario1 = new Usuario { Id = 1, Nome = "Admin", Email = "admin@test.com", SenhaHash = "h" };
+            var usuario2 = new Usuario { Id = 2, Nome = "Membro 2", Email = "m2@test.com", SenhaHash = "h" };
+
+            var equipe = new Equipe
+            {
+                Id = equipeId,
+                Nome = "Dev Team",
+                DataCriacao = DateTime.UtcNow,
+                Membros = new List<MembroEquipe>
+                {
+                    new() { EquipeId = equipeId, UsuarioId = 1, Usuario = usuario1, Cargo = Cargo.Dono },
+                    new() { EquipeId = equipeId, UsuarioId = 2, Usuario = usuario2, Cargo = Cargo.Membro }
+                }
+            };
+
+            _equipeRepoMock.Setup(r => r.ObterEquipePorIdAsync(equipeId)).ReturnsAsync(equipe);
+            _authServiceMock.Setup(a => a.ExigirAdminOuDonoDaEquipeAsync(solicitanteId, equipeId)).Returns(Task.CompletedTask);
+
+            var tarefas = new List<Tarefa>
+            {
+                new()
+                {
+                    Id = 10,
+                    Titulo = "T10",
+                    Status = Status.Concluida,
+                    DataVencimento = DateTime.UtcNow,
+                    CriadorId = 1,
+                    Criador = usuario1,
+                    ResponsaveisTarefas = new List<ResponsavelTarefa> { new() { TarefaId = 10, UsuarioId = 2, Usuario = usuario2 } },
+                    Respostas = new List<RespostaTarefa> { new() { Id = 10, TarefaId = 10, UsuarioId = 2, Nota = 95 } }
+                }
+            };
+
+            var filtro = new FiltroRelatorioDTO();
+            _relatorioRepoMock.Setup(r => r.ObterTarefasDaEquipeAsync(equipeId, filtro))
+                .ReturnsAsync(tarefas);
+
+            // Act
+            var relatorio = await _service.GerarRelatorioEquipeAsync(equipeId, filtro, solicitanteId);
+
+            // Assert
+            Assert.Equal(95.0, relatorio.MetricasGerais.MediaNotas);
+            var membro2 = relatorio.DesempenhoMembros.First(m => m.UsuarioId == 2);
+            Assert.Equal(95.0, membro2.MediaNotas);
+        }
     }
 }
