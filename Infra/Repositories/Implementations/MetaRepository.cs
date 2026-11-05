@@ -21,6 +21,9 @@ namespace Cortex.Repositories.Implementations
                 .Include(m => m.Tarefa)
                 .Include(m => m.MetasTarefas)
                     .ThenInclude(mt => mt.Tarefa)
+                .Include(m => m.MetasEquipes)
+                    .ThenInclude(me => me.Equipe)
+                        .ThenInclude(e => e.Membros)
                 .FirstOrDefaultAsync(m => m.Id == id);
         }
 
@@ -31,16 +34,23 @@ namespace Cortex.Repositories.Implementations
                 .Include(m => m.Tarefa)
                 .Include(m => m.MetasTarefas)
                     .ThenInclude(mt => mt.Tarefa)
+                .Include(m => m.MetasEquipes)
+                    .ThenInclude(me => me.Equipe)
                 .ToListAsync();
         }
 
         public async Task<List<Meta>> ObterMetasPorUsuarioIdAsync(int usuarioId)
         {
             return await _context.Metas
-                .Where(m => m.UsuarioId == usuarioId)
+                .Where(m => m.UsuarioId == usuarioId ||
+                            m.MetasEquipes.Any(me => me.Equipe.Membros.Any(mem => mem.UsuarioId == usuarioId)))
+                .Include(m => m.Usuario)
                 .Include(m => m.Tarefa)
                 .Include(m => m.MetasTarefas)
                     .ThenInclude(mt => mt.Tarefa)
+                .Include(m => m.MetasEquipes)
+                    .ThenInclude(me => me.Equipe)
+                .Distinct()
                 .ToListAsync();
         }
 
@@ -51,6 +61,21 @@ namespace Cortex.Repositories.Implementations
                 .Include(m => m.Tarefa)
                 .Include(m => m.MetasTarefas)
                     .ThenInclude(mt => mt.Tarefa)
+                .Include(m => m.MetasEquipes)
+                    .ThenInclude(me => me.Equipe)
+                .ToListAsync();
+        }
+
+        public async Task<List<Meta>> ObterMetasPorEquipeIdAsync(int equipeId)
+        {
+            return await _context.Metas
+                .Where(m => m.MetasEquipes.Any(me => me.EquipeId == equipeId))
+                .Include(m => m.Usuario)
+                .Include(m => m.Tarefa)
+                .Include(m => m.MetasTarefas)
+                    .ThenInclude(mt => mt.Tarefa)
+                .Include(m => m.MetasEquipes)
+                    .ThenInclude(me => me.Equipe)
                 .ToListAsync();
         }
 
@@ -99,6 +124,26 @@ namespace Cortex.Repositories.Implementations
         public async Task<bool> MetaExisteAsync(int id)
         {
             return await _context.Metas.AnyAsync(m => m.Id == id);
+        }
+
+        public async Task AdicionarMetaEquipeAsync(MetaEquipe metaEquipe)
+        {
+            _context.MetasEquipes.Add(metaEquipe);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task<bool> MetaEquipeExisteAsync(int metaId, int equipeId)
+        {
+            return await _context.MetasEquipes.AnyAsync(me => me.MetaId == metaId && me.EquipeId == equipeId);
+        }
+
+        public async Task<List<Equipe>> ObterEquipesDaMetaAsync(int metaId)
+        {
+            return await _context.MetasEquipes
+                .AsNoTracking()
+                .Where(me => me.MetaId == metaId)
+                .Select(me => me.Equipe)
+                .ToListAsync();
         }
     }
 }
