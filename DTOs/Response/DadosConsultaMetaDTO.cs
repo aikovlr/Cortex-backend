@@ -11,5 +11,6 @@ namespace Cortex.DTOs.Response
         public ConsultaTarefaDTO? Tarefa { get; set; }
         public List<ConsultaTarefaDTO> Tarefas { get; set; } = new();
         public ConsultaUsuarioDTO? Usuario { get; set; }
+        public List<ConsultaEquipeDTO> Equipes { get; set; } = new();
     }
 }

@@ -14,6 +14,8 @@ namespace Cortex.Services.Implementations
         private readonly IUsuarioRepository _usuarioRepository;
         private readonly IEquipeAuthorizationService _authService;
         private readonly INotificacaoService? _notificacaoService;
+        private readonly IEquipeRepository? _equipeRepository;
+        private readonly IMembroEquipeRepository? _membroEquipeRepository;
         private readonly ILogger<MetaService> _logger;
 
         public MetaService(
@@ -22,7 +24,9 @@ namespace Cortex.Services.Implementations
             IUsuarioRepository usuarioRepository,
             IEquipeAuthorizationService authService,
             ILogger<MetaService> logger,
-            INotificacaoService? notificacaoService = null)
+            INotificacaoService? notificacaoService = null,
+            IEquipeRepository? equipeRepository = null,
+            IMembroEquipeRepository? membroEquipeRepository = null)
         {
             _metaRepository = metaRepository;
             _tarefaRepository = tarefaRepository;
@@ -30,6 +34,8 @@ namespace Cortex.Services.Implementations
             _authService = authService;
             _logger = logger;
             _notificacaoService = notificacaoService;
+            _equipeRepository = equipeRepository;
+            _membroEquipeRepository = membroEquipeRepository;
         }
 
         public async Task<ConsultaMetaDTO> CriarMetaAsync(CriarMetaDTO dto, int solicitanteId)
@@ -65,6 +71,38 @@ namespace Cortex.Services.Implementations
                 tarefas.Add(tarefa);
             }
 
+            var targetUsuarioId = solicitanteId;
+            if (dto.UsuarioId.HasValue && dto.UsuarioId.Value > 0 && dto.UsuarioId.Value != solicitanteId)
+            {
+                var usuarioExiste = await _usuarioRepository.UsuarioExisteAsync(dto.UsuarioId.Value);
+                if (!usuarioExiste)
+                {
+                    throw new KeyNotFoundException("O usuário integrante informado não foi encontrado.");
+                }
+
+                var ehAdminOuDono = await _authService.EhAdminOuDonoDeAlgumaEquipeDoUsuarioAsync(solicitanteId, dto.UsuarioId.Value);
+                if (!ehAdminOuDono)
+                {
+                    throw new ForbiddenException("Apenas o Dono ou Administradores da equipe possuem permissão para atribuir metas a integrantes.");
+                }
+
+                targetUsuarioId = dto.UsuarioId.Value;
+            }
+
+            if (dto.EquipeId.HasValue && dto.EquipeId.Value > 0)
+            {
+                if (_equipeRepository != null && !await _equipeRepository.EquipeExisteAsync(dto.EquipeId.Value))
+                {
+                    throw new KeyNotFoundException("Equipe informada não foi encontrada.");
+                }
+
+                var ehAdminOuDonoEquipe = await _authService.EhAdminOuDonoDaEquipeAsync(solicitanteId, dto.EquipeId.Value);
+                if (!ehAdminOuDonoEquipe)
+                {
+                    throw new ForbiddenException("Apenas o Dono ou Administradores da equipe possuem permissão para vincular a meta à equipe.");
+                }
+            }
+
             // RN08: Concluida se TODAS as tarefas vinculadas estiverem Concluidas
             var todasConcluidas = tarefas.All(t => t.Status == Status.Concluida);
 
@@ -74,7 +112,7 @@ namespace Cortex.Services.Implementations
                 DataFechamento = dataFechamentoUtc,
                 Concluida = todasConcluidas,
                 TarefaId = tarefaIds.First(),
-                UsuarioId = solicitanteId,
+                UsuarioId = targetUsuarioId,
                 Tarefa = tarefas.First()
             };
 
@@ -86,14 +124,65 @@ namespace Cortex.Services.Implementations
                 });
             }
 
+            if (dto.EquipeId.HasValue && dto.EquipeId.Value > 0)
+            {
+                meta.MetasEquipes.Add(new MetaEquipe
+                {
+                    EquipeId = dto.EquipeId.Value
+                });
+            }
+
             await _metaRepository.AdicionarMetaAsync(meta);
 
-            if (meta.Concluida == true && _notificacaoService != null && solicitanteId > 0)
+            if (targetUsuarioId != solicitanteId && _notificacaoService != null && targetUsuarioId > 0)
             {
                 try
                 {
                     await _notificacaoService.CriarNotificacaoAsync(
-                        solicitanteId,
+                        targetUsuarioId,
+                        "meta",
+                        "Nova Meta Atribuída",
+                        $"Você recebeu uma nova meta: \"{meta.Nome}\".",
+                        "/metas",
+                        destaque: false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao criar notificação de nova meta para UsuarioId {UsuarioId}", targetUsuarioId);
+                }
+            }
+
+            if (dto.EquipeId.HasValue && dto.EquipeId.Value > 0 && _membroEquipeRepository != null && _notificacaoService != null)
+            {
+                try
+                {
+                    var membrosEquipe = await _membroEquipeRepository.ObterMembrosEquipePorEquipeIdAsync(dto.EquipeId.Value);
+                    foreach (var membro in membrosEquipe)
+                    {
+                        if (membro.UsuarioId == solicitanteId || membro.UsuarioId == targetUsuarioId)
+                            continue;
+
+                        await _notificacaoService.CriarNotificacaoAsync(
+                            membro.UsuarioId,
+                            "meta",
+                            "Nova Meta de Equipe",
+                            $"Uma nova meta de equipe \"{meta.Nome}\" foi atribuída aos integrantes da equipe.",
+                            "/metas",
+                            destaque: false);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao notificar membros da equipe {EquipeId} sobre nova meta", dto.EquipeId.Value);
+                }
+            }
+
+            if (meta.Concluida == true && _notificacaoService != null && targetUsuarioId > 0)
+            {
+                try
+                {
+                    await _notificacaoService.CriarNotificacaoAsync(
+                        targetUsuarioId,
                         "meta",
                         "Meta Concluída",
                         $"Parabéns! A meta \"{meta.Nome}\" foi concluída com sucesso.",
@@ -102,12 +191,12 @@ namespace Cortex.Services.Implementations
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erro ao criar notificação de meta concluída para o usuário {UsuarioId}", solicitanteId);
+                    _logger.LogError(ex, "Erro ao criar notificação de meta concluída para o usuário {UsuarioId}", targetUsuarioId);
                 }
             }
 
             _logger.LogInformation("Meta única criada com {QuantidadeTarefas} tarefas vinculadas: MetaId {MetaId}, Nome '{Nome}', UsuarioId {UsuarioId}",
-                tarefaIds.Count, meta.Id, meta.Nome, solicitanteId);
+                tarefaIds.Count, meta.Id, meta.Nome, targetUsuarioId);
 
             var metaCompleta = await _metaRepository.ObterMetaPorIdAsync(meta.Id);
             return MapToConsultaDTO(metaCompleta ?? meta);
@@ -119,11 +208,27 @@ namespace Cortex.Services.Implementations
             if (meta == null)
                 return null;
 
-            // RN09: Usuários comuns só podem visualizar suas próprias metas
+            // RN09: Usuários comuns só podem visualizar suas próprias metas ou metas atribuídas à sua equipe
             var tarefa = meta.Tarefa ?? await _tarefaRepository.ObterTarefaPorIdAsync(meta.TarefaId);
             var ehAdminOuDono = tarefa != null && await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, tarefa);
 
-            if (meta.UsuarioId != solicitanteId && !ehAdminOuDono)
+            var ehMembroDaEquipe = meta.MetasEquipes != null && meta.MetasEquipes.Any(me =>
+                me.Equipe != null && me.Equipe.Membros != null && me.Equipe.Membros.Any(m => m.UsuarioId == solicitanteId));
+
+            if (!ehMembroDaEquipe && _membroEquipeRepository != null && meta.MetasEquipes != null && meta.MetasEquipes.Any())
+            {
+                foreach (var me in meta.MetasEquipes)
+                {
+                    var membro = await _membroEquipeRepository.ObterMembroPorEquipeEUsuarioAsync(me.EquipeId, solicitanteId);
+                    if (membro != null)
+                    {
+                        ehMembroDaEquipe = true;
+                        break;
+                    }
+                }
+            }
+
+            if (meta.UsuarioId != solicitanteId && !ehAdminOuDono && !ehMembroDaEquipe)
             {
                 throw new ForbiddenException("Você não possui permissão para visualizar esta meta.");
             }
@@ -153,6 +258,89 @@ namespace Cortex.Services.Implementations
 
             var metas = await _metaRepository.ObterMetasPorTarefaIdAsync(tarefaId);
             return metas.Select(MapToConsultaDTO);
+        }
+
+        public async Task<IEnumerable<ConsultaMetaDTO>> ListarMetasPorEquipeAsync(int equipeId, int solicitanteId)
+        {
+            if (_equipeRepository != null && !await _equipeRepository.EquipeExisteAsync(equipeId))
+                throw new KeyNotFoundException("Equipe informada não foi encontrada.");
+
+            if (_membroEquipeRepository != null)
+            {
+                var membro = await _membroEquipeRepository.ObterMembroPorEquipeEUsuarioAsync(equipeId, solicitanteId);
+                if (membro == null)
+                {
+                    throw new ForbiddenException("Você não possui permissão para visualizar as metas desta equipe.");
+                }
+            }
+
+            var metas = await _metaRepository.ObterMetasPorEquipeIdAsync(equipeId);
+            return metas.Select(MapToConsultaDTO);
+        }
+
+        public async Task<ConsultaMetaDTO> AtribuirEquipeAsync(int metaId, int equipeId, int solicitanteId)
+        {
+            var meta = await _metaRepository.ObterMetaPorIdAsync(metaId);
+            if (meta == null)
+                throw new KeyNotFoundException("Meta não encontrada.");
+
+            if (_equipeRepository != null && !await _equipeRepository.EquipeExisteAsync(equipeId))
+                throw new KeyNotFoundException("Equipe informada não foi encontrada.");
+
+            var ehAdminOuDono = await _authService.EhAdminOuDonoDaEquipeAsync(solicitanteId, equipeId);
+            if (!ehAdminOuDono)
+            {
+                throw new ForbiddenException("Apenas o Dono ou Administradores da equipe possuem permissão para atribuir metas à equipe.");
+            }
+
+            var jaVinculada = await _metaRepository.MetaEquipeExisteAsync(metaId, equipeId);
+            if (!jaVinculada)
+            {
+                await _metaRepository.AdicionarMetaEquipeAsync(new MetaEquipe
+                {
+                    MetaId = metaId,
+                    EquipeId = equipeId
+                });
+            }
+
+            if (_membroEquipeRepository != null)
+            {
+                var membroSolicitante = await _membroEquipeRepository.ObterMembroPorEquipeEUsuarioAsync(equipeId, solicitanteId);
+                var membros = await _membroEquipeRepository.ObterMembrosEquipePorEquipeIdAsync(equipeId);
+
+                foreach (var membro in membros)
+                {
+                    if (membro.UsuarioId == solicitanteId)
+                        continue;
+
+                    if (membroSolicitante != null && ObterNivelCargo(membroSolicitante.Cargo) <= ObterNivelCargo(membro.Cargo))
+                        continue;
+
+                    if (_notificacaoService != null)
+                    {
+                        try
+                        {
+                            await _notificacaoService.CriarNotificacaoAsync(
+                                membro.UsuarioId,
+                                "meta",
+                                "Nova Meta de Equipe",
+                                $"Uma nova meta de equipe \"{meta.Nome}\" foi atribuída aos integrantes da equipe.",
+                                "/metas",
+                                destaque: false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Erro ao notificar membro {UsuarioId} sobre meta de equipe {MetaId}", membro.UsuarioId, meta.Id);
+                        }
+                    }
+                }
+            }
+
+            _logger.LogInformation("Meta {MetaId} atribuída à Equipe {EquipeId} por SolicitanteId {SolicitanteId}",
+                metaId, equipeId, solicitanteId);
+
+            var metaAtualizada = await _metaRepository.ObterMetaPorIdAsync(metaId);
+            return MapToConsultaDTO(metaAtualizada ?? meta);
         }
 
         public async Task<ConsultaMetaDTO> AtualizarMetaAsync(int id, AtualizarMetaDTO dto, int solicitanteId)
@@ -371,6 +559,17 @@ namespace Cortex.Services.Implementations
             return metasConcluidas;
         }
 
+        private static int ObterNivelCargo(Cargo cargo)
+        {
+            return cargo switch
+            {
+                Cargo.Dono => 3,
+                Cargo.Admin => 2,
+                Cargo.Membro => 1,
+                _ => 0
+            };
+        }
+
         private static ConsultaMetaDTO MapToConsultaDTO(Meta meta)
         {
             return new ConsultaMetaDTO
@@ -437,7 +636,15 @@ namespace Cortex.Services.Implementations
                             CriadorId = meta.Tarefa.CriadorId,
                             DataCriacao = meta.Tarefa.DataCriacao
                         }
-                    } : new List<ConsultaTarefaDTO>())
+                    } : new List<ConsultaTarefaDTO>()),
+                Equipes = meta.MetasEquipes?
+                    .Where(me => me.Equipe != null)
+                    .Select(me => new ConsultaEquipeDTO
+                    {
+                        Id = me.Equipe.Id,
+                        Nome = me.Equipe.Nome,
+                        DataCriacao = me.Equipe.DataCriacao
+                    }).ToList() ?? new List<ConsultaEquipeDTO>()
             };
         }
     }

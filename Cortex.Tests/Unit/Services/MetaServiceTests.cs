@@ -17,6 +17,8 @@ namespace Cortex.Tests.Unit.Services
         private readonly Mock<IUsuarioRepository> _usuarioRepoMock;
         private readonly Mock<IEquipeAuthorizationService> _authServiceMock;
         private readonly Mock<INotificacaoService> _notificacaoServiceMock;
+        private readonly Mock<IEquipeRepository> _equipeRepoMock;
+        private readonly Mock<IMembroEquipeRepository> _membroEquipeRepoMock;
         private readonly Mock<ILogger<MetaService>> _loggerMock;
         private readonly MetaService _metaService;
 
@@ -27,6 +29,8 @@ namespace Cortex.Tests.Unit.Services
             _usuarioRepoMock = new Mock<IUsuarioRepository>();
             _authServiceMock = new Mock<IEquipeAuthorizationService>();
             _notificacaoServiceMock = new Mock<INotificacaoService>();
+            _equipeRepoMock = new Mock<IEquipeRepository>();
+            _membroEquipeRepoMock = new Mock<IMembroEquipeRepository>();
             _loggerMock = new Mock<ILogger<MetaService>>();
 
             _metaService = new MetaService(
@@ -35,7 +39,9 @@ namespace Cortex.Tests.Unit.Services
                 _usuarioRepoMock.Object,
                 _authServiceMock.Object,
                 _loggerMock.Object,
-                _notificacaoServiceMock.Object);
+                _notificacaoServiceMock.Object,
+                _equipeRepoMock.Object,
+                _membroEquipeRepoMock.Object);
         }
 
         [Fact]
@@ -361,6 +367,175 @@ namespace Cortex.Tests.Unit.Services
                 "/metas",
                 false,
                 null), Times.Once);
+        }
+
+        [Fact]
+        public async Task CriarMeta_AtribuirAIntegrante_SucessoQuandoSolicitanteEhAdminOuDono()
+        {
+            // Arrange
+            var solicitanteId = 1;
+            var integranteId = 2;
+            var tarefa = new Tarefa
+            {
+                Id = 10,
+                Titulo = "Tarefa Base",
+                DataVencimento = DateTime.UtcNow.AddDays(7),
+                CriadorId = solicitanteId,
+                Criador = new Usuario { Id = solicitanteId, Nome = "Admin", Email = "admin@test.com", SenhaHash = "hash" }
+            };
+
+            var dto = new CriarMetaDTO
+            {
+                Nome = "Meta Atribuída",
+                TarefaId = 10,
+                UsuarioId = integranteId
+            };
+
+            _tarefaRepoMock.Setup(r => r.ObterTarefaPorIdAsync(dto.TarefaId)).ReturnsAsync(tarefa);
+            _usuarioRepoMock.Setup(r => r.UsuarioExisteAsync(integranteId)).ReturnsAsync(true);
+            _authServiceMock.Setup(a => a.EhAdminOuDonoDeAlgumaEquipeDoUsuarioAsync(solicitanteId, integranteId)).ReturnsAsync(true);
+            _metaRepoMock.Setup(r => r.AdicionarMetaAsync(It.IsAny<Meta>())).ReturnsAsync((Meta m) => m);
+
+            // Act
+            var resultado = await _metaService.CriarMetaAsync(dto, solicitanteId);
+
+            // Assert
+            Assert.NotNull(resultado);
+            Assert.Equal("Meta Atribuída", resultado.Nome);
+            Assert.Equal(integranteId, resultado.UsuarioId);
+            _notificacaoServiceMock.Verify(n => n.CriarNotificacaoAsync(
+                integranteId,
+                "meta",
+                "Nova Meta Atribuída",
+                It.Is<string>(s => s.Contains("Meta Atribuída")),
+                "/metas",
+                false,
+                null), Times.Once);
+        }
+
+        [Fact]
+        public async Task CriarMeta_AtribuirAIntegrante_DeveLancarForbiddenExceptionQuandoNaoEhAdminOuDono()
+        {
+            // Arrange
+            var solicitanteId = 3;
+            var integranteId = 4;
+            var tarefa = new Tarefa
+            {
+                Id = 10,
+                Titulo = "Tarefa Base",
+                DataVencimento = DateTime.UtcNow.AddDays(7),
+                CriadorId = solicitanteId,
+                Criador = new Usuario { Id = solicitanteId, Nome = "Membro", Email = "membro@test.com", SenhaHash = "hash" }
+            };
+
+            var dto = new CriarMetaDTO
+            {
+                Nome = "Meta Não Permitida",
+                TarefaId = 10,
+                UsuarioId = integranteId
+            };
+
+            _tarefaRepoMock.Setup(r => r.ObterTarefaPorIdAsync(dto.TarefaId)).ReturnsAsync(tarefa);
+            _usuarioRepoMock.Setup(r => r.UsuarioExisteAsync(integranteId)).ReturnsAsync(true);
+            _authServiceMock.Setup(a => a.EhAdminOuDonoDeAlgumaEquipeDoUsuarioAsync(solicitanteId, integranteId)).ReturnsAsync(false);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ForbiddenException>(() =>
+                _metaService.CriarMetaAsync(dto, solicitanteId));
+        }
+
+        [Fact]
+        public async Task AtribuirEquipe_SucessoQuandoSolicitanteEhAdminOuDono()
+        {
+            // Arrange
+            var metaId = 1;
+            var equipeId = 5;
+            var solicitanteId = 10;
+
+            var meta = new Meta
+            {
+                Id = metaId,
+                Nome = "Meta da Equipe",
+                UsuarioId = solicitanteId,
+                TarefaId = 1
+            };
+
+            var membros = new List<MembroEquipe>
+            {
+                new MembroEquipe { Id = 1, EquipeId = equipeId, UsuarioId = solicitanteId, Cargo = Cargo.Dono },
+                new MembroEquipe { Id = 2, EquipeId = equipeId, UsuarioId = 20, Cargo = Cargo.Membro }
+            };
+
+            _metaRepoMock.Setup(r => r.ObterMetaPorIdAsync(metaId)).ReturnsAsync(meta);
+            _equipeRepoMock.Setup(r => r.EquipeExisteAsync(equipeId)).ReturnsAsync(true);
+            _authServiceMock.Setup(a => a.EhAdminOuDonoDaEquipeAsync(solicitanteId, equipeId)).ReturnsAsync(true);
+            _metaRepoMock.Setup(r => r.MetaEquipeExisteAsync(metaId, equipeId)).ReturnsAsync(false);
+            _membroEquipeRepoMock.Setup(r => r.ObterMembroPorEquipeEUsuarioAsync(equipeId, solicitanteId)).ReturnsAsync(membros[0]);
+            _membroEquipeRepoMock.Setup(r => r.ObterMembrosEquipePorEquipeIdAsync(equipeId)).ReturnsAsync(membros);
+
+            // Act
+            var resultado = await _metaService.AtribuirEquipeAsync(metaId, equipeId, solicitanteId);
+
+            // Assert
+            Assert.NotNull(resultado);
+            _metaRepoMock.Verify(r => r.AdicionarMetaEquipeAsync(It.Is<MetaEquipe>(me => me.MetaId == metaId && me.EquipeId == equipeId)), Times.Once);
+            _notificacaoServiceMock.Verify(n => n.CriarNotificacaoAsync(
+                20,
+                "meta",
+                "Nova Meta de Equipe",
+                It.Is<string>(s => s.Contains("Meta da Equipe")),
+                "/metas",
+                false,
+                null), Times.Once);
+        }
+
+        [Fact]
+        public async Task AtribuirEquipe_DeveLancarForbiddenExceptionQuandoNaoEhAdminOuDono()
+        {
+            // Arrange
+            var metaId = 1;
+            var equipeId = 5;
+            var solicitanteId = 30;
+
+            var meta = new Meta
+            {
+                Id = metaId,
+                Nome = "Meta da Equipe",
+                UsuarioId = solicitanteId,
+                TarefaId = 1
+            };
+
+            _metaRepoMock.Setup(r => r.ObterMetaPorIdAsync(metaId)).ReturnsAsync(meta);
+            _equipeRepoMock.Setup(r => r.EquipeExisteAsync(equipeId)).ReturnsAsync(true);
+            _authServiceMock.Setup(a => a.EhAdminOuDonoDaEquipeAsync(solicitanteId, equipeId)).ReturnsAsync(false);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ForbiddenException>(() =>
+                _metaService.AtribuirEquipeAsync(metaId, equipeId, solicitanteId));
+        }
+
+        [Fact]
+        public async Task ListarMetasPorEquipe_DeveRetornarMetasVinculadas()
+        {
+            // Arrange
+            var equipeId = 5;
+            var solicitanteId = 10;
+            var membro = new MembroEquipe { Id = 1, EquipeId = equipeId, UsuarioId = solicitanteId, Cargo = Cargo.Membro };
+            var metas = new List<Meta>
+            {
+                new Meta { Id = 1, Nome = "Meta 1", TarefaId = 10, UsuarioId = 1 }
+            };
+
+            _equipeRepoMock.Setup(r => r.EquipeExisteAsync(equipeId)).ReturnsAsync(true);
+            _membroEquipeRepoMock.Setup(r => r.ObterMembroPorEquipeEUsuarioAsync(equipeId, solicitanteId)).ReturnsAsync(membro);
+            _metaRepoMock.Setup(r => r.ObterMetasPorEquipeIdAsync(equipeId)).ReturnsAsync(metas);
+
+            // Act
+            var resultado = await _metaService.ListarMetasPorEquipeAsync(equipeId, solicitanteId);
+
+            // Assert
+            Assert.Single(resultado);
+            Assert.Equal("Meta 1", resultado.First().Nome);
         }
     }
 }

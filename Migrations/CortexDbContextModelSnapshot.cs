@@ -204,6 +204,34 @@ namespace Cortex_backend.Migrations
                     b.ToTable("Meta", (string)null);
                 });
 
+            modelBuilder.Entity("Cortex.Entities.MetaEquipe", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DataVinculo")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EquipeId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MetaId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EquipeId");
+
+                    b.HasIndex("MetaId");
+
+                    b.HasIndex("MetaId", "EquipeId");
+
+                    b.ToTable("MetaEquipe", (string)null);
+                });
+
             modelBuilder.Entity("Cortex.Entities.MetaTarefa", b =>
                 {
                     b.Property<int>("Id")
@@ -663,6 +691,25 @@ namespace Cortex_backend.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("Cortex.Entities.MetaEquipe", b =>
+                {
+                    b.HasOne("Cortex.Entities.Equipe", "Equipe")
+                        .WithMany("MetasEquipes")
+                        .HasForeignKey("EquipeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Cortex.Entities.Meta", "Meta")
+                        .WithMany("MetasEquipes")
+                        .HasForeignKey("MetaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Equipe");
+
+                    b.Navigation("Meta");
+                });
+
             modelBuilder.Entity("Cortex.Entities.MetaTarefa", b =>
                 {
                     b.HasOne("Cortex.Entities.Meta", "Meta")
@@ -801,10 +848,14 @@ namespace Cortex_backend.Migrations
             modelBuilder.Entity("Cortex.Entities.Equipe", b =>
                 {
                     b.Navigation("Membros");
+
+                    b.Navigation("MetasEquipes");
                 });
 
             modelBuilder.Entity("Cortex.Entities.Meta", b =>
                 {
+                    b.Navigation("MetasEquipes");
+
                     b.Navigation("MetasTarefas");
                 });
 

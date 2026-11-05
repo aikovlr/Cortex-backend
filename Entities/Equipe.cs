@@ -6,5 +6,6 @@ namespace Cortex.Entities
         public required string Nome { get; set; }
         public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
         public ICollection<MembroEquipe> Membros { get; set; } = new List<MembroEquipe>();
+        public ICollection<MetaEquipe> MetasEquipes { get; set; } = new List<MetaEquipe>();
     }
 }

@@ -105,5 +105,25 @@ namespace Cortex.Controllers
 
             return NoContent();
         }
+
+        [HttpPost("api/metas/{id:int}/equipe")]
+        public async Task<IActionResult> AtribuirEquipe(int id, [FromBody] AtribuirEquipeMetaDTO dto)
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var metaAtualizada = await _metaService.AtribuirEquipeAsync(id, dto.EquipeId, currentUserId);
+
+            _logger.LogInformation("Equipe {EquipeId} atribuída à Meta {MetaId} pelo UsuarioId {UsuarioId}",
+                dto.EquipeId, id, currentUserId);
+
+            return Ok(metaAtualizada);
+        }
+
+        [HttpGet("api/equipes/{id:int}/metas")]
+        public async Task<IActionResult> ListarPorEquipe(int id)
+        {
+            var currentUserId = ObterUsuarioIdAutenticado();
+            var metas = await _metaService.ListarMetasPorEquipeAsync(id, currentUserId);
+            return Ok(metas);
+        }
     }
 }
