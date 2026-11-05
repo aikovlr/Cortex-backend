@@ -5,10 +5,10 @@ Este documento apresenta a especificação visual e comportamental completa do b
 2. **Diagrama de Objetos**: Snapshot de instâncias em tempo de execução demonstrando **Tarefa Atribuída**, **Meta** e **Ticket de Reporte**.
 3. **Diagrama de Casos de Uso**: Visão funcional com atores do sistema, fronteira da aplicação, matriz de especificação e **cenários detalhados (ótimos e alternativos)**.
 4. **Diagramas de Sequência**:
-   - **Criar Tarefa** (`sd CriarTarefa`)
-   - **Criar Sugestão de Alteração** (`sd CriarSugestao`)
-   - **Criar Meta** (`sd CriarMeta`)
-   - **Envio de Notificações** (Push FCM/APNs, E-mail SMTP e SMS)
+   - **Diagramas de Sequência por Requisito Funcional (RF001 a RF013)**
+   - **Fluxos Principais Atualizados** (`sd CriarTarefa`, `sd CriarSugestao`, `sd CriarMeta`)
+   - **Casos de Uso Detalhados da Aplicação (UC01 a UC19)**
+   - **Envio de Notificações Multicanal** (Push FCM/APNs, E-mail SMTP e SMS)
 5. **Diagrama de Componentes**: Visão modular em 4 camadas (Apresentação com Front-end Web, Negócio / API, Persistência e Serviços Externos).
 6. **Diagrama de Aplicação e Implantação (`pkg`)**: Topologia de nós (`<<desktop>> Navegador`, `<<servidor de aplicacao>> WEB`, `<<Servidor DB>> PostgreSQL`) sobre `TCP/IP`.
 7. **Matriz de Rastreabilidade de Regras de Negócio (RN, RF e RNF)**
@@ -26,8 +26,7 @@ O modelo de domínio do Cortex foi projetado seguindo os princípios de isolamen
 Para garantir máxima legibilidade e eliminar o cruzamento desordenado de linhas ("teia de aranha") sem perder qualquer atributo, tipo ou multiplicidade:
 1. **Tipagem Direta nos Atributos**: Os tipos enumerados são declarados diretamente nos atributos das entidades (ex.: `+Status Status`, `+Cargo Cargo`), dispensando setas pontilhadas redundantes que cortavam o centro do diagrama.
 2. **Diagrama Consolidado Otimizado (Mermaid)**: Visão macro limpa com fluxo vertical de leitura.
-3. **Diagrama Estruturado em Pacotes (PlantUML)**: Visão formal com delimitação de pacotes e linhas ortogonais (`skinparam linetype ortho`).
-4. **Visões Modulares por Subdomínio**: Recortes focados para leitura precisa de cada contexto de negócio.
+3. **Visões Modulares por Subdomínio**: Recortes focados para leitura precisa de cada contexto de negócio.
 
 ---
 
@@ -92,12 +91,18 @@ classDiagram
         +string CodigoVerificacaoHash
         +DateTime CodigoVerificacaoExpiracao
         +DateTime DataCriacao
+        +VerificarEmail(codigo: string) bool
+        +AlterarSenha(novaSenhaHash: string) void
+        +AtualizarFotoPerfil(anexoId: int) void
     }
 
     class Equipe {
         +int Id
         +string Nome
         +DateTime DataCriacao
+        +AdicionarMembro(usuarioId: int, cargo: Cargo) MembroEquipe
+        +RemoverMembro(usuarioId: int) bool
+        +AtribuirMeta(metaId: int) MetaEquipe
     }
 
     class MembroEquipe {
@@ -106,6 +111,8 @@ classDiagram
         +Cargo Cargo
         +int UsuarioId
         +int EquipeId
+        +AlterarCargo(novoCargo: Cargo) void
+        +PossuiPermissaoGestao() bool
     }
 
     %% Núcleo de Tarefas e Colaboração
@@ -119,12 +126,19 @@ classDiagram
         +Prioridade Prioridade
         +DateTime DataCriacao
         +int CriadorId
+        +AtribuirResponsavel(usuarioId: int) ResponsavelTarefa
+        +AtribuirEquipe(equipeId: int) void
+        +Concluir(solicitanteId: int) void
+        +CancelarConclusao(solicitanteId: int) void
+        +ObterStatusEfetivo(usuarioId: int) Status
+        +AdicionarAnexo(anexo: Anexo) void
     }
 
     class ResponsavelTarefa {
         +int Id
         +int UsuarioId
         +int TarefaId
+        +Desvincular() void
     }
 
     class RespostaTarefa {
@@ -133,6 +147,7 @@ classDiagram
         +int? Nota
         +int UsuarioId
         +int TarefaId
+        +AtribuirNota(nota: int) void
     }
 
     class Sugestao {
@@ -142,6 +157,8 @@ classDiagram
         +StatusSugestao Status
         +int TarefaId
         +int UsuarioId
+        +Aprovar() void
+        +Rejeitar() void
     }
 
     class TicketReporte {
@@ -151,6 +168,8 @@ classDiagram
         +DateTime DataCriacao
         +int TarefaId
         +int UsuarioId
+        +Fechar() void
+        +Reabrir() void
     }
 
     %% Metas e Gamificação
@@ -161,12 +180,26 @@ classDiagram
         +bool Concluida
         +int TarefaId
         +int UsuarioId
+        +VincularTarefa(tarefaId: int) void
+        +VincularEquipe(equipeId: int) MetaEquipe
+        +AtribuirIntegrante(usuarioId: int) void
+        +VerificarConclusao() bool
+        +ValidarPrazoMaximo() bool
     }
 
     class MetaTarefa {
         +int Id
         +int MetaId
         +int TarefaId
+        +Vincular(metaId: int, tarefaId: int) void
+    }
+
+    class MetaEquipe {
+        +int Id
+        +int MetaId
+        +int EquipeId
+        +DateTime DataVinculo
+        +Vincular(metaId: int, equipeId: int) void
     }
 
     %% Suporte, Anexos e Notificações
@@ -180,6 +213,7 @@ classDiagram
         +int UsuarioId
         +int TarefaId
         +int RespostaTarefaId
+        +ValidarArquivo(tamanhoMax: long, extensoes: string[]) bool
     }
 
     class Notificacao {
@@ -193,19 +227,8 @@ classDiagram
         +bool Destaque
         +int? TarefaId
         +DateTime DataCriacao
-    }
-
-    class Notificacao {
-        +int Id
-        +int UsuarioId
-        +string Tipo
-        +string Titulo
-        +string Mensagem
-        +string Link
-        +bool Lida
-        +bool Destaque
-        +int? TarefaId
-        +DateTime DataCriacao
+        +MarcarComoLida() void
+        +EmpilharNotificacao(novoResponsavel: string) void
     }
 
     class PreferenciaNotificacao {
@@ -220,6 +243,8 @@ classDiagram
         +string Tema
         +bool AltoContraste
         +int TamanhoFonte
+        +AtualizarCanais(canal: CanalNotificacao, ativo: bool) void
+        +AtualizarAcessibilidade(tema: string, altoContraste: bool, fonte: int) void
     }
 
     class AlertaEnviado {
@@ -228,6 +253,7 @@ classDiagram
         +int TarefaId
         +CanalNotificacao Canal
         +DateTime EnviadoEm
+        +RegistrarDisparo(canal: CanalNotificacao) void
     }
 
     %% Relacionamentos de Identidade e Equipes
@@ -247,10 +273,12 @@ classDiagram
     Tarefa "1" --> "*" TicketReporte : possui_impedimento
 
     %% Relacionamentos de Metas
-    Usuario "1" --> "*" Meta : proprietario
+    Usuario "1" --> "*" Meta : proprietario_ou_atribuido
     Tarefa "1" --> "*" Meta : tarefa_referencia
     Meta "1" --> "*" MetaTarefa : contem
     Tarefa "1" --> "*" MetaTarefa : vinculada
+    Equipe "1" --> "*" MetaEquipe : vinculada
+    Meta "1" --> "*" MetaEquipe : compartilhada_com
 
     %% Relacionamentos de Anexos
     Usuario "1" --> "0..1" Anexo : foto_perfil
@@ -267,226 +295,7 @@ classDiagram
 
 ---
 
-### 1.2. Diagrama Estruturado em Pacotes com Linhas Ortogonais (PlantUML)
-
-```plantuml
-@startuml
-skinparam linetype ortho
-skinparam packageStyle rectangle
-skinparam classAttributeIconSize 0
-
-package "Identidade e Governança (RBAC)" {
-    enum Cargo {
-        Dono
-        Admin
-        Membro
-    }
-
-    class Usuario {
-        +int Id
-        +string Nome
-        +string Telefone
-        +string Email
-        +string SenhaHash
-        +bool EmailVerificado
-        +string CodigoVerificacaoHash
-        +DateTime CodigoVerificacaoExpiracao
-        +DateTime DataCriacao
-    }
-
-    class Equipe {
-        +int Id
-        +string Nome
-        +DateTime DataCriacao
-    }
-
-    class MembroEquipe {
-        +int Id
-        +DateTime DataEntrada
-        +Cargo Cargo
-        +int UsuarioId
-        +int EquipeId
-    }
-}
-
-package "Núcleo de Tarefas e Colaboração" {
-    enum Status {
-        Pendente
-        Atrasada
-        Concluida
-    }
-
-    enum Prioridade {
-        Baixa
-        Media
-        Alta
-        Urgente
-    }
-
-    enum StatusSugestao {
-        Pendente
-        Aprovada
-        Rejeitada
-    }
-
-    class Tarefa {
-        +int Id
-        +string Titulo
-        +string Descricao
-        +DateTime DataVencimento
-        +int Pontuacao
-        +Status Status
-        +Prioridade Prioridade
-        +DateTime DataCriacao
-        +int CriadorId
-    }
-
-    class ResponsavelTarefa {
-        +int Id
-        +int UsuarioId
-        +int TarefaId
-    }
-
-    class RespostaTarefa {
-        +int Id
-        +DateTime DataResposta
-        +int? Nota
-        +int UsuarioId
-        +int TarefaId
-    }
-
-    class Sugestao {
-        +int Id
-        +string Descricao
-        +DateTime DataCriacao
-        +StatusSugestao Status
-        +int TarefaId
-        +int UsuarioId
-    }
-
-    class TicketReporte {
-        +int Id
-        +string Descricao
-        +bool Ativo
-        +DateTime DataCriacao
-        +int TarefaId
-        +int UsuarioId
-    }
-}
-
-package "Gamificação e Metas" {
-    class Meta {
-        +int Id
-        +string Nome
-        +DateTime DataFechamento
-        +bool Concluida
-        +int TarefaId
-        +int UsuarioId
-    }
-
-    class MetaTarefa {
-        +int Id
-        +int MetaId
-        +int TarefaId
-    }
-}
-
-package "Notificações, Anexos e Auditoria" {
-    enum TipoEntidade {
-        Tarefa
-        ResponsavelTarefa
-        Usuario
-    }
-
-    enum CanalNotificacao {
-        Email
-        Push
-        Sms
-    }
-
-    class Anexo {
-        +int Id
-        +string UrlCaminho
-        +string NomeOriginal
-        +string MimeType
-        +DateTime DataEnvio
-        +TipoEntidade TipoEntidade
-        +int UsuarioId
-        +int TarefaId
-        +int RespostaTarefaId
-    }
-
-    class PreferenciaNotificacao {
-        +int Id
-        +int UsuarioId
-        +CanalNotificacao Canal
-        +int AntecedenciaHoras
-        +bool AtivoNovaAtribuicao
-        +bool AtivoVencimento
-        +bool AtivoConclusaoMeta
-        +bool AtivoTicket
-        +string Tema
-        +bool AltoContraste
-        +int TamanhoFonte
-    }
-
-    class AlertaEnviado {
-        +int Id
-        +int UsuarioId
-        +int TarefaId
-        +CanalNotificacao Canal
-        +DateTime EnviadoEm
-    }
-}
-
-' Relações de Identidade
-Usuario "1" --> "*" MembroEquipe : possui
-Equipe "1" --> "*" MembroEquipe : congrega
-MembroEquipe --> Cargo : possui
-
-' Relações de Tarefas
-Usuario "1" --> "*" Tarefa : cria
-Usuario "1" --> "*" ResponsavelTarefa : atribuido
-Tarefa "1" --> "*" ResponsavelTarefa : possui
-Usuario "1" --> "*" RespostaTarefa : responde
-Tarefa "1" --> "*" RespostaTarefa : historico
-
-Tarefa --> Status : status_ciclo_vida
-Tarefa --> Prioridade : prioridade_urgencia
-
-' Colaboração
-Usuario "1" --> "*" Sugestao : submete
-Tarefa "1" --> "*" Sugestao : vinculada
-Sugestao --> StatusSugestao : possui_status
-Usuario "1" --> "*" TicketReporte : reporta
-Tarefa "1" --> "*" TicketReporte : impedimento
-
-' Metas
-Usuario "1" --> "*" Meta : proprietario
-Tarefa "1" --> "*" Meta : referencia
-Meta "1" --> "*" MetaTarefa : contem
-Tarefa "1" --> "*" MetaTarefa : vinculada
-
-' Anexos
-Usuario "1" --> "0..1" Anexo : foto_perfil
-Tarefa "1" --> "*" Anexo : documentos
-RespostaTarefa "1" --> "*" Anexo : resposta_anexos
-Anexo --> TipoEntidade : classifica
-
-' Notificações
-Usuario "1" --> "*" Notificacao : recebe
-Tarefa "1" --> "*" Notificacao : vinculada
-Usuario "1" --> "*" PreferenciaNotificacao : configura
-Usuario "1" --> "*" AlertaEnviado : recebe
-Tarefa "1" --> "*" AlertaEnviado : alerta_origem
-PreferenciaNotificacao --> CanalNotificacao : canal
-AlertaEnviado --> CanalNotificacao : canal
-@enduml
-```
-
----
-
-### 1.3. Visões Modulares por Subdomínio
+### 1.2. Visões Modulares por Subdomínio
 
 #### Subdomínio A: Workflow de Tarefas, Colaboração e Anexos
 
@@ -504,12 +313,19 @@ classDiagram
         +Prioridade Prioridade
         +DateTime DataCriacao
         +int CriadorId
+        +AtribuirResponsavel(usuarioId: int) ResponsavelTarefa
+        +AtribuirEquipe(equipeId: int) void
+        +Concluir(solicitanteId: int) void
+        +CancelarConclusao(solicitanteId: int) void
+        +ObterStatusEfetivo(usuarioId: int) Status
+        +AdicionarAnexo(anexo: Anexo) void
     }
 
     class ResponsavelTarefa {
         +int Id
         +int UsuarioId
         +int TarefaId
+        +Desvincular() void
     }
 
     class RespostaTarefa {
@@ -518,6 +334,7 @@ classDiagram
         +int? Nota
         +int UsuarioId
         +int TarefaId
+        +AtribuirNota(nota: int) void
     }
 
     class Sugestao {
@@ -527,6 +344,8 @@ classDiagram
         +StatusSugestao Status
         +int TarefaId
         +int UsuarioId
+        +Aprovar() void
+        +Rejeitar() void
     }
 
     class TicketReporte {
@@ -536,6 +355,8 @@ classDiagram
         +DateTime DataCriacao
         +int TarefaId
         +int UsuarioId
+        +Fechar() void
+        +Reabrir() void
     }
 
     class Anexo {
@@ -548,6 +369,7 @@ classDiagram
         +int UsuarioId
         +int TarefaId
         +int RespostaTarefaId
+        +ValidarArquivo(tamanhoMax: long, extensoes: string[]) bool
     }
 
     Tarefa "1" --> "*" ResponsavelTarefa : possui
@@ -572,12 +394,17 @@ classDiagram
         +string SenhaHash
         +bool EmailVerificado
         +DateTime DataCriacao
+        +VerificarEmail(codigo: string) bool
+        +AlterarSenha(novaSenhaHash: string) void
     }
 
     class Equipe {
         +int Id
         +string Nome
         +DateTime DataCriacao
+        +AdicionarMembro(usuarioId: int, cargo: Cargo) MembroEquipe
+        +RemoverMembro(usuarioId: int) bool
+        +AtribuirMeta(metaId: int) MetaEquipe
     }
 
     class MembroEquipe {
@@ -586,6 +413,16 @@ classDiagram
         +Cargo Cargo
         +int UsuarioId
         +int EquipeId
+        +AlterarCargo(novoCargo: Cargo) void
+        +PossuiPermissaoGestao() bool
+    }
+
+    class MetaEquipe {
+        +int Id
+        +int MetaId
+        +int EquipeId
+        +DateTime DataVinculo
+        +Vincular(metaId: int, equipeId: int) void
     }
 
     class PreferenciaNotificacao {
@@ -600,6 +437,8 @@ classDiagram
         +string Tema
         +bool AltoContraste
         +int TamanhoFonte
+        +AtualizarCanais(canal: CanalNotificacao, ativo: bool) void
+        +AtualizarAcessibilidade(tema: string, altoContraste: bool, fonte: int) void
     }
 
     class AlertaEnviado {
@@ -608,10 +447,12 @@ classDiagram
         +int TarefaId
         +CanalNotificacao Canal
         +DateTime EnviadoEm
+        +RegistrarDisparo(canal: CanalNotificacao) void
     }
 
     Usuario "1" --> "*" MembroEquipe : possui
     Equipe "1" --> "*" MembroEquipe : congrega
+    Equipe "1" --> "*" MetaEquipe : vinculada
     Usuario "1" --> "*" PreferenciaNotificacao : configura
     Usuario "1" --> "*" AlertaEnviado : recebe
 ```
@@ -626,6 +467,7 @@ classDiagram
         +int Id
         +string Nome
         +string Email
+        +VerificarEmail(codigo: string) bool
     }
 
     class Tarefa {
@@ -633,6 +475,15 @@ classDiagram
         +string Titulo
         +Status Status
         +int Pontuacao
+        +Concluir(solicitanteId: int) void
+        +ObterStatusEfetivo(usuarioId: int) Status
+    }
+
+    class Equipe {
+        +int Id
+        +string Nome
+        +DateTime DataCriacao
+        +AtribuirMeta(metaId: int) MetaEquipe
     }
 
     class Meta {
@@ -642,18 +493,33 @@ classDiagram
         +bool Concluida
         +int TarefaId
         +int UsuarioId
+        +VincularTarefa(tarefaId: int) void
+        +VincularEquipe(equipeId: int) MetaEquipe
+        +AtribuirIntegrante(usuarioId: int) void
+        +VerificarConclusao() bool
     }
 
     class MetaTarefa {
         +int Id
         +int MetaId
         +int TarefaId
+        +Vincular(metaId: int, tarefaId: int) void
     }
 
-    Usuario "1" --> "*" Meta : proprietario
+    class MetaEquipe {
+        +int Id
+        +int MetaId
+        +int EquipeId
+        +DateTime DataVinculo
+        +Vincular(metaId: int, equipeId: int) void
+    }
+
+    Usuario "1" --> "*" Meta : proprietario_ou_atribuido
     Tarefa "1" --> "*" Meta : tarefa_referencia
     Meta "1" --> "*" MetaTarefa : contem
     Tarefa "1" --> "*" MetaTarefa : vinculada
+    Equipe "1" --> "*" MetaEquipe : vinculada
+    Meta "1" --> "*" MetaEquipe : compartilhada_com
 ```
 
 ### Detalhamento dos Mapeamentos e Restrições de Domínio
@@ -661,13 +527,14 @@ classDiagram
 | Entidade | Tabela | Descrição e Regras Chave |
 | :--- | :--- | :--- |
 | **`Usuario`** | `Usuarios` | Contém credenciais com hash BCrypt (`SenhaHash`), flag de verificação de e-mail (RN13) e índice único no e-mail (RN01). Não pode ser excluído caso possua tarefas pendentes (RN05). |
-| **`Tarefa`** | `Tarefas` | Núcleo do sistema. Controla status, prioridade e vencimento. Atualizações de status recalculam metas (RN08) e tarefas com prazo vencido transicionam para `Atrasada` (RN06). |
+| **`Tarefa`** | `Tarefas` | Núcleo do sistema. Controla status, prioridade e vencimento. Atualizações de status recalculam metas (RN08) e tarefas com prazo vencido transicionam para `Atrasada` (RN06). Suporta múltiplos responsáveis com conclusão individual e visão de status efetivo. |
 | **`Equipe`** | `Equipes` | Agrupamento corporativo de usuários. |
-| **`MembroEquipe`**| `MembrosEquipe` | Tabela associativa com controle de cargos RBAC (`Dono`, `Admin`, `Membro`). Apenas donos alteram cargos (RN03) e apenas donos/admins gerenciam membros (RN04). |
-| **`ResponsavelTarefa`** | `ResponsaveisTarefa` | Usuários responsáveis pela execução da tarefa. Permite atribuição unitária ou em lote por equipe. |
+| **`MembroEquipe`**| `MembrosEquipe` | Tabela associativa com controle de cargos RBAC (`Dono`, `Admin`, `Membro`). Apenas donos alteram cargos (RN03) e apenas donos/admins gerenciam membros (RN04) e atribuem tarefas e metas a integrantes respeitando a hierarquia de cargos. |
+| **`ResponsavelTarefa`** | `ResponsaveisTarefa` | Usuários responsáveis pela execução da tarefa. Permite atribuição unitária ou em lote por equipe com respeito à hierarquia de liderança. |
 | **`Sugestao`** | `Sugestoes` | Permite que responsáveis sugiram ajustes de escopo/prazo. Exige aprovação explícita do criador da tarefa (RN14 / RF004). |
-| **`Meta`** | `Metas` | Metas vinculadas a tarefas (RN07). Validade máxima de 12 meses (RN15) e conclusão automática baseada no status de todas as tarefas vinculadas (RN08). |
+| **`Meta`** | `Metas` | Metas vinculadas a tarefas (RN07). Validade máxima de 12 meses (RN15) e conclusão automática baseada no status de todas as tarefas vinculadas (RN08). Pode ser atribuída por donos/admins a integrantes específicos ou vinculada à equipe inteira. |
 | **`MetaTarefa`** | `MetasTarefas` | Tabela associativa N:N entre `Meta` e `Tarefa`. |
+| **`MetaEquipe`** | `MetaEquipe` | Tabela associativa N:N entre `Meta` e `Equipe`. Permite que donos e administradores atribuam metas a integrantes de sua equipe e acompanhem o progresso coletivo. |
 | **`TicketReporte`** | `TicketReporte` | Chamado de impedimento aberto pelo executor da tarefa direcionado a administradores e donos (RF008). |
 | **`Anexo`** | `Anexos` | Armazenamento de metadados e caminhos físicos de arquivos associados a tarefas, respostas ou usuários. |
 | **`RespostaTarefa`** | `RespostaTarefa` | Armazena entregas, respostas e devolutivas dos executores, incluindo avaliação e nota atribuída pelo criador da tarefa e anexos comprobatórios. |
@@ -750,6 +617,21 @@ classDiagram
         TarefaId = 101
     }
 
+    class equipeDevops {
+        <<Equipe>>
+        Id = 5
+        Nome = "Equipe DevOps & Cloud"
+        DataCriacao = 2026-08-26
+    }
+
+    class metaEquipeLink {
+        <<MetaEquipe>>
+        Id = 15
+        MetaId = 12
+        EquipeId = 5
+        DataVinculo = 2026-10-27
+    }
+
     %% Vínculos e Ligações entre Instâncias (Object Links)
     usuarioCriador --> tarefa101 : Criador
     tarefa101 --> respTarefa50 : possui_responsavel
@@ -759,6 +641,8 @@ classDiagram
     usuarioCriador --> metaQ4 : proprietario_meta
     metaQ4 --> metaTarefaLink : meta
     tarefa101 --> metaTarefaLink : tarefa_vinculada
+    equipeDevops --> metaEquipeLink : equipe_vinculada
+    metaQ4 --> metaEquipeLink : meta_compartilhada
 ```
 
 ### Especificação dos Objetos e Valores de Estado
@@ -767,24 +651,27 @@ classDiagram
 | :--- | :--- | :--- | :--- |
 | **`usuarioCriador`** | `Usuario` | Criadora da Tarefa e Gestora da Meta | `Id: 1`, `Nome: "Ana Lívia"`, `Email: "ana.livia@cortex.com"`, `EmailVerificado: true`. |
 | **`usuarioExecutor`** | `Usuario` | Executor Atribuído e Autor do Ticket | `Id: 2`, `Nome: "Carlos Eduardo"`, `Email: "carlos.eduardo@cortex.com"`, `EmailVerificado: true`. |
+| **`equipeDevops`** | `Equipe` | Equipe de Engenharia Cloud | `Id: 5`, `Nome: "Equipe DevOps & Cloud"`. |
 | **`tarefa101`** | `Tarefa` | Tarefa em Andamento com Impedimento | `Id: 101`, `Titulo: "Configurar Pipeline CI/CD"`, `Status: Pendente`, `Prioridade: Alta`, `Pontuacao: 50`, `CriadorId: 1`. |
 | **`respTarefa50`** | `ResponsavelTarefa` | Vínculo de Atribuição da Tarefa | `Id: 50`, `TarefaId: 101`, `UsuarioId: 2`. Liga o executor `usuarioExecutor` à tarefa. |
 | **`ticketReporte7`** | `TicketReporte` | Chamado de Bloqueio Técnico (**RF008**) | `Id: 7`, `Descricao: "Falha de conectividade..."`, `Ativo: true`, `TarefaId: 101`, `UsuarioId: 2`. Roteado para a gestão. |
 | **`metaQ4`** | `Meta` | Meta Corporativa Vinculada (**RF007**) | `Id: 12`, `Nome: "Entrega da Infraestrutura Q4"`, `DataFechamento: 2026-12-31`, `Concluida: false` (regra **RN08**), `UsuarioId: 1`. |
 | **`metaTarefaLink`** | `MetaTarefa` | Vínculo Associativo N:N (**RN07**) | `Id: 88`, `MetaId: 12`, `TarefaId: 101`. Garante que a meta possui pelo menos uma tarefa associada. |
+| **`metaEquipeLink`** | `MetaEquipe` | Vínculo Associativo N:N com Equipe | `Id: 15`, `MetaId: 12`, `EquipeId: 5`. Compartilha e atribui a meta aos integrantes da equipe DevOps. |
 
 ---
 
 ## 3. Diagrama de Casos de Uso do Sistema
 
-Para garantir **alta legibilidade**, organização visual e aderência às melhores práticas de engenharia de software da UML, a modelagem de casos de uso do **Cortex** é apresentada em duas camadas:
+O modelo de casos de uso do **Cortex** reflete fielmente as necessidades de negócio estruturadas em **13 Requisitos Funcionais (RF001 a RF013)**, organizados nos **11 Casos de Uso canônicos (UC01 a UC11)**. A arquitetura funcional é apresentada em camadas para garantir alta legibilidade e expressividade:
 1. **Visão Macrossistêmica**: Relaciona os atores aos 3 grandes pacotes funcionais sem cruzamentos de linhas.
 2. **Visões Especializadas por Módulo**:
-   - **3.1 Módulo de Tarefas, Colaboração e Impedimentos** (fluxo operacional de tarefas, sugestões e tickets).
-   - **3.2 Módulo de Governança de Equipes e Identidade** (RBAC, membros, cargos e conta).
-   - **3.3 Módulo de Metas, Relatórios e Serviços em Background** (gamificação, métricas e automações).
-3. **Matriz Geral de Casos de Uso**.
-4. **Especificação Textual Detalhada (Cenários Ótimos e Alternativos)**.
+   - **3.1 Módulo: Identidade, Acessibilidade e Equipes** (`UC01`, `UC06`, `UC08`, `UC09`).
+   - **3.2 Módulo: Tarefas, Entregas, Sugestões e Impedimentos** (`UC02`, `UC03`, `UC04`, `UC05`).
+   - **3.3 Módulo: Metas, Relatórios Analíticos e Serviços Automáticos** (`UC07`, `UC10`, `UC11`).
+3. **Quadro Canônico de Requisitos Funcionais e Casos de Uso Vinculados**.
+4. **Matriz de Casos de Uso e Regras de Negócio Associadas**.
+5. **Especificação Textual Detalhada (Cenários Ótimos e Alternativos)**.
 
 ---
 
@@ -793,78 +680,38 @@ Para garantir **alta legibilidade**, organização visual e aderência às melho
 ```mermaid
 flowchart LR
     subgraph Atores ["Atores do Sistema"]
-        Usuario["👤 Usuário / Membro"]
+        Usuario["👤 Usuário / Colaborador"]
         Criador["👤 Criador da Tarefa"]
         Lideranca["👤 Dono / Admin de Equipe"]
-        Sistema["⚙️ Agendador em Background"]
+        Sistema["⚙️ Agendador em Background (Sistema)"]
     end
 
     subgraph CortexPacotes ["Fronteira da Aplicação — Pacotes de Funcionalidades"]
-        P_Tarefas["📋 Módulo de Tarefas e Colaboração<br/>(Criação, Atribuição, Sugestões, Tickets)"]
-        P_Equipes["👥 Módulo de Equipes e Identidade<br/>(Contas, Membros, RBAC Dono/Admin)"]
-        P_Metas["🎯 Módulo de Metas e Automação<br/>(Metas, Relatórios, Alertas em Segundo Plano)"]
+        P_Identidade["👥 Módulo: Identidade, Acessibilidade e Equipes<br/>(Contas, Equipes, Notificações, Tema/Fonte)"]
+        P_Tarefas["📋 Módulo: Tarefas, Entregas e Impedimentos<br/>(Criação, Entregas com Nota, Sugestões, Tickets)"]
+        P_Metas["🎯 Módulo: Metas, Relatórios e Automação<br/>(Metas de Equipe, Relatórios Gerenciais, Workers)"]
     end
 
+    Usuario --- P_Identidade
     Usuario --- P_Tarefas
-    Usuario --- P_Equipes
     Usuario --- P_Metas
 
     Criador --- P_Tarefas
-    Lideranca --- P_Equipes
+    Lideranca --- P_Identidade
     Lideranca --- P_Metas
+
     Sistema --- P_Tarefas
     Sistema --- P_Metas
 
     classDef pacote fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#0f172a,font-weight:bold;
-    class P_Tarefas,P_Equipes,P_Metas pacote;
+    class P_Identidade,P_Tarefas,P_Metas pacote;
 ```
 
 ---
 
-### 3.1 Módulo de Tarefas, Colaboração e Impedimentos
+### 3.1 Módulo: Identidade, Acessibilidade e Equipes
 
-Este diagrama detalha o ciclo operacional completo da tarefa: criação com anexos, atribuição, colaboração através de sugestões e abertura de chamados técnicos de impedimento.
-
-```mermaid
-flowchart LR
-    %% Atores
-    Criador["👤 Criador da Tarefa"]
-    Executor["👤 Executor Atribuído"]
-
-    subgraph ModuloTarefas ["Módulo: Tarefas, Colaboração e Impedimentos"]
-        UC_CriarTarefa(["Criar Tarefa com Anexos (RF003)"])
-        UC_Atribuir(["Atribuir Responsável / Equipe"])
-        UC_Concluir(["Concluir Tarefa e Responder"])
-        UC_Sugestao(["Submeter Sugestão (RF004)"])
-        UC_AvaliarSugestao(["Aprovar / Rejeitar Sugestão (RN14)"])
-        UC_Ticket(["Abrir Ticket de Reporte (RF008)"])
-        UC_MetaRecalc(["Recalcular Metas Vinculadas (RN08)"])
-    end
-
-    %% Associações do Criador
-    Criador --- UC_CriarTarefa
-    Criador --- UC_Atribuir
-    Criador --- UC_AvaliarSugestao
-
-    %% Associações do Executor
-    Executor --- UC_Concluir
-    Executor --- UC_Sugestao
-    Executor --- UC_Ticket
-
-    %% Relações include e extend
-    UC_Sugestao -.->|«extend»| UC_CriarTarefa
-    UC_Ticket -.->|«extend»| UC_CriarTarefa
-    UC_Concluir -.->|«include»| UC_MetaRecalc
-
-    classDef uc fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0369a1;
-    class UC_CriarTarefa,UC_Atribuir,UC_Concluir,UC_Sugestao,UC_AvaliarSugestao,UC_Ticket,UC_MetaRecalc uc;
-```
-
----
-
-### 3.2 Módulo de Governança de Equipes e Identidade (RBAC)
-
-Apresenta as operações de gestão de conta, preferências e o controle de acesso baseado em papéis corporativos (`Dono`, `Admin`, `Membro`), destacando as regras de concessão e modificação de cargos.
+Atende aos requisitos **RF001**, **RF006**, **RF008**, **RF009**, **RF012** e **RF013**, contemplando o ciclo de vida do perfil, upload de foto, governança RBAC de equipes, parametrização de canais de notificação, acessibilidade (tema e fonte) e o painel de notificações in-app.
 
 ```mermaid
 flowchart LR
@@ -876,689 +723,2063 @@ flowchart LR
     Dono -- Especializacao --> Admin
     Admin -- Especializacao --> Usuario
 
-    subgraph ModuloGovernança ["Módulo: Identidade e Gestão de Equipes (RBAC)"]
-        UC_Conta(["Cadastrar e Confirmar Conta (RF001)"])
-        UC_Prefs(["Configurar Alertas e Canais (RF005)"])
-        UC_Excluir(["Excluir Própria Conta (RN05)"])
-        UC_CriarEquipe(["Criar Equipe (RF009)"])
-        UC_GerMembros(["Adicionar / Remover Membros (RN04)"])
-        UC_AltCargo(["Alterar Cargo de Membro (RN03)"])
+    subgraph ModuloIdentidade ["Módulo: Identidade, Acessibilidade e Equipes"]
+        UC01(["UC01: Gerenciar Conta e Autenticação<br/>(RF001, RF012 - RN01, RN02, RN05)"])
+        UC06(["UC06: Gerenciar Equipes<br/>(RF006 - RN03, RN04)"])
+        UC08(["UC08: Configurar Alertas e Acessibilidade<br/>(RF008, RF013 - RN11, RN12, RN18)"])
+        UC09(["UC09: Interagir com a Central de Notificações<br/>(RF009)"])
     end
 
-    %% Vínculos por Nível de Permissão
-    Usuario --- UC_Conta
-    Usuario --- UC_Prefs
-    Usuario --- UC_Excluir
-    Admin --- UC_CriarEquipe
-    Admin --- UC_GerMembros
-    Dono --- UC_AltCargo
+    %% Relações dos Atores com Casos de Uso
+    Usuario --- UC01
+    Usuario --- UC08
+    Usuario --- UC09
+
+    Admin --- UC06
+    Dono --- UC06
 
     classDef uc fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0369a1;
-    class UC_Conta,UC_Prefs,UC_Excluir,UC_CriarEquipe,UC_GerMembros,UC_AltCargo uc;
+    class UC01,UC06,UC08,UC09 uc;
 ```
 
 ---
 
-### 3.3 Módulo de Metas, Relatórios e Automação em Background
+### 3.2 Módulo: Tarefas, Entregas, Sugestões e Impedimentos
 
-Exibe o acompanhamento de metas vinculadas a tarefas, a restrição de visibilidade de relatórios de produtividade e os serviços autônomos em segundo plano.
+Atende aos requisitos **RF002**, **RF003**, **RF004**, **RF005** e **RF012**, cobrindo o gerenciamento completo de atividades, anexos binários, delegação individual e por equipe, entrega de respostas técnicas com avaliação por notas (**RN15**), aprovação de alterações (**RN13**) e mediação de impedimentos operacionais (**RN16**).
 
 ```mermaid
 flowchart LR
     %% Atores
-    Membro["👤 Membro da Equipe"]
-    AdminDono["👤 Dono / Admin"]
-    Sistema["⚙️ Agendador em Background"]
+    Criador["👤 Criador da Tarefa"]
+    Responsavel["👤 Responsável Atribuído"]
 
-    subgraph ModuloMetasAutomacao ["Módulo: Metas, Relatórios e Automação"]
-        UC_CriarMeta(["Criar Meta Vinculada (RF007)"])
-        UC_RelPessoal(["Gerar Relatório Pessoal (RN09)"])
-        UC_RelConsolidado(["Gerar Relatório Consolidado (RN10)"])
-        UC_TransicionarAtrasadas(["Transicionar Tarefas Vencidas (RN06)"])
-        UC_DispararAlertas(["Disparar Alertas e Notificações (RN11/RN12)"])
+    subgraph ModuloTarefas ["Módulo: Tarefas, Entregas e Impedimentos"]
+        UC02(["UC02: Gerenciar Tarefas<br/>(RF002, RF012 - RN06)"])
+        UC03(["UC03: Submeter e Avaliar Entregas<br/>(RF003, RF012 - RN15)"])
+        UC04(["UC04: Propor e Julgar Alterações<br/>(RF004 - RN13)"])
+        UC05(["UC05: Gerenciar Tickets de Impedimento<br/>(RF005 - RN16)"])
     end
 
-    %% Associações
-    Membro --- UC_CriarMeta
-    Membro --- UC_RelPessoal
-    AdminDono --- UC_RelConsolidado
-    Sistema --- UC_TransicionarAtrasadas
-    Sistema --- UC_DispararAlertas
+    %% Vínculos do Criador
+    Criador --- UC02
+    Criador --- UC03
+    Criador --- UC04
+    Criador --- UC05
 
-    %% Inclusão: Transição de atraso dispara alerta imediato
-    UC_TransicionarAtrasadas -.->|«include»| UC_DispararAlertas
+    %% Vínculos do Responsável
+    Responsavel --- UC02
+    Responsavel --- UC03
+    Responsavel --- UC04
+    Responsavel --- UC05
+
+    %% Relações de extensão e inclusão UML
+    UC03 -.->|«extend»| UC02
+    UC04 -.->|«extend»| UC02
+    UC05 -.->|«extend»| UC02
 
     classDef uc fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0369a1;
-    class UC_CriarMeta,UC_RelPessoal,UC_RelConsolidado,UC_TransicionarAtrasadas,UC_DispararAlertas uc;
+    class UC02,UC03,UC04,UC05 uc;
 ```
 
 ---
 
-### Especificação dos Casos de Uso Principais
+### 3.3 Módulo: Metas, Relatórios Analíticos e Serviços Automáticos
 
-| Código | Caso de Uso | Ator Primário | Regras de Negócio Chave |
-| :--- | :--- | :--- | :--- |
-| **UC01** | Cadastrar e Confirmar Conta | Usuário Não Autenticado | **RN01** (e-mail único), **RN02** (complexidade de senha), **RN13** (código de verificação). |
-| **UC02** | Configurar Alertas e Canais | Usuário | **RN11** (janela de antecedência entre 1h e 168h), canais (Email, Push, SMS). |
-| **UC03** | Excluir Própria Conta | Usuário | **RN05** (bloqueio se houver tarefas ativas ou pendentes atribuídas). |
-| **UC04** | Criar Equipe | Dono / Admin | **RF009** (criação da equipe e inserção inicial como Dono). |
-| **UC05** | Gerenciar Membros | Dono / Admin | **RN04** (somente Dono e Admin adicionam ou removem membros da equipe). |
-| **UC06** | Alterar Cargo de Membro | Dono | **RN03** (somente o Dono da equipe pode alterar cargo de outro membro). |
-| **UC07** | Criar Tarefa com Anexos | Usuário | **RF003** (controle de prazo UTC, anexos com validação de tipo e tamanho). |
-| **UC08** | Atribuir Responsável / Equipe | Criador da Tarefa / Admin | Atribuição individual (`ResponsavelTarefa`) ou em lote por equipe. |
-| **UC09** | Concluir Tarefa / Enviar Resposta | Responsável | Dispara atualização automática de metas vinculadas (**RN08**). |
-| **UC10** | Submeter Sugestão de Alteração | Responsável | **RF004** (apenas responsáveis pela tarefa podem submeter sugestões). |
-| **UC11** | Aprovar / Rejeitar Sugestão | Criador da Tarefa | **RN14** (aprovação explícita do criador da tarefa para surtir efeito). |
-| **UC12** | Abrir Ticket de Reporte | Responsável | **RF008** (reporta impedimento técnico diretamente aos administradores). |
-| **UC13** | Criar Meta Vinculada | Usuário | **RN07** (mínimo 1 tarefa válida), **RN15** (fechamento em até 12 meses). |
-| **UC14** | Gerar Relatório Pessoal | Membro | **RN09** (membros comuns só acessam métricas de suas próprias tarefas). |
-| **UC15** | Gerar Relatório Consolidado | Dono / Admin | **RN10** (extração de relatórios consolidados por equipe, período e status). |
-| **UC16** | Transicionar Tarefas Atrasadas | Agendador (Sistema) | **RN06** (marca `Atrasada` quando `DataVencimento < UtcNow` e notifica). |
-| **UC17** | Disparar Notificações | Agendador (Sistema) | **RN12** (descarta alertas expirados), **RNF10** (envio assíncrono). |
-| **UC18** | Recalcular Conclusão de Metas | Agendador / TarefaService | **RN08** (conclui meta quando todas as tarefas vinculadas estão concluídas). |
+Atende aos requisitos **RF007**, **RF010** e **RF011**, detalhando o acompanhamento de metas vinculadas a tarefas e equipes (**RN07**, **RN08**, **RN14**), geração de relatórios com segregação de privacidade (**RN09**, **RN10**) e automações de segundo plano com idempotência de alertas (**RN06**, **RN17**).
+
+```mermaid
+flowchart LR
+    %% Atores
+    Membro["👤 Membro / Usuário Comum"]
+    Lideranca["👤 Dono / Admin de Equipe"]
+    Sistema["⚙️ Agendador em Background (Sistema)"]
+
+    subgraph ModuloMetasRelatorios ["Módulo: Metas, Relatórios e Automação"]
+        UC07(["UC07: Gerenciar Metas<br/>(RF007 - RN07, RN08, RN14)"])
+        UC11(["UC11: Gerar Relatórios<br/>(RF010, RF011 - RN09, RN10)"])
+        UC10(["UC10: Atualizar Status e Disparar Alertas (Automático)<br/>(RF010 - RN06, RN17, RNF10)"])
+    end
+
+    %% Vínculos de Atores
+    Membro --- UC07
+    Membro --- UC11
+    Lideranca --- UC07
+    Lideranca --- UC11
+    Sistema --- UC10
+
+    %% Inclusão: Atualização de metas disparada por conclusão de tarefas
+    UC10 -.->|«include»| UC07
+
+    classDef uc fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0369a1;
+    class UC07,UC10,UC11 uc;
+```
+
+---
+
+### Mapeamento Canônico: Requisitos Funcionais x Casos de Uso
+
+| ID Requisito | Descrição do Requisito Funcional | Casos de Uso Vinculados |
+| :--- | :--- | :--- |
+| **RF001** | Cadastrar, consultar, atualizar e excluir usuários; autenticar por e-mail e senha; verificar e-mail por código de 6 dígitos; solicitar/redefinir senha por código enviado ao e-mail. Dados: nome, e-mail, telefone e foto de perfil. | **UC01: Gerenciar Conta e Autenticação** |
+| **RF002** | Criar, consultar, editar, excluir, concluir e reabrir tarefas; atribuir e remover responsáveis individualmente ou por todos os membros de uma equipe. Dados: título, descrição, vencimento, pontuação, status, prioridade, criador, responsáveis e anexos. | **UC02: Gerenciar Tarefas** |
+| **RF003** | Enviar entregas de uma tarefa com arquivos anexos pelo responsável; avaliação de cada entrega com nota pelo criador. Dados: tarefa, responsável, data de envio, nota e anexos. | **UC03: Submeter e Avaliar Entregas** |
+| **RF004** | Submeter sugestões de alteração de tarefa por responsáveis; aprovação ou rejeição exclusiva pelo criador. Dados: tarefa, solicitante, descrição, data de criação e status. | **UC04: Propor e Julgar Alterações** |
+| **RF005** | Abrir tickets de impedimento em tarefas não concluídas por responsáveis; notificar criador; encerramento exclusivo por criador, dono ou admin autorizado. Dados: tarefa, autor, descrição, data e situação ativa/fechada. | **UC05: Gerenciar Tickets de Impedimento** |
+| **RF006** | Criar, consultar, alterar e excluir equipes; incluir, remover e listar membros. O criador torna-se dono; somente dono altera cargos; dono e admin administram membros. | **UC06: Gerenciar Equipes** |
+| **RF007** | Criar, consultar, alterar e excluir metas associadas a uma ou mais tarefas e a um usuário proprietário ou pertencente a uma equipe, calculando a conclusão conforme o término das tarefas. | **UC07: Gerenciar Metas** |
+| **RF008** | Configurar por canal (e-mail, push, SMS) a antecedência de alertas (1h a 7 dias) e a ativação de notificações para nova atribuição, vencimento, conclusão de meta e ticket. | **UC08: Configurar Alertas e Acessibilidade** |
+| **RF009** | Central de notificações no cabeçalho: listar alertas do usuário, badge de não lidas, marcar uma/todas como lidas e remover notificações ou histórico. | **UC09: Interagir com a Central de Notificações** |
+| **RF010** | Rotina em background para transicionar tarefas vencidas para "Atrasada", disparar notificações e bloquear alertas duplicados na mesma janela. | **UC10: Atualizar Status e Disparar Alertas (Automático)** |
+| **RF011** | Gerar relatórios de tarefas com filtros por status, prioridade, período, responsável, criador e equipe. Restrição de privacidade (comum só vê o seu; liderança vê da equipe). | **UC11: Gerar Relatórios** |
+| **RF012** | Anexar, consultar e excluir arquivos relacionados a tarefas, entregas e perfis de usuário, disponibilizando visualização ou download quando suportado. | **UC01: Gerenciar Conta e Autenticação**<br/>**UC02: Gerenciar Tarefas**<br/>**UC03: Submeter e Avaliar Entregas** |
+| **RF013** | Configurar e persistir tema claro/escuro, modo de alto contraste e tamanho de fonte acessível entre 12 e 24 pixels em valores pares. | **UC08: Configurar Alertas e Acessibilidade** |
+
+---
+
+### Matriz de Casos de Uso e Regras de Negócio Chave
+
+| Código | Caso de Uso | Requisitos Atendidos | Atores Principais | Regras de Negócio Associadas |
+| :--- | :--- | :--- | :--- | :--- |
+| **UC01** | Gerenciar Conta e Autenticação | RF001, RF012 | Usuário / Visitante | **RN01** (e-mail único), **RN02** (senha complexa $\ge 8$ carac.), **RN05** (bloqueio de exclusão com tarefas ativas), **RN12** (verificação de e-mail). |
+| **UC02** | Gerenciar Tarefas | RF002, RF012 | Criador / Responsável | **RF002** (CRUD, prazos futuros UTC, conclusão e reabertura com recálculo de status), anexos validados. |
+| **UC03** | Submeter e Avaliar Entregas | RF003, RF012 | Responsável / Criador | **RN15** (entregas só podem ser avaliadas com nota pelo criador da tarefa), anexos de comprovação. |
+| **UC04** | Propor e Julgar Alterações | RF004 | Responsável / Criador | **RN13** (sugestões de alteração devem ser aprovadas ou recusadas pelo criador antes de serem aplicadas). |
+| **UC05** | Gerenciar Tickets de Impedimento | RF005 | Responsável / Líder | **RN16** (tickets só em tarefas não concluídas; encerramento por criador, dono ou admin). |
+| **UC06** | Gerenciar Equipes | RF006 | Dono / Admin / Membro | **RN03** (somente o Dono altera cargos), **RN04** (somente Dono e Admin adicionam/removem membros). |
+| **UC07** | Gerenciar Metas | RF007 | Gestor / Integrante | **RN07** (mínimo 1 tarefa associada), **RN08** (conclusão em 100% das tarefas), **RN14** (validade máxima de 12 meses), vínculo com equipes via `MetaEquipe`. |
+| **UC08** | Configurar Alertas e Acessibilidade | RF008, RF013 | Usuário | **RN11** (janela de antecedência de 1h a 7 dias), **RN12** (e-mail verificado para envio), **RN18** (fonte acessível par entre 12 e 24px). |
+| **UC09** | Interagir com a Central de Notificações | RF009 | Usuário | **RF009** (listagem em tempo real, contador de não lidas, marcar individual/todas como lidas e expurgo do histórico). |
+| **UC10** | Atualizar Status e Disparar Alertas (Automático) | RF010 | Agendador (Sistema) | **RN06** (transição automática para "Atrasada"), **RN17** (bloqueio de alertas repetidos na mesma janela), **RNF10** (despacho assíncrono multi-gateway). |
+| **UC11** | Gerar Relatórios | RF011 | Usuário / Dono / Admin | **RN09** (usuário comum só acessa tarefas próprias), **RN10** (donos e admins geram relatórios consolidados por equipe e métricas de desempenho). |
 
 ---
 
 ### 3.4. Cenários Ótimos e Alternativos do Sistema
 
-Os cenários ótimos e alternativos são utilizados para realizar a avaliação dos requisitos e verificá-los por meio de cenários o que aconteceria no melhor fluxo e o que aconteceria no pior deles.
-
-Um cenário ótimo refere-se a uma situação ideal ou resultado desejado para o projeto. É a condição em que todas as variáveis e fatores estão alinhados para atender ou exceder as expectativas do projeto.
-
-Já os cenários alternativos referem-se a diferentes condições ou eventos que podem ocorrer durante a execução do projeto, divergindo do plano original. Esses cenários são preparados para garantir que a equipe do projeto esteja pronta para lidar com mudanças e desafios. A seguir, estão listados ambos os cenários para as funcionalidades deste projeto.
-
 #### 3.4.1. Cenários Ótimos — Colaborador / Membro
-
-1. O Colaborador irá efetuar o acesso à plataforma:
-   1.1 RF01 – O sistema exibe ao colaborador os campos para inserir suas informações de login e senha, também podendo criar sua conta para primeiro acesso e o botão "Esqueci minha senha".
-   1.2 RF02 – O colaborador efetua login com as credenciais cadastradas e o sistema gera o token de autenticação seguro.
-   1.3 RF01 – O colaborador solicita recuperação de acesso. O sistema encaminhará um e-mail com código de validação para redefinição da senha.
-
-2. O Colaborador seleciona a opção desejada no painel de Tarefas:
-   Caso opção Início / Tarefas o colaborador poderá:
-   'Pesquisar e Filtrar':
-   2.1 RF03 – O sistema habilita campos de busca e filtros por status, prioridade e responsáveis para seleção direta da atividade.
-   'Visualizar Tarefa':
-   2.2 RF03 – O sistema exibe os detalhes da tarefa, prazos, pontuação, histórico e arquivos anexados.
-   'Concluir Tarefa':
-   2.3 RF03 – O colaborador confirma a conclusão da tarefa e envia comentários ou arquivos comprobatórios.
-   2.4 RF03 – O sistema atualiza o status para concluída e armazena os dados deixados pelo colaborador.
-   'Sugerir Alteração':
-   2.5 RF04 – O colaborador informa a descrição e justificativa de ajuste na tarefa e confirma o envio.
-   2.6 RF04 – O sistema armazena a sugestão com status pendente e notifica o criador da tarefa.
-   'Reportar Impedimento':
-   2.7 RF08 – O colaborador preenche o motivo do bloqueio técnico e submete o ticket de reporte.
-   2.8 RF08 – O sistema registra o chamado como ativo e alerta as lideranças da equipe.
-
-3. Caso opção Metas e Produtividade o colaborador poderá:
-   'Visualizar Metas':
-   3.1 RF07 – O sistema exibe a lista de metas vinculadas e o percentual atingido com base no término das tarefas.
-   'Gerar Relatório':
-   3.2 RF06 – O sistema gera o relatório pessoal contendo o histórico de tarefas concluídas e pontos acumulados.
-
-4. Caso opção Configurações de Conta:
-   'Configurar Notificações':
-   4.1 RF05 – O colaborador seleciona os canais de recebimento (E-mail, Push, SMS) e define as horas de antecedência dos alertas.
-   'Excluir Conta':
-   4.2 RF01 – O colaborador confirma a exclusão de seu perfil mediante confirmação da senha cadastrada.
+1. **Acesso à plataforma e Autenticação (UC01 / RF001)**:
+   - 1.1 O sistema exibe os campos de credenciais, opção de cadastro inicial e botão de recuperação "Esqueci minha senha".
+   - 1.2 O colaborador insere e-mail e senha cadastrados; o sistema autentica, emite o token JWT em cookie seguro e libera o dashboard.
+   - 1.3 O colaborador solicita verificação ou redefinição de senha: o sistema gera código de 6 dígitos via SMTP e valida o acesso.
+2. **Operações de Tarefas e Entregas (UC02, UC03, UC04, UC05 / RF002, RF003, RF004, RF005, RF012)**:
+   - 2.1 O colaborador visualiza suas tarefas com filtros por status, prioridade e prazos.
+   - 2.2 O colaborador submete resposta de entrega com arquivos anexos comprovando o trabalho (**UC03**).
+   - 2.3 O criador analisa a entrega submetida e atribui nota numérica válida (**RN15**).
+   - 2.4 Caso necessário, o responsável submete sugestão de ajuste de prazo/descrição (**UC04**) ou abre ticket de bloqueio (**UC05**).
+3. **Metas, Produtividade e Relatórios (UC07, UC11 / RF007, RF011)**:
+   - 3.1 O colaborador acompanha suas metas individuais e as metas atribuídas à sua equipe via `MetaEquipe` (**UC07**).
+   - 3.2 O colaborador emite seu relatório pessoal consolidando contagem de entregas, notas e pontuação acumulada (**UC11**).
+4. **Configurações de Alertas e Acessibilidade (UC08, UC09 / RF008, RF009, RF013)**:
+   - 4.1 O colaborador seleciona canais ativos (Push, E-mail, SMS), define a antecedência de 1h a 7 dias (**RN11**) e ajusta o tema claro/escuro e fonte entre 12 e 24px pares (**RN18**).
+   - 4.2 O colaborador interage com o modal de notificações no cabeçalho, lendo e arquivando alertas (**UC09**).
 
 #### 3.4.2. Cenários Alternativos — Colaborador / Membro
+1. **Tentativa de cadastro com e-mail já existente (RN01)**: O sistema identifica duplicidade, bloqueia a criação e orienta para o fluxo de login ou recuperação de senha.
+2. **Senha fora do padrão de complexidade (RN02)**: O sistema rejeita senhas com menos de 8 caracteres ou sem mescla de maiúsculas, minúsculas, números e símbolos.
+3. **Exclusão de conta com tarefas ativas pendentes (RN05)**: O sistema barra a exclusão da conta exibindo aviso impeditivo para concluir ou reatribuir pendências.
+4. **Tentativa de abertura de ticket em tarefa já concluída (RN16)**: O sistema impede a emissão de chamados de impedimento caso a tarefa já esteja finalizada.
+5. **Configuração de tamanho de fonte ímpar ou fora da faixa (RN18)**: O sistema valida o range e rejeita valores ímpares (ex.: 15px) ou fora de 12px a 24px.
 
-1. **E-mail já cadastrado na plataforma**:
-   O sistema identifica que o e-mail informado já existe na base e exibe mensagem em tela "E-mail já está cadastrado", conduzindo o usuário a retornar ao login ou utilizar a recuperação de senha.
+#### 3.4.3. Cenários Ótimos — Administrador / Liderança
+1. **Gestão Organizacional de Equipes (UC06 / RF006)**:
+   - 1.1 O criador funda uma equipe, assumindo imediatamente o cargo de `Dono` (**RN03**).
+   - 1.2 O Dono ou Admin inclui membros na equipe e gerencia desvinculações (**RN04**).
+   - 1.3 O Dono altera os cargos administrativos de outros membros conforme a estrutura da organização (**RN03**).
+2. **Delegação e Avaliação de Tarefas (UC02, UC03, UC04, UC05 / RF002, RF003, RF004, RF005)**:
+   - 2.1 O criador cadastra a tarefa com data futura UTC, prioridade e pontuação, anexando especificações.
+   - 2.2 O criador atribui a atividade a um membro individual ou a toda uma equipe com um único comando.
+   - 2.3 O criador aprova ou rejeita propostas de sugestão (**RN13**) e encerra tickets de impedimento resolvidos (**RN16**).
+   - 2.4 O criador avalia respostas técnicas atribuindo notas compatíveis com a pontuação máxima (**RN15**).
+3. **Gestão de Metas e Relatórios Corporativos (UC07, UC11 / RF007, RF011)**:
+   - 3.1 A liderança define metas de até 12 meses (**RN14**) vinculando ao menos 1 tarefa (**RN07**) e as atribui a equipes via `MetaEquipe`.
+   - 3.2 Donos e Administradores emitem relatórios consolidados de desempenho por equipe (**RN10**).
+4. **Automação Contínua em Background (UC10 / RF010)**:
+   - 4.1 O sistema atualiza periodicamente tarefas vencidas para "Atrasada" (**RN06**).
+   - 4.2 O agendador dispara alertas dentro da janela de antecedência sem redundâncias (**RN17**) através de gateways assíncronos (**RNF10**).
 
-2. **Arquivo de anexo com tamanho ou formato incompatível**:
-   O colaborador anexa arquivo que excede o limite de 10MB ou com extensão não permitida. O sistema exibe mensagem de erro na tela e recusa o envio do documento.
-
-3. **Submissão de sugestão sem ser responsável pela tarefa**:
-   O colaborador tenta sugerir alterações em uma atividade que não está sob sua responsabilidade. O sistema bloqueia a ação e exibe mensagem de permissão negada.
-
-4. **Tentativa de exclusão de conta com tarefas pendentes**:
-   O colaborador solicita a exclusão de conta possuindo tarefas pendentes ou atrasadas atribuídas a ele. O sistema impede a exclusão e exibe mensagem em tela orientando a concluir ou reatribuir as tarefas antes de encerrar o perfil.
-
-5. **Código de verificação incorreto ou expirado**:
-   O colaborador insere código de recuperação de senha vencido ou incorreto. O sistema emite mensagem de validação inválida e disponibiliza opção para reenvio.
-
-#### 3.4.3. Cenários Ótimos — Administrador / Gestor
-
-1. O sistema recebe, processa e autentica as informações do Administrador:
-   1.1 RF02 – Login: O sistema valida as credenciais de acesso, confirma permissão de liderança e libera o painel administrativo.
-   1.2 RF09 – Gestão de Equipes: O sistema identifica as equipes vinculadas ao administrador, listando integrantes e respectivos cargos.
-
-2. O Administrador gerencia o fluxo de trabalho e tarefas:
-   'Criar Tarefa':
-   2.1 RF03 – O administrador preenche título, descrição, data de vencimento futura, nível de prioridade e anexa arquivos complementares.
-   2.2 RF03 – O sistema armazena a tarefa com status inicial pendente.
-   'Atribuir Responsáveis':
-   2.3 RF03 – O administrador seleciona o colaborador ou equipe inteira para execução da tarefa.
-   2.4 RF03 – O sistema vincula os responsáveis e encaminha notificação aos designados.
-   'Avaliar Sugestões':
-   2.5 RF04 – O criador da tarefa avalia a sugestão enviada pelo colaborador e confirma a aprovação.
-   2.6 RF04 – O sistema atualiza a descrição da tarefa principal, define a sugestão como aprovada e notifica o solicitante.
-   'Tratar Impedimentos':
-   2.7 RF08 – O administrador analisa o chamado de impedimento e, após solucionar o bloqueio, marca o ticket como concluído.
-
-3. O Administrador gerencia metas e relatórios corporativos:
-   'Criar Meta':
-   3.1 RF07 – O gestor define o nome da meta, data limite de fechamento de até 12 meses e seleciona as tarefas vinculadas.
-   3.2 RF07 – O sistema valida os vínculos, calcula o estado inicial de conclusão e armazena a meta.
-   'Emitir Relatório Consolidado':
-   3.3 RF06 – O sistema processa os filtros por período, equipe e colaboradores, gerando a listagem analítica com taxas de entrega e produtividade.
-
-4. O sistema processa rotinas automáticas em segundo plano:
-   4.1 RF03 / RF05 – O sistema monitora as datas de vencimento, atualiza tarefas vencidas para o status atrasada e dispara alertas nos canais configurados.
-
-#### 3.4.4. Cenários Alternativos — Administrador / Gestor
-
-1. **Alteração de cargo por usuário sem perfil de Dono**:
-   Um administrador comum tenta alterar o nível de acesso de outro integrante. O sistema valida as permissões e exibe mensagem em tela informando que apenas o Dono da equipe pode alterar cargos.
-
-2. **Criação de meta sem tarefas associadas**:
-   O gestor tenta salvar uma meta sem selecionar ao menos uma tarefa de referência. O sistema emite mensagem de aviso informando a obrigatoriedade de vincular tarefas válidas.
-
-3. **Prazo de fechamento de meta superior a 12 meses**:
-   O gestor informa data de conclusão superior a 1 ano. O sistema barra o salvamento e apresenta mensagem de correção da data limite.
-
-4. **Atribuição duplicada de colaborador**:
-   O gestor tenta atribuir um colaborador que já consta como responsável pela tarefa. O sistema emite mensagem em tela informando que o usuário já está atribuído.
-
-5. **Prazo de entrega retroativo**:
-   O gestor tenta cadastrar tarefa com data anterior ao momento atual. O sistema valida os dados e orienta o preenchimento de uma data de vencimento futura.
-
-## 4. Diagramas de Sequência (Padrão BCE com Métodos Reais do Código)
-
-Os diagramas de sequência a seguir seguem o formato de **Análise de Robustez / BCE (Boundary - Control - Entity)** da referência, utilizando os **métodos, entidades, DTOs e serviços reais implementados no backend do Cortex**:
-- **Fronteira (`:AppCortex`)**: Interface / camada de apresentação que consome a API REST.
-- **Controle (`:Controle`)**: Controlador e serviço de aplicação (`TarefaService`, `SugestaoService`, `MetaService`).
-- **Entidades (`:Usuario`, `:Anexo`, `:Tarefa`, `:ResponsavelTarefa`, `:Sugestao`, `:Meta`, `:MetaTarefa`)**: Entidades de domínio e repositórios de persistência.
+#### 3.4.4. Cenários Alternativos — Administrador / Liderança
+1. **Tentativa de alteração de cargo por Admin comum (RN03)**: O sistema rejeita a operação com código 403 Forbidden, informando que a prerrogativa é privativa do Dono da equipe.
+2. **Tentativa de criação de meta sem tarefas associadas (RN07)**: O sistema bloqueia a gravação e exige ao menos uma tarefa vinculada.
+3. **Definição de prazo de meta superior a 12 meses (RN14)**: O sistema recusa datas de conclusão além de 1 ano a partir da criação.
+4. **Avaliação de nota por usuário que não seja o criador (RN15)**: O sistema impede a avaliação caso o solicitante não seja o criador original da tarefa.
+5. **Tentativa de encerramento de ticket por usuário sem privilégio (RN16)**: O sistema bloqueia o encerramento do chamado se o solicitante não for o criador da tarefa ou líder da equipe.
 
 ---
 
-### 4.1. `sd CriarTarefa`
+## 4. Diagramas de Sequência (Interações Reais do Backend Cortex)
 
-Fluxo real de criação de tarefa:
-1. `AppCortex` solicita a resolução do usuário criador autenticado via `ObterUsuarioPorIdAsync(criadorId)`.
-2. Se houver anexos (`IFormFile`), aciona a validação de arquivo via `ValidarAnexoTarefa(arquivo)`.
-3. Executa a criação e persistência da tarefa via `AdicionarTarefaAsync(tarefa)`, retornando o DTO consolidado `ConsultaTarefaDTO`.
-
-#### Renderização Mermaid:
-```mermaid
-sequenceDiagram
-    participant AppCortex as :AppCortex
-    participant Controle as :Controle
-    participant Usuario as :Usuario
-    participant Anexo as :Anexo
-    participant Tarefa as :Tarefa
-
-    activate AppCortex
-    Note over AppCortex, Tarefa: sd CriarTarefa
-
-    AppCortex->>Controle: 1: ObterUsuario(criadorId)
-    activate Controle
-    Controle->>Usuario: 1.1: ObterUsuarioPorIdAsync(criadorId) : Usuario
-    activate Usuario
-    Usuario-->>Controle: Usuario
-    deactivate Usuario
-    Controle-->>AppCortex: criador
-    deactivate Controle
-
-    AppCortex->>Controle: 2: ValidarAnexo(arquivo)
-    activate Controle
-    Controle->>Anexo: 2.1: ValidarAnexoTarefa(arquivo) : void
-    activate Anexo
-    Anexo-->>Controle: void
-    deactivate Anexo
-    Controle-->>AppCortex: valido
-    deactivate Controle
-
-    AppCortex->>Controle: 3: CriarTarefa(dto)
-    activate Controle
-    Controle->>Tarefa: 3.1: AdicionarTarefaAsync(tarefa) : Tarefa
-    activate Tarefa
-    Tarefa-->>Controle: Tarefa
-    deactivate Tarefa
-    Controle-->>AppCortex: ConsultaTarefaDTO
-    deactivate Controle
-    deactivate AppCortex
-```
-
-#### Código PlantUML (Ícones Nativos BCE):
-```plantuml
-@startuml
-skinparam sequenceMessageAlign center
-boundary ":AppCortex" as AppCortex
-control ":Controle" as Controle
-entity ":Usuario" as Usuario
-entity ":Anexo" as Anexo
-entity ":Tarefa" as Tarefa
-
-AppCortex -> Controle : 1: ObterUsuario(criadorId)
-activate AppCortex
-activate Controle
-Controle -> Usuario : 1.1: ObterUsuarioPorIdAsync(criadorId) : Usuario
-activate Usuario
-Usuario --> Controle : Usuario
-deactivate Usuario
-Controle --> AppCortex : criador
-deactivate Controle
-
-AppCortex -> Controle : 2: ValidarAnexo(arquivo)
-activate Controle
-Controle -> Anexo : 2.1: ValidarAnexoTarefa(arquivo) : void
-activate Anexo
-Anexo --> Controle : void
-deactivate Anexo
-Controle --> AppCortex : valido
-deactivate Controle
-
-AppCortex -> Controle : 3: CriarTarefa(dto)
-activate Controle
-Controle -> Tarefa : 3.1: AdicionarTarefaAsync(tarefa) : Tarefa
-activate Tarefa
-Tarefa --> Controle : Tarefa
-deactivate Tarefa
-Controle --> AppCortex : ConsultaTarefaDTO
-deactivate Controle
-deactivate AppCortex
-@enduml
-```
+Esta seção apresenta os diagramas de sequência comportamentais do Cortex Backend.
+A subseção **4.0** consolida a atualização dos fluxos de criação principais e o mapeamento sistemático dos **Requisitos Funcionais (RF001 a RF013)** conforme a arquitetura real em produção (`App Cortex` $\leftrightarrow$ `Controllers REST` $\leftrightarrow$ `Services` $\leftrightarrow$ `Repositories/PostgreSQL` $\leftrightarrow$ `Gateways`).
+As subseções subsequentes detalham as interações aprofundadas dos **Casos de Uso (UC01 a UC19)** e canais de mensageria assíncrona.
 
 ---
 
-### 4.2. `sd CriarSugestao`
+### 4.0. Diagramas de Sequência Atualizados dos Requisitos Funcionais (RF001 a RF013)
 
-Fluxo real de criação de sugestão de alteração (requisito **RF004**):
-1. `AppCortex` solicita a busca da tarefa alvo via `ObterTarefaPorIdAsync(tarefaId)`.
-2. Valida se o solicitante autenticado é de fato um responsável atribuído à tarefa via `ResponsavelJaAtribuidoAsync(tarefaId, usuarioId)`.
-3. Registra a nova sugestão de alteração com status pendente via `AdicionarSugestaoAsync(sugestao)`, retornando `ConsultaSugestaoDTO`.
+#### 4.0.1. sd CriarTarefa (Atualizado)
+Atualização do fluxo de criação de tarefas com persistência em banco relacional, anexo físico/metadados e despacho de notificações aos responsáveis via push/mensageria.
 
-#### Renderização Mermaid:
-```mermaid
-sequenceDiagram
-    participant AppCortex as :AppCortex
-    participant Controle as :Controle
-    participant Tarefa as :Tarefa
-    participant ResponsavelTarefa as :ResponsavelTarefa
-    participant Sugestao as :Sugestao
-
-    activate AppCortex
-    Note over AppCortex, Sugestao: sd CriarSugestao
-
-    AppCortex->>Controle: 1: ObterTarefa(tarefaId)
-    activate Controle
-    Controle->>Tarefa: 1.1: ObterTarefaPorIdAsync(tarefaId) : Tarefa
-    activate Tarefa
-    Tarefa-->>Controle: Tarefa
-    deactivate Tarefa
-    Controle-->>AppCortex: tarefa
-    deactivate Controle
-
-    AppCortex->>Controle: 2: ValidarResponsavel(tarefaId, usuarioId)
-    activate Controle
-    Controle->>ResponsavelTarefa: 2.1: ResponsavelJaAtribuidoAsync(tarefaId, usuarioId) : bool
-    activate ResponsavelTarefa
-    ResponsavelTarefa-->>Controle: bool
-    deactivate ResponsavelTarefa
-    Controle-->>AppCortex: ehResponsavel
-    deactivate Controle
-
-    AppCortex->>Controle: 3: CriarSugestao(dto)
-    activate Controle
-    Controle->>Sugestao: 3.1: AdicionarSugestaoAsync(sugestao) : Sugestao
-    activate Sugestao
-    Sugestao-->>Controle: Sugestao
-    deactivate Sugestao
-    Controle-->>AppCortex: ConsultaSugestaoDTO
-    deactivate Controle
-    deactivate AppCortex
-```
-
-#### Código PlantUML (Ícones Nativos BCE):
-```plantuml
-@startuml
-skinparam sequenceMessageAlign center
-boundary ":AppCortex" as AppCortex
-control ":Controle" as Controle
-entity ":Tarefa" as Tarefa
-entity ":ResponsavelTarefa" as ResponsavelTarefa
-entity ":Sugestao" as Sugestao
-
-AppCortex -> Controle : 1: ObterTarefa(tarefaId)
-activate AppCortex
-activate Controle
-Controle -> Tarefa : 1.1: ObterTarefaPorIdAsync(tarefaId) : Tarefa
-activate Tarefa
-Tarefa --> Controle : Tarefa
-deactivate Tarefa
-Controle --> AppCortex : tarefa
-deactivate Controle
-
-AppCortex -> Controle : 2: ValidarResponsavel(tarefaId, usuarioId)
-activate Controle
-Controle -> ResponsavelTarefa : 2.1: ResponsavelJaAtribuidoAsync(tarefaId, usuarioId) : bool
-activate ResponsavelTarefa
-ResponsavelTarefa --> Controle : bool
-deactivate ResponsavelTarefa
-Controle --> AppCortex : ehResponsavel
-deactivate Controle
-
-AppCortex -> Controle : 3: CriarSugestao(dto)
-activate Controle
-Controle -> Sugestao : 3.1: AdicionarSugestaoAsync(sugestao) : Sugestao
-activate Sugestao
-Sugestao --> Controle : Sugestao
-deactivate Sugestao
-Controle --> AppCortex : ConsultaSugestaoDTO
-deactivate Controle
-deactivate AppCortex
-@enduml
-```
-
----
-
-### 4.3. `sd CriarMeta`
-
-Fluxo real de criação de meta (requisito **RF007**):
-1. `AppCortex` requisita a verificação e obtenção das tarefas vinculadas via `ObterTarefaPorIdAsync(tarefaId)`.
-2. Cria os objetos de relacionamento associativo N:N via `AdicionarMetaTarefa(tarefaId)` (**RN07**).
-3. Persiste a meta com cálculo do status concluído (**RN08**) via `AdicionarMetaAsync(meta)`, retornando `ConsultaMetaDTO`.
-
-#### Renderização Mermaid:
-```mermaid
-sequenceDiagram
-    participant AppCortex as :AppCortex
-    participant Controle as :Controle
-    participant Tarefa as :Tarefa
-    participant MetaTarefa as :MetaTarefa
-    participant Meta as :Meta
-
-    activate AppCortex
-    Note over AppCortex, Meta: sd CriarMeta
-
-    AppCortex->>Controle: 1: ObterTarefas(tarefaIds)
-    activate Controle
-    Controle->>Tarefa: 1.1: ObterTarefaPorIdAsync(tarefaId) : Tarefa
-    activate Tarefa
-    Tarefa-->>Controle: Tarefa
-    deactivate Tarefa
-    Controle-->>AppCortex: tarefas
-    deactivate Controle
-
-    AppCortex->>Controle: 2: VincularTarefa(tarefaId)
-    activate Controle
-    Controle->>MetaTarefa: 2.1: AdicionarMetaTarefa(tarefaId) : MetaTarefa
-    activate MetaTarefa
-    MetaTarefa-->>Controle: MetaTarefa
-    deactivate MetaTarefa
-    Controle-->>AppCortex: vinculo
-    deactivate Controle
-
-    AppCortex->>Controle: 3: CriarMeta(dto)
-    activate Controle
-    Controle->>Meta: 3.1: AdicionarMetaAsync(meta) : Meta
-    activate Meta
-    Meta-->>Controle: Meta
-    deactivate Meta
-    Controle-->>AppCortex: ConsultaMetaDTO
-    deactivate Controle
-    deactivate AppCortex
-```
-
-#### Código PlantUML (Ícones Nativos BCE):
-```plantuml
-@startuml
-skinparam sequenceMessageAlign center
-boundary ":AppCortex" as AppCortex
-control ":Controle" as Controle
-entity ":Tarefa" as Tarefa
-entity ":MetaTarefa" as MetaTarefa
-entity ":Meta" as Meta
-
-AppCortex -> Controle : 1: ObterTarefas(tarefaIds)
-activate AppCortex
-activate Controle
-Controle -> Tarefa : 1.1: ObterTarefaPorIdAsync(tarefaId) : Tarefa
-activate Tarefa
-Tarefa --> Controle : Tarefa
-deactivate Tarefa
-Controle --> AppCortex : tarefas
-deactivate Controle
-
-AppCortex -> Controle : 2: VincularTarefa(tarefaId)
-activate Controle
-Controle -> MetaTarefa : 2.1: AdicionarMetaTarefa(tarefaId) : MetaTarefa
-activate MetaTarefa
-MetaTarefa --> Controle : MetaTarefa
-deactivate MetaTarefa
-Controle --> AppCortex : vinculo
-deactivate Controle
-
-AppCortex -> Controle : 3: CriarMeta(dto)
-activate Controle
-Controle -> Meta : 3.1: AdicionarMetaAsync(meta) : Meta
-activate Meta
-Meta --> Controle : Meta
-deactivate Meta
-Controle --> AppCortex : ConsultaMetaDTO
-deactivate Controle
-deactivate AppCortex
-@enduml
-```
-
----
-
-### 4.4. Diagramas de Sequência — Envio de Notificações (Push, E-mail e SMS)
-
-Os diagramas a seguir representam o ciclo de envio assíncrono de notificações ([RNF10](file:///c:/Users/yuma2/Repositorios/Cortex-backend/AGENTS.md)) para os três canais suportados pelo Cortex Backend ([CanalNotificacao](file:///c:/Users/yuma2/Repositorios/Cortex-backend/Entities/ENUMS/CanalNotificacao.cs): `Push`, `Email` e `Sms`), seguindo a arquitetura de interação entre o **Colaborador**, o **App Cortex**, o **Servidor de Backend** e os **Gateways Externos** de comunicação.
-
----
-
-#### 4.4.1. Envio de Notificação Push (FCM / APNs)
-
-Mapeia o registro do token do dispositivo no primeiro logon do colaborador e o disparo de notificação push quando uma tarefa é atribuída ou quando um alerta de vencimento é processado.
-
-##### Renderização Mermaid:
-```mermaid
-sequenceDiagram
-    actor Colaborador as Colaborador
-    participant AppCortex as App Cortex
-    participant Backend as Servidor de Backend
-    participant PushGateway as Serviço de Notificação Push (FCM/APNs)
-
-    Colaborador->>AppCortex: Abrir App / Logar
-    Note over AppCortex: *primeiro logon*
-    AppCortex->>Backend: Registrar token do dispositivo (usuarioId, token)
-    Backend-->>AppCortex: Confirmação de registro
-
-    Backend->>Backend: Insere/recebe dados da tarefa
-    Note over Backend: Servidor atribuiu tarefa ou processa alerta
-
-    Backend->>PushGateway: Enviar Mensagem Push (token, payload)
-    PushGateway-->>Backend: Confirmação de recebimento/erro
-    PushGateway->>AppCortex: Enviar notificação para o dispositivo
-    AppCortex->>Colaborador: Exibir notificação na tela
-```
-
-##### Código PlantUML:
-```plantuml
-@startuml
-skinparam sequenceMessageAlign center
-actor Colaborador
-participant "App Cortex" as AppCortex
-participant "Servidor de Backend" as Backend
-participant "Serviço de Notificação Push (FCM/APNs)" as PushGateway
-
-Colaborador -> AppCortex : Abrir App / Logar
-note over AppCortex : *primeiro logon*
-AppCortex -> Backend : Registrar token do dispositivo (usuarioId, token)
-Backend --> AppCortex : Confirmação de registro
-
-Backend -> Backend : Insere/recebe dados da tarefa
-note over Backend : Servidor atribuiu tarefa ou processa alerta
-
-Backend -> PushGateway : Enviar Mensagem Push (token, payload)
-PushGateway --> Backend : Confirmação de recebimento/erro
-PushGateway -> AppCortex : Enviar notificação para o dispositivo
-AppCortex -> Colaborador : Exibir notificação na tela
-@enduml
-```
-
----
-
-#### 4.4.2. Envio de Notificação por E-mail (SMTP / SendGrid)
-
-Mapeia o ciclo de entrega de alertas por e-mail com a validação mandatória da regra **RN13** (o envio só é autorizado caso o e-mail do colaborador esteja com `EmailVerificado == true`).
-
-##### Renderização Mermaid:
-```mermaid
-sequenceDiagram
-    actor Colaborador as Colaborador
-    participant AppCortex as App Cortex
-    participant Backend as Servidor de Backend
-    participant EmailGateway as Provedor de E-mail (SMTP / SendGrid)
-    participant ClienteEmail as Cliente de E-mail (Gmail/Outlook)
-
-    Colaborador->>AppCortex: Confirmar e-mail cadastrado
-    AppCortex->>Backend: VerificarEmailAsync(codigoConfirmacao)
-    Backend->>Backend: Validar token e marcar EmailVerificado = true (RN13)
-    Backend-->>AppCortex: Confirmação de e-mail verificado
-
-    Backend->>Backend: Evento: Tarefa próxima do vencimento (RN06/RN11)
-    Note over Backend: Valida: usuario.EmailVerificado == true (RN13)
-
-    Backend->>EmailGateway: EnviarEmailAsync(destinatario, assunto, mensagemCorpo)
-    EmailGateway-->>Backend: Confirmação de envio (250 OK / Accepted)
-    EmailGateway->>ClienteEmail: Entregar mensagem na caixa de entrada
-    ClienteEmail->>Colaborador: Notificar novo e-mail recebido
-```
-
-##### Código PlantUML:
-```plantuml
-@startuml
-skinparam sequenceMessageAlign center
-actor Colaborador
-participant "App Cortex" as AppCortex
-participant "Servidor de Backend" as Backend
-participant "Provedor de E-mail (SMTP / SendGrid)" as EmailGateway
-participant "Cliente de E-mail (Gmail/Outlook)" as ClienteEmail
-
-Colaborador -> AppCortex : Confirmar e-mail cadastrado
-AppCortex -> Backend : VerificarEmailAsync(codigoConfirmacao)
-Backend -> Backend : Validar token e marcar EmailVerificado = true (RN13)
-Backend --> AppCortex : Confirmação de e-mail verificado
-
-Backend -> Backend : Evento: Tarefa próxima do vencimento (RN06/RN11)
-note over Backend : Valida: usuario.EmailVerificado == true (RN13)
-
-Backend -> EmailGateway : EnviarEmailAsync(destinatario, assunto, mensagemCorpo)
-EmailGateway --> Backend : Confirmação de envio (250 OK / Accepted)
-EmailGateway -> ClienteEmail : Entregar mensagem na caixa de entrada
-ClienteEmail -> Colaborador : Notificar novo e-mail recebido
-@enduml
-```
-
----
-
-#### 4.4.3. Envio de Notificação por SMS (Gateway de Telefonia)
-
-Mapeia o envio de mensagens SMS via operadora de telefonia para eventos críticos (como abertura de chamado técnico de impedimento - **RF008** ou prazos iminentes), validando o número telefônico cadastrado.
-
-##### Renderização Mermaid:
-```mermaid
-sequenceDiagram
-    actor Colaborador as Colaborador
-    participant AppCortex as App Cortex
-    participant Backend as Servidor de Backend
-    participant SmsGateway as Gateway de SMS (Twilio/Zenvia)
-    participant Celular as Dispositivo Móvel (Rede Celular)
-
-    Colaborador->>AppCortex: Cadastrar telefone celular no perfil
-    AppCortex->>Backend: AtualizarUsuarioAsync(telefone)
-    Backend-->>AppCortex: Confirmação de perfil atualizado
-
-    Backend->>Backend: Evento: Ticket de Reporte aberto / Alerta de Prazo
-    Note over Backend: Valida: telefone presente e canal SMS ativo
-
-    Backend->>SmsGateway: EnviarSmsAsync(telefone, mensagem)
-    SmsGateway-->>Backend: Confirmação de despacho / MessageId
-    SmsGateway->>Celular: Transmitir SMS via operadora
-    Celular->>Colaborador: Exibir mensagem SMS na tela
-```
-
-##### Código PlantUML:
-```plantuml
-@startuml
-skinparam sequenceMessageAlign center
-actor Colaborador
-participant "App Cortex" as AppCortex
-participant "Servidor de Backend" as Backend
-participant "Gateway de SMS (Twilio/Zenvia)" as SmsGateway
-participant "Dispositivo Móvel (Rede Celular)" as Celular
-
-Colaborador -> AppCortex : Cadastrar telefone celular no perfil
-AppCortex -> Backend : AtualizarUsuarioAsync(telefone)
-Backend --> AppCortex : Confirmação de perfil atualizado
-
-Backend -> Backend : Evento: Ticket de Reporte aberto / Alerta de Prazo
-note over Backend : Valida: telefone presente e canal SMS ativo
-
-Backend -> SmsGateway : EnviarSmsAsync(telefone, mensagem)
-SmsGateway --> Backend : Confirmação de despacho / MessageId
-SmsGateway -> Celular : Transmitir SMS via operadora
-Celular -> Colaborador : Exibir mensagem SMS na tela
-@enduml
-```
-
----
-
-#### 4.4.4. Visão Arquitetural Unificada — Roteamento Multi-Canal (`NotificacaoService`)
-
-Consolidação da lógica interna do método `EnviarNotificacaoAsync` no `NotificacaoService`, mostrando o roteamento assíncrono para cada gateway conforme as preferências do usuário ([RN11](file:///c:/Users/yuma2/Repositorios/Cortex-backend/AGENTS.md)) e persistência do histórico em `AlertasEnviados`.
-
-##### Renderização Mermaid:
-```mermaid
-sequenceDiagram
-    participant Backend as Cortex Backend (NotificacaoService)
-    participant DB as PostgreSQL (Preferencias / Alertas)
-    participant Push as IPushGateway (FCM/APNs)
-    participant Email as IEmailGateway (SMTP)
-    participant SMS as ISmsGateway (Twilio)
-
-    Backend->>DB: ObterPreferenciasAsync(usuarioId)
-    DB-->>Backend: PreferenciaNotificacao (Canal, Antecedencia, Ativo)
-
-    alt Canal == Push
-        Backend->>Push: EnviarPushAsync(usuarioId, assunto, mensagem)
-        Push-->>Backend: bool sucesso
-    else Canal == Email (Valida RN13: EmailVerificado)
-        Backend->>Email: EnviarEmailAsync(email, assunto, mensagem)
-        Email-->>Backend: bool sucesso
-    else Canal == Sms (Valida telefone presente)
-        Backend->>SMS: EnviarSmsAsync(telefone, mensagem)
-        SMS-->>Backend: bool sucesso
-    end
-
-    opt Envio bem-sucedido
-        Backend->>DB: RegistrarAlertaEnviadoAsync(usuarioId, tarefaId, canal)
-    end
-```
-
----
-
-### 4.5. `sd AtribuirNotaResposta`
-
-Fluxo de atribuição de nota/avaliação à resposta de entrega submetida por um responsável na tarefa. O criador da tarefa ou administradores validam o trabalho e aplicam uma nota numérica entre 0 e a pontuação máxima configurada na tarefa.
-
-#### Renderização Mermaid:
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Criador as <<Actor>> Criador / Admin
-    boundary Controller as <<Boundary>> RespostaTarefaController
-    control Service as <<Control>> RespostaTarefaService
-    entity RespRepo as <<Entity>> IRespostaTarefaRepository
-    entity TarefaRepo as <<Entity>> ITarefaRepository
-    database DB as <<Database>> PostgreSQL
+    actor Colaborador as Colaborador (Criador)
+    participant AppCortex as App Cortex (Web/Mobile)
+    participant Controller as TarefaController
+    participant Service as TarefaService
+    participant AnexoService as AnexoService
+    participant NotifService as NotificacaoService
+    participant Repo as TarefaRepository
+    participant DB as PostgreSQL
+    participant PushGateway as PushGateway (FCM/APNs)
+
+    Colaborador->>AppCortex: Preenche formulário e clica em "Criar Tarefa"
+    activate AppCortex
+    AppCortex->>Controller: POST /api/tarefas (multipart/form-data: Titulo, Descricao, DataVencimento, Prioridade, Pontuacao, ResponsaveisIds, Arquivos)
+    activate Controller
+
+    Controller->>Service: CriarTarefaAsync(dto, criadorId)
+    activate Service
+
+    Service->>Service: Validar: DataVencimento > DataAtual (UTC)
+    Service->>Repo: AdicionarTarefaAsync(tarefa)
+    activate Repo
+    Repo->>DB: INSERT INTO Tarefa (...) VALUES (...)
+    DB-->>Repo: Tarefa registrada (Id)
+    Repo-->>Service: tarefaCriada
+    deactivate Repo
+
+    opt Contém arquivos anexos
+        loop Para cada arquivo
+            Service->>AnexoService: SalvarAnexoTarefaAsync(tarefa.Id, arquivo)
+            activate AnexoService
+            AnexoService->>DB: INSERT INTO Anexo (TarefaId, UrlCaminho, ...)
+            deactivate AnexoService
+        end
+    end
+
+    opt Possui responsáveis atribuídos
+        loop Para cada usuarioId
+            Service->>Repo: AdicionarResponsavelAsync(tarefa.Id, usuarioId)
+            activate Repo
+            Repo->>DB: INSERT INTO ResponsavelTarefa (TarefaId, UsuarioId)
+            deactivate Repo
+
+            Service->>NotifService: NotificarAtribuicaoTarefaAsync(tarefa, usuarioId)
+            activate NotifService
+            NotifService->>DB: INSERT INTO Notificacao (UsuarioId, Titulo, Mensagem)
+            NotifService->>PushGateway: EnviarPushAsync(tokenDispositivo, payload)
+            PushGateway-->>NotifService: OK
+            deactivate NotifService
+        end
+    end
+
+    Service-->>Controller: ConsultaTarefaDTO
+    deactivate Service
+    Controller-->>AppCortex: 201 Created (ConsultaTarefaDTO)
+    deactivate Controller
+
+    AppCortex->>Colaborador: Exibe confirmação de tarefa criada com sucesso
+    deactivate AppCortex
+```
+
+---
+
+#### 4.0.2. sd CriarSugestao (Atualizado)
+Atualização do fluxo de submissão de proposta de alteração de tarefa por um responsável atribuído, com validação e aviso ao criador.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Responsavel as Responsável pela Tarefa
+    participant AppCortex as App Cortex
+    participant Controller as SugestaoController
+    participant Service as SugestaoService
+    participant RespRepo as ResponsavelTarefaRepository
+    participant SugRepo as SugestaoRepository
+    participant NotifService as NotificacaoService
+    participant DB as PostgreSQL
+
+    Responsavel->>AppCortex: Digita sugestão de alteração e envia
+    activate AppCortex
+
+    AppCortex->>Controller: POST /api/tarefas/{id}/sugestoes (CriarSugestaoDTO: Descricao)
+    activate Controller
+
+    Controller->>Service: CriarSugestaoAsync(tarefaId, dto, usuarioId)
+    activate Service
+
+    Service->>RespRepo: ResponsavelJaAtribuidoAsync(tarefaId, usuarioId)
+    activate RespRepo
+    RespRepo->>DB: SELECT COUNT(*) FROM ResponsavelTarefa WHERE TarefaId = @tId AND UsuarioId = @uId
+    DB-->>RespRepo: count > 0 (é responsável)
+    RespRepo-->>Service: true
+    deactivate RespRepo
+
+    Service->>SugRepo: AdicionarSugestaoAsync(sugestao)
+    activate SugRepo
+    SugRepo->>DB: INSERT INTO Sugestao (Descricao, Status, TarefaId, UsuarioId, DataCriacao) VALUES (..., 'Pendente', ...)
+    DB-->>SugRepo: sugestaoId
+    SugRepo-->>Service: sugestao
+    deactivate SugRepo
+
+    Service->>NotifService: CriarNotificacaoAsync(criadorId, "Nova Sugestão de Alteração", ...)
+    activate NotifService
+    NotifService->>DB: INSERT INTO Notificacao (...)
+    deactivate NotifService
+
+    Service-->>Controller: ConsultaSugestaoDTO
+    deactivate Service
+    Controller-->>AppCortex: 201 Created (ConsultaSugestaoDTO)
+    deactivate Controller
+
+    AppCortex->>Responsavel: Exibe confirmação de sugestão submetida
+    deactivate AppCortex
+```
+
+---
+
+#### 4.0.3. sd CriarMeta (Atualizado)
+Atualização do fluxo de cadastro de metas vinculadas com validação de vínculo mínimo a uma tarefa, cálculo inicial e vinculação a usuário/equipe.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Gestor as Usuário / Gestor
+    participant AppCortex as App Cortex
+    participant Controller as MetaController
+    participant Service as MetaService
+    participant TarefaRepo as TarefaRepository
+    participant MetaRepo as MetaRepository
+    participant DB as PostgreSQL
+
+    Gestor->>AppCortex: Preenche dados da meta e seleciona tarefas
+    activate AppCortex
+
+    AppCortex->>Controller: POST /api/metas (CriarMetaDTO: Nome, DataFechamento, TarefaIds, EquipeId?)
+    activate Controller
+
+    Controller->>Service: CriarMetaAsync(dto, proprietarioId)
+    activate Service
+
+    Service->>Service: Validar: TarefaIds.Count >= 1 (RN07)
+    Service->>Service: Validar: DataFechamento <= UtcNow + 12 meses (RN14)
+
+    loop Para cada tarefaId vinculado
+        Service->>TarefaRepo: ObterTarefaPorIdAsync(tarefaId)
+        activate TarefaRepo
+        TarefaRepo->>DB: SELECT * FROM Tarefa WHERE Id = @id
+        DB-->>TarefaRepo: tarefa
+        TarefaRepo-->>Service: tarefa
+        deactivate TarefaRepo
+    end
+
+    Service->>MetaRepo: AdicionarMetaAsync(meta)
+    activate MetaRepo
+    MetaRepo->>DB: INSERT INTO Meta (Nome, DataFechamento, Concluida, Porcentagem, UsuarioId) VALUES (...)
+    DB-->>MetaRepo: metaId
+    MetaRepo-->>Service: metaCriada
+    deactivate MetaRepo
+
+    loop Para cada tarefaId
+        Service->>MetaRepo: AdicionarMetaTarefaAsync(meta.Id, tarefaId)
+        activate MetaRepo
+        MetaRepo->>DB: INSERT INTO MetaTarefa (MetaId, TarefaId) VALUES (...)
+        deactivate MetaRepo
+    end
+
+    opt Possui EquipeId
+        Service->>MetaRepo: AdicionarMetaEquipeAsync(meta.Id, equipeId)
+        activate MetaRepo
+        MetaRepo->>DB: INSERT INTO MetaEquipe (MetaId, EquipeId, DataVinculo) VALUES (...)
+        deactivate MetaRepo
+    end
+
+    Service->>Service: CalcularProgressoConclusao(meta.Id)
+
+    Service-->>Controller: ConsultaMetaDTO
+    deactivate Service
+    Controller-->>AppCortex: 201 Created (ConsultaMetaDTO)
+    deactivate Controller
+
+    AppCortex->>Gestor: Exibe meta cadastrada com progresso calculado
+    deactivate AppCortex
+```
+
+---
+
+#### 4.0.4. sd RF001 - Gerenciar Usuários e Autenticação
+Mapeia cadastro, consulta, atualização, exclusão, verificação por 6 dígitos e redefinição de credenciais sem exposição de senhas e hashes.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Usuario as Usuário
+    participant AppCortex as App Cortex
+    participant Controller as AuthController / UsuarioController
+    participant Service as UsuarioService / AuthService
+    participant VerifService as VerificacaoEmailService
+    participant EmailGateway as EmailGateway (SMTP)
+    participant Repo as UsuarioRepository
+    participant DB as PostgreSQL
+
+    alt 1. Cadastrar Usuário
+        Usuario->>AppCortex: Envia nome, email, telefone e senha
+        AppCortex->>Controller: POST /api/usuarios (CriarContaDTO)
+        Controller->>Service: AdicionarUsuarioAsync(dto)
+        Service->>Repo: ObterPorEmailAsync(email)
+        Repo->>DB: SELECT * FROM Usuario WHERE Email = @email
+        DB-->>Repo: null (disponível)
+        Service->>Service: HashPassword(senha) com BCrypt
+        Service->>Repo: AdicionarUsuarioAsync(usuario)
+        Repo->>DB: INSERT INTO Usuario (Nome, Email, Telefone, SenhaHash, EmailVerificado=false)
+        Service->>VerifService: GerarECodificarCodigo6DigitosAsync(usuario.Id)
+        VerifService->>DB: UPDATE Usuario SET CodigoVerificacaoHash = @hash, Expiracao = @exp
+        VerifService->>EmailGateway: EnviarCodigoVerificacaoAsync(email, codigo)
+        Service-->>Controller: ConsultaUsuarioDTO (sem senha nem código)
+        Controller-->>AppCortex: 201 Created
+
+    else 2. Verificar E-mail
+        Usuario->>AppCortex: Digita código de 6 dígitos recebido por e-mail
+        AppCortex->>Controller: POST /api/auth/verificar-email (codigo)
+        Controller->>VerifService: ValidarCodigoEmailAsync(usuarioId, codigo)
+        VerifService->>DB: UPDATE Usuario SET EmailVerificado = true WHERE Id = @id
+        Controller-->>AppCortex: 200 OK (E-mail confirmado)
+
+    else 3. Autenticar (Login)
+        Usuario->>AppCortex: Informa email e senha
+        AppCortex->>Controller: POST /api/auth/login (email, senha)
+        Controller->>Service: AutenticarAsync(email, senha)
+        Service->>Repo: ObterPorEmailAsync(email)
+        Repo->>DB: SELECT * FROM Usuario WHERE Email = @email
+        DB-->>Repo: usuario
+        Service->>Service: VerifyPassword(senha, usuario.SenhaHash)
+        Service-->>Controller: Token JWT + ConsultaUsuarioDTO
+        Controller-->>AppCortex: 200 OK (Token JWT)
+
+    else 4. Solicitar e Redefinir Senha
+        Usuario->>AppCortex: Solicita redefinição informando e-mail
+        AppCortex->>Controller: POST /api/auth/esqueci-senha (email)
+        Controller->>Service: GerarTokenRedefinicaoAsync(email)
+        Service->>EmailGateway: EnviarCodigoRedefinicaoAsync(email, codigo)
+        Usuario->>AppCortex: Envia código recebido e nova senha
+        AppCortex->>Controller: POST /api/auth/redefinir-senha (codigo, novaSenha)
+        Controller->>Service: RedefinirSenhaAsync(codigo, novaSenha)
+        Service->>DB: UPDATE Usuario SET SenhaHash = @novoHash WHERE Id = @id
+        Controller-->>AppCortex: 200 OK (Senha redefinida)
+    end
+```
+
+---
+
+#### 4.0.5. sd RF002 - Gerenciar Tarefas e Atribuições
+Mapeia criação, consulta, edição, exclusão, conclusão e reabertura de tarefas, além de atribuições individuais ou em lote para equipes.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Usuario as Usuário / Criador
+    participant AppCortex as App Cortex
+    participant Controller as TarefaController
+    participant Service as TarefaService
+    participant EquipeService as EquipeService
+    participant NotifService as NotificacaoService
+    participant Repo as TarefaRepository
+    participant DB as PostgreSQL
+
+    alt 1. Criar e Atribuir à Equipe Inteira
+        Usuario->>AppCortex: Cadastra tarefa e seleciona atribuir para Equipe
+        AppCortex->>Controller: POST /api/tarefas (dto + equipeId)
+        Controller->>Service: CriarTarefaComEquipeAsync(dto, criadorId, equipeId)
+        Service->>Repo: AdicionarTarefaAsync(tarefa)
+        Repo->>DB: INSERT INTO Tarefa (...) VALUES (...)
+        Service->>EquipeService: ObterMembrosEquipeAsync(equipeId)
+        EquipeService->>DB: SELECT UsuarioId FROM MembroEquipe WHERE EquipeId = @eqId
+        DB-->>EquipeService: listaDeMembros
+        loop Para cada membro da equipe
+            Service->>Repo: AdicionarResponsavelAsync(tarefa.Id, membro.UsuarioId)
+            Repo->>DB: INSERT INTO ResponsavelTarefa (TarefaId, UsuarioId)
+            Service->>NotifService: NotificarAtribuicaoAsync(membro.UsuarioId, tarefa.Id)
+        end
+        Controller-->>AppCortex: 201 Created (ConsultaTarefaDTO)
+
+    else 2. Concluir / Reabrir Tarefa
+        Usuario->>AppCortex: Altera status para Concluída / Reaberta
+        AppCortex->>Controller: PATCH /api/tarefas/{id}/status (novoStatus)
+        Controller->>Service: AtualizarStatusTarefaAsync(id, novoStatus, usuarioId)
+        Service->>Repo: ObterTarefaPorIdAsync(id)
+        Service->>Repo: AtualizarTarefaAsync(tarefa)
+        Repo->>DB: UPDATE Tarefa SET Status = @novoStatus WHERE Id = @id
+        Controller-->>AppCortex: 200 OK (Tarefa atualizada)
+
+    else 3. Remover Responsável
+        Usuario->>AppCortex: Remove responsável da tarefa
+        AppCortex->>Controller: DELETE /api/tarefas/{id}/responsaveis/{usuarioId}
+        Controller->>Service: RemoverResponsavelAsync(tarefaId, usuarioId)
+        Service->>Repo: RemoverResponsavelAsync(tarefaId, usuarioId)
+        Repo->>DB: DELETE FROM ResponsavelTarefa WHERE TarefaId = @tId AND UsuarioId = @uId
+        Controller-->>AppCortex: 204 No Content
+    end
+```
+
+---
+
+#### 4.0.6. sd RF003 - Enviar e Avaliar Entregas de Tarefas
+Mapeia a submissão de respostas com anexos por responsáveis e a atribuição de notas pelo criador.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Responsavel as Responsável pela Tarefa
+    actor Criador as Criador da Tarefa
+    participant AppCortex as App Cortex
+    participant Controller as RespostaTarefaController
+    participant Service as RespostaTarefaService
+    participant AnexoService as AnexoService
+    participant NotifService as NotificacaoService
+    participant Repo as RespostaTarefaRepository
+    participant DB as PostgreSQL
+
+    Responsavel->>AppCortex: Anexa arquivos da entrega e envia solução
+    AppCortex->>Controller: POST /api/tarefas/{id}/respostas (multipart/form-data: RespostaTexto, Arquivos)
+    activate Controller
+    Controller->>Service: EnviarRespostaAsync(tarefaId, usuarioId, dto)
+    activate Service
+
+    Service->>Service: Validar se solicitante é Responsável pela tarefa
+    Service->>Repo: AdicionarRespostaAsync(resposta)
+    activate Repo
+    Repo->>DB: INSERT INTO RespostaTarefa (TarefaId, UsuarioId, DataEnvio, Conteudo) VALUES (...)
+    DB-->>Repo: respostaId
+    deactivate Repo
+
+    loop Para cada anexo da resposta
+        Service->>AnexoService: SalvarAnexoRespostaAsync(resposta.Id, arquivo)
+        activate AnexoService
+        AnexoService->>DB: INSERT INTO Anexo (RespostaTarefaId, NomeOriginal, UrlCaminho)
+        deactivate AnexoService
+    end
+
+    Service->>NotifService: NotificarCriadorNovaEntregaAsync(tarefa.CriadorId, resposta.Id)
+    Service-->>Controller: ConsultaRespostaDTO
+    deactivate Service
+    Controller-->>AppCortex: 201 Created
+    deactivate Controller
+
+    Criador->>AppCortex: Avalia a entrega atribuindo nota
+    AppCortex->>Controller: PATCH /api/respostas/{respostaId}/avaliar (nota)
+    activate Controller
+    Controller->>Service: AvaliarRespostaAsync(respostaId, criadorId, nota)
+    activate Service
+
+    Service->>Service: Validar: solicitante == tarefa.CriadorId
+    Service->>Service: Validar: 0 <= nota <= tarefa.PontuacaoMaxima
+    Service->>Repo: AtualizarNotaAsync(respostaId, nota)
+    activate Repo
+    Repo->>DB: UPDATE RespostaTarefa SET Nota = @nota WHERE Id = @respostaId
+    deactivate Repo
+
+    Service->>NotifService: NotificarResponsavelNotaAtribuidaAsync(resposta.UsuarioId, nota)
+    Service-->>Controller: ConsultaRespostaDTO
+    deactivate Service
+    Controller-->>AppCortex: 200 OK (Nota registrada)
+    deactivate Controller
+```
+
+---
+
+#### 4.0.7. sd RF004 - Submeter e Avaliar Sugestões de Alteração
+Mapeia a proposição de modificações por colaboradores atribuídos e a aprovação ou recusa pelo criador.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Responsavel as Responsável pela Tarefa
+    actor Criador as Criador da Tarefa
+    participant AppCortex as App Cortex
+    participant Controller as SugestaoController
+    participant Service as SugestaoService
+    participant TarefaRepo as TarefaRepository
+    participant NotifService as NotificacaoService
+    participant DB as PostgreSQL
+
+    Responsavel->>AppCortex: Submete sugestão de alteração (prazo/descrição)
+    AppCortex->>Controller: POST /api/tarefas/{id}/sugestoes (dto)
+    Controller->>Service: CriarSugestaoAsync(tarefaId, dto, usuarioId)
+    Service->>DB: INSERT INTO Sugestao (TarefaId, UsuarioId, Descricao, Status='Pendente')
+    Service->>NotifService: NotificarCriadorSugestaoAsync(tarefa.CriadorId)
+    Controller-->>AppCortex: 201 Created
+
+    Criador->>AppCortex: Seleciona Aprovar ou Rejeitar sugestão
+    AppCortex->>Controller: PATCH /api/sugestoes/{id}/status (status: Aprovada/Rejeitada)
+    Controller->>Service: AvaliarSugestaoAsync(sugestaoId, criadorId, status)
+    Service->>Service: Validar se solicitante é o Criador da tarefa
+    Service->>DB: UPDATE Sugestao SET Status = @status WHERE Id = @id
+
+    opt Se Aprovada
+        Service->>TarefaRepo: AplicarAlteracoesSugeridas(tarefaId, sugestao)
+        TarefaRepo->>DB: UPDATE Tarefa SET ... WHERE Id = @tarefaId
+    end
+
+    Service->>NotifService: NotificarResponsavelResultadoSugestaoAsync(sugestao.UsuarioId, status)
+    Controller-->>AppCortex: 200 OK
+```
+
+---
+
+#### 4.0.8. sd RF005 - Gerenciar Tickets de Impedimento
+Mapeia abertura de impedimento por responsáveis em tarefas não concluídas e encerramento por perfis autorizados.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Responsavel as Responsável pela Tarefa
+    actor Lider as Criador / Dono / Admin
+    participant AppCortex as App Cortex
+    participant Controller as TicketReporteController
+    participant Service as TicketReporteService
+    participant EquipeAuth as EquipeAuthorizationService
+    participant NotifService as NotificacaoService
+    participant DB as PostgreSQL
+
+    Responsavel->>AppCortex: Abre ticket de impedimento
+    AppCortex->>Controller: POST /api/tarefas/{id}/tickets (Descricao, Motivo)
+    Controller->>Service: CriarTicketAsync(tarefaId, dto, usuarioId)
+    Service->>DB: SELECT Status FROM Tarefa WHERE Id = @tarefaId
+    DB-->>Service: Status != Concluida (Válido para impedimento)
+    Service->>DB: INSERT INTO TicketReporte (TarefaId, AutorId, Descricao, Ativo=true, DataAbertura)
+    Service->>NotifService: NotificarCriadorTicketAbertoAsync(tarefa.CriadorId, ticketId)
+    Controller-->>AppCortex: 201 Created
+
+    Lider->>AppCortex: Clica em resolver/encerrar ticket
+    AppCortex->>Controller: PATCH /api/tickets/{id}/encerrar
+    Controller->>Service: EncerrarTicketAsync(ticketId, solicitanteId)
+    Service->>EquipeAuth: ValidarPermissaoEncerramentoAsync(ticketId, solicitanteId)
+    EquipeAuth-->>Service: Autorizado (É Criador, Dono ou Admin)
+    Service->>DB: UPDATE TicketReporte SET Ativo = false, DataFechamento = NOW() WHERE Id = @id
+    Service->>NotifService: NotificarAutorTicketResolvidoAsync(ticket.AutorId)
+    Controller-->>AppCortex: 200 OK
+```
+
+---
+
+#### 4.0.9. sd RF006 - Gerenciar Equipes, Membros e Cargos
+Mapeia criação de equipe (criador como Dono), gestão de membros por Dono/Admin e alteração de cargos exclusiva do Dono.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Dono as Dono / Criador
+    actor Admin as Admin da Equipe
+    participant AppCortex as App Cortex
+    participant Controller as EquipeController
+    participant Service as EquipeService
+    participant EquipeAuth as EquipeAuthorizationService
+    participant Repo as EquipeRepository
+    participant DB as PostgreSQL
+
+    Dono->>AppCortex: Informa nome da equipe e cria
+    AppCortex->>Controller: POST /api/equipes (Nome)
+    Controller->>Service: CriarEquipeAsync(nome, criadorId)
+    Service->>Repo: AdicionarEquipeAsync(equipe)
+    Repo->>DB: INSERT INTO Equipe (Nome, DataCriacao) VALUES (...)
+    Service->>Repo: AdicionarMembroAsync(equipe.Id, criadorId, Cargo.Dono)
+    Repo->>DB: INSERT INTO MembroEquipe (EquipeId, UsuarioId, Cargo) VALUES (@eqId, @criadorId, 'Dono')
+    Controller-->>AppCortex: 201 Created
+
+    Admin->>AppCortex: Inclui novo usuário na equipe
+    AppCortex->>Controller: POST /api/equipes/{id}/membros (novoUsuarioId)
+    Controller->>Service: AdicionarMembroAsync(equipeId, novoUsuarioId, solicitanteId)
+    Service->>EquipeAuth: ValidarDonoOuAdminAsync(equipeId, solicitanteId)
+    EquipeAuth-->>Service: Autorizado
+    Service->>DB: INSERT INTO MembroEquipe (EquipeId, UsuarioId, Cargo='Membro')
+    Controller-->>AppCortex: 200 OK
+
+    Dono->>AppCortex: Promove Membro para Admin
+    AppCortex->>Controller: PATCH /api/equipes/{id}/membros/{usuarioId}/cargo (novoCargo)
+    Controller->>Service: AlterarCargoAsync(equipeId, usuarioId, novoCargo, solicitanteId)
+    Service->>EquipeAuth: ValidarApenasDonoAsync(equipeId, solicitanteId)
+    alt Solicitante não é Dono
+        EquipeAuth-->>Controller: 403 Forbidden (Apenas Dono pode alterar cargos)
+    else Solicitante é Dono
+        Service->>DB: UPDATE MembroEquipe SET Cargo = @novoCargo WHERE EquipeId = @eqId AND UsuarioId = @uId
+        Controller-->>AppCortex: 200 OK
+    end
+```
+
+---
+
+#### 4.0.10. sd RF007 - Gerenciar Metas e Recalcular Conclusão
+Mapeia a criação, acompanhamento e recálculo dinâmico da conclusão da meta a partir do status das tarefas vinculadas.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Usuario as Gestor / Usuário
+    participant AppCortex as App Cortex
+    participant Controller as MetaController
+    participant Service as MetaService
+    participant MetaRepo as MetaRepository
+    participant DB as PostgreSQL
+
+    Usuario->>AppCortex: Consulta metas ativas e progresso
+    AppCortex->>Controller: GET /api/metas/{id}
+    Controller->>Service: ObterMetaComProgressoAsync(id)
+    Service->>MetaRepo: ObterMetaComTarefasAsync(id)
+    MetaRepo->>DB: SELECT * FROM Meta JOIN MetaTarefa JOIN Tarefa WHERE Meta.Id = @id
+    DB-->>MetaRepo: Meta com N Tarefas
+    
+    Service->>Service: Calcular: totalTarefas = Count(Tarefas)
+    Service->>Service: Calcular: tarefasConcluidas = Count(Tarefas com Status=='Concluida')
+    Service->>Service: Conclusao% = (tarefasConcluidas / totalTarefas) * 100
+    opt Todas tarefas concluídas
+        Service->>DB: UPDATE Meta SET Concluida = true, Porcentagem = 100
+    end
+    Service-->>Controller: ConsultaMetaDTO (Nome, Prazo, Tarefas, Porcentagem, Concluida)
+    Controller-->>AppCortex: 200 OK (ConsultaMetaDTO)
+    AppCortex->>Usuario: Exibe barra de progresso da meta atualizada
+```
+
+---
+
+#### 4.0.11. sd RF008 - Configurar Canais e Antecedência de Alertas
+Mapeia a personalização de canais de notificação (E-mail, Push, SMS) e janelas temporais de alertas para eventos-chave.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Usuario as Usuário
+    participant AppCortex as App Cortex
+    participant Controller as PreferenciaNotificacaoController
+    participant Service as NotificacaoService
+    participant Repo as PreferenciaNotificacaoRepository
+    participant DB as PostgreSQL
+
+    Usuario->>AppCortex: Ajusta switches de canais e tempo de antecedência (ex: 2h antes)
+    AppCortex->>Controller: PUT /api/usuarios/preferencias-notificacao (AtualizarPreferenciasDTO)
+    activate Controller
+    Controller->>Service: SalvarPreferenciasAsync(usuarioId, dto)
+    activate Service
+
+    loop Para cada canal (Email, Push, SMS)
+        Service->>Repo: SalvarOuAtualizarPreferenciaAsync(canal, antecedencia, eventos)
+        activate Repo
+        Repo->>DB: UPSERT INTO ConfiguracaoAlerta (UsuarioId, Canal, AntecedenciaMinutos, NotificarAtribuicao, NotificarVencimento, NotificarMeta, NotificarTicket)
+        deactivate Repo
+    end
+
+    Service-->>Controller: PreferenciasDTO
+    deactivate Service
+    Controller-->>AppCortex: 200 OK (Configurações salvas)
+    deactivate Controller
+    AppCortex->>Usuario: Exibe aviso de preferências salvas
+```
+
+---
+
+#### 4.0.12. sd RF009 - Central de Notificações no Cabeçalho
+Mapeia a central interativa no cabeçalho com contagem de não lidas, listagem, marcação em lote e exclusão de histórico.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Usuario as Usuário
+    participant AppCortex as App Cortex (Header)
+    participant Controller as NotificacaoController
+    participant Service as NotificacaoService
+    participant Repo as NotificacaoRepository
+    participant DB as PostgreSQL
+
+    AppCortex->>Controller: GET /api/notificacoes/nao-lidas/count
+    Controller->>Repo: ContarNaoLidasAsync(usuarioId)
+    Repo->>DB: SELECT COUNT(*) FROM Notificacao WHERE UsuarioId = @uId AND Lida = false
+    DB-->>Repo: 5
+    Repo-->>Controller: 5
+    Controller-->>AppCortex: { naoLidas: 5 } (Badge vermelho exibido)
+
+    Usuario->>AppCortex: Clica no sino do cabeçalho
+    AppCortex->>Controller: GET /api/notificacoes (filtro: ultimas 20)
+    Controller->>DB: SELECT * FROM Notificacao WHERE UsuarioId = @uId ORDER BY DataEnvio DESC
+    DB-->>Controller: listaNotificacoes
+    Controller-->>AppCortex: 200 OK (Lista de Notificações)
+
+    Usuario->>AppCortex: Clica em "Marcar todas como lidas"
+    AppCortex->>Controller: PATCH /api/notificacoes/marcar-todas-lidas
+    Controller->>Service: MarcarTodasComoLidasAsync(usuarioId)
+    Service->>DB: UPDATE Notificacao SET Lida = true WHERE UsuarioId = @uId AND Lida = false
+    Controller-->>AppCortex: 200 OK (Badge zerado)
+
+    Usuario->>AppCortex: Clica em limpar histórico
+    AppCortex->>Controller: DELETE /api/notificacoes/historico
+    Controller->>Service: LimparHistoricoAsync(usuarioId)
+    Service->>DB: DELETE FROM Notificacao WHERE UsuarioId = @uId
+    Controller-->>AppCortex: 204 No Content
+```
+
+---
+
+#### 4.0.13. sd RF010 e RF011 - Relatórios de Desempenho e Métricas de Tarefas
+Mapeia a emissão de relatórios analíticos com restrição de escopo por RBAC e agregação de indicadores de desempenho.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Solicitante as Usuário / Liderança
+    participant AppCortex as App Cortex
+    participant Controller as RelatorioController
+    participant Service as RelatorioService
+    participant EquipeAuth as EquipeAuthorizationService
+    participant Repo as RelatorioRepository
+    participant DB as PostgreSQL
+
+    Solicitante->>AppCortex: Aplica filtros (Período, Status, Prioridade, EquipeId) e emite relatório
+    AppCortex->>Controller: GET /api/relatorios/tarefas (FiltrosDTO)
+    activate Controller
+
+    Controller->>Service: GerarRelatorioTarefasAsync(filtros, solicitanteId)
+    activate Service
+
+    alt Filtro contém EquipeId
+        Service->>EquipeAuth: ValidarDonoOuAdminAsync(equipeId, solicitanteId)
+        alt Não tem autorização
+            EquipeAuth-->>Controller: 403 Forbidden (Usuário comum só acessa dados próprios)
+        end
+    else Sem EquipeId (Usuário Comum)
+        Service->>Service: Forçar filtro para usuarioId = solicitanteId
+    end
+
+    Service->>Repo: ObterDadosConsolidadosAsync(filtros)
+    activate Repo
+    Repo->>DB: SELECT COUNT(*), Status, Prioridade, AVG(Nota), AVG(TempoConclusao) FROM Tarefa GROUP BY ...
+    DB-->>Repo: Dados brutos de tarefas e respostas
+    deactivate Repo
+
+    Service->>Service: Calcular TaxaConclusao = (Concluidas / Total) * 100
+    Service->>Service: Mapear Distribuição por Prioridade e Desempenho por Responsável
+    Service-->>Controller: RelatorioTarefasDTO (Métricas, Gráficos, Totalizadores)
+    deactivate Service
+
+    Controller-->>AppCortex: 200 OK (RelatorioTarefasDTO)
+    deactivate Controller
+    AppCortex->>Solicitante: Renderiza gráficos de barras, pizza e métricas consolidadas
+```
+
+---
+
+#### 4.0.14. sd RF012 - Anexar, Consultar e Excluir Arquivos
+Mapeia o ciclo de vida de arquivos anexos vinculados a tarefas, entregas e perfis de usuários com validação de formato e tamanho.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Usuario as Usuário
+    participant AppCortex as App Cortex
+    participant Controller as AnexoController
+    participant Service as AnexoService
+    participant Validador as ArquivoValidacaoService
+    participant Storage as FileStorage (Disco/uploads)
+    participant Repo as AnexoRepository
+    participant DB as PostgreSQL
+
+    alt 1. Enviar / Anexar Arquivo
+        Usuario->>AppCortex: Seleciona arquivo para upload (ex.: foto de perfil ou anexo de tarefa)
+        AppCortex->>Controller: POST /api/anexos/upload (IFormFile, entidadeTipo, entidadeId)
+        Controller->>Service: SalvarArquivoAsync(file, entidadeTipo, entidadeId)
+        Service->>Validador: ValidarExtensaoETamanho(file)
+        Validador-->>Service: OK (Tamanho <= 20MB, Extensão segura)
+        Service->>Storage: Gravar em /wwwroot/uploads/{entidade}/
+        Storage-->>Service: caminhoRelativo
+        Service->>Repo: AdicionarAsync(anexo)
+        Repo->>DB: INSERT INTO Anexo (NomeOriginal, MimeType, UrlCaminho, TipoEntidade, EntidadeId)
+        Controller-->>AppCortex: 201 Created (AnexoDTO com URL)
+
+    else 2. Download / Visualização
+        Usuario->>AppCortex: Clica no anexo para download
+        AppCortex->>Controller: GET /api/anexos/{id}/download
+        Controller->>Service: ObterArquivoFisicoAsync(id)
+        Service->>DB: SELECT * FROM Anexo WHERE Id = @id
+        Service->>Storage: Ler bytes do arquivo
+        Controller-->>AppCortex: 200 OK (FileContentResult / Stream com Content-Type)
+
+    else 3. Excluir Arquivo
+        Usuario->>AppCortex: Clica em remover anexo
+        AppCortex->>Controller: DELETE /api/anexos/{id}
+        Controller->>Service: ExcluirAnexoAsync(id, solicitanteId)
+        Service->>Storage: Excluir arquivo físico do disco
+        Service->>DB: DELETE FROM Anexo WHERE Id = @id
+        Controller-->>AppCortex: 204 No Content
+    end
+```
+
+---
+
+#### 4.0.15. sd RF013 - Configuração e Persistência de Acessibilidade e Tema
+Mapeia a seleção e armazenamento de preferências visuais (tema claro/escuro, alto contraste e tamanho de fonte par entre 12 e 24 pixels).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Usuario as Usuário
+    participant AppCortex as App Cortex
+    participant Controller as PreferenciaAcessibilidadeController
+    participant Service as PreferenciaUsuarioService
+    participant Repo as PreferenciaRepository
+    participant DB as PostgreSQL
+
+    Usuario->>AppCortex: Altera tema (Escuro), Alto Contraste (Ativo) e Tamanho de Fonte (16px)
+    activate AppCortex
+
+    AppCortex->>AppCortex: Aplica classes CSS localmente (preview imediato)
+
+    AppCortex->>Controller: PUT /api/usuarios/preferencias-acessibilidade (Tema, AltoContraste, TamanhoFonte)
+    activate Controller
+
+    Controller->>Service: AtualizarPreferenciasAcessibilidadeAsync(usuarioId, dto)
+    activate Service
+
+    Service->>Service: Validar: TamanhoFonte >= 12 && TamanhoFonte <= 24
+    Service->>Service: Validar: TamanhoFonte % 2 == 0 (Apenas valores pares)
+    alt Valor ímpar ou fora do range
+        Service-->>Controller: ArgumentException ("Tamanho de fonte deve ser par entre 12 e 24px")
+        Controller-->>AppCortex: 400 Bad Request
+    else Valores Válidos
+        Service->>Repo: SalvarPreferenciaAsync(usuarioId, preferencias)
+        activate Repo
+        Repo->>DB: UPDATE PreferenciaUsuario SET Tema = @t, AltoContraste = @ac, TamanhoFonte = @tf WHERE UsuarioId = @uId
+        Repo-->>Service: OK
+        deactivate Repo
+        Service-->>Controller: PreferenciasAcessibilidadeDTO
+        Controller-->>AppCortex: 200 OK
+    end
+    deactivate Service
+    deactivate Controller
+
+    AppCortex->>Usuario: Exibe confirmação e persiste configurações no perfil
+    deactivate AppCortex
+```
+
+---
+
+
+### 4.1. sd CadastrarEConfirmarConta (UC01)
+
+Mapeia o ciclo completo de cadastro de novos colaboradores com verificação de unicidade de e-mail (**RN01**), hashing irreversível BCrypt com salt dinâmico (**RN02**), despacho de token e confirmação obrigatória de conta (**RN13**).
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Visitante as Usuário Não Autenticado
+    participant Controller as AuthController / UsuarioController
+    participant UsuarioService as UsuarioService
+    participant PasswordService as PasswordService
+    participant VerifService as VerificacaoEmailService
+    participant EmailGateway as IEmailGateway (SMTP)
+    participant Repo as IUsuarioRepository
+    participant DB as PostgreSQL (Database)
+
+    Visitante->>Controller: POST /api/usuarios (CriarContaDTO: Nome, Email, Senha, Telefone)
+    activate Controller
+    Controller->>UsuarioService: AdicionarUsuarioAsync(dto)
+    activate UsuarioService
+
+    UsuarioService->>Repo: ObterPorEmailAsync(email)
+    activate Repo
+    Repo->>DB: SELECT * FROM Usuario WHERE Email = @email
+    DB-->>Repo: null (email disponível - RN01)
+    Repo-->>UsuarioService: null
+    deactivate Repo
+
+    UsuarioService->>PasswordService: HashPassword(senha)
+    activate PasswordService
+    PasswordService-->>UsuarioService: hashBCrypt (RN02)
+    deactivate PasswordService
+
+    UsuarioService->>Repo: AdicionarUsuarioAsync(usuario)
+    activate Repo
+    Repo->>DB: INSERT INTO Usuario (Nome, Email, SenhaHash, Telefone, EmailVerificado, ...)
+    DB-->>Repo: Usuario criado (EmailVerificado = false)
+    Repo-->>UsuarioService: usuario
+    deactivate Repo
+
+    UsuarioService->>VerifService: GerarTokenVerificacaoAsync(usuario.Id)
+    activate VerifService
+    VerifService->>Repo: SalvarTokenVerificacaoAsync(usuario.Id, tokenHash, expiracao)
+    activate Repo
+    Repo->>DB: UPDATE Usuario SET CodigoVerificacaoHash = @hash, ...
+    DB-->>Repo: OK
+    Repo-->>VerifService: OK
+    deactivate Repo
+    VerifService-->>UsuarioService: tokenPlano
+    deactivate VerifService
+
+    UsuarioService->>EmailGateway: EnviarEmailAsync(email, "Confirmação de Cadastro", linkComToken)
+    activate EmailGateway
+    EmailGateway-->>UsuarioService: true
+    deactivate EmailGateway
+
+    UsuarioService-->>Controller: ConsultaUsuarioDTO
+    deactivate UsuarioService
+    Controller-->>Visitante: 201 Created (ConsultaUsuarioDTO)
+    deactivate Controller
+
+    Note over Visitante, DB: Confirmação do e-mail cadastrado (RN13)
+    Visitante->>Controller: POST /api/auth/verificar-email (codigoConfirmacao)
+    activate Controller
+    Controller->>VerifService: ValidarTokenVerificacaoAsync(codigoConfirmacao)
+    activate VerifService
+    VerifService->>Repo: ObterPorTokenAsync(tokenHash)
+    activate Repo
+    Repo->>DB: SELECT * FROM Usuario WHERE CodigoVerificacaoHash = @hash
+    DB-->>Repo: usuario
+    Repo-->>VerifService: usuario
+    deactivate Repo
+    VerifService->>Repo: MarcarEmailVerificadoAsync(usuario.Id)
+    activate Repo
+    Repo->>DB: UPDATE Usuario SET EmailVerificado = true, CodigoVerificacaoHash = NULL
+    DB-->>Repo: OK
+    Repo-->>VerifService: true
+    deactivate Repo
+    VerifService-->>Controller: true
+    deactivate VerifService
+    Controller-->>Visitante: 200 OK ("E-mail verificado com sucesso")
+    deactivate Controller
+`
+
+---
+
+### 4.2. sd ConfigurarAlertasECanais (UC02)
+
+Mapeia a parametrização das preferências de mensageria do colaborador, validando a janela de antecedência entre 1h e 168h (**RN11**) e o canal de alerta preferencial (Push, Email, Sms).
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Usuario as Colaborador Autenticado
+    participant Controller as NotificacaoController
+    participant Service as NotificacaoService
+    participant Repo as IPreferenciaNotificacaoRepository
+    participant DB as PostgreSQL (Database)
+
+    Usuario->>Controller: PUT /api/notificacoes/preferencias (PreferenciasDTO)
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>Service: AtualizarPreferenciasAsync(usuarioId, dto)
+    activate Service
+
+    Service->>Service: Validar intervalo: 1 <= AntecedenciaHoras <= 168 (RN11)
+    Service->>Repo: ObterPorUsuarioIdAsync(usuarioId)
+    activate Repo
+    Repo->>DB: SELECT * FROM PreferenciaNotificacao WHERE UsuarioId = @uId
+    DB-->>Repo: registro existente
+    Repo-->>Service: preferencias
+    deactivate Repo
+
+    Service->>Repo: AtualizarAsync(preferenciasAtualizadas)
+    activate Repo
+    Repo->>DB: UPDATE PreferenciaNotificacao SET Canal = @canal, AntecedenciaHoras = @horas, ...
+    DB-->>Repo: OK
+    Repo-->>Service: OK
+    deactivate Repo
+
+    Service-->>Controller: PreferenciaNotificacaoDTO
+    deactivate Service
+    Controller-->>Usuario: 200 OK (PreferenciaNotificacaoDTO)
+    deactivate Controller
+`
+
+---
+
+### 4.3. sd ExcluirPropriaConta (UC03)
+
+Mapeia a solicitação de auto-exclusão de conta, aplicando o bloqueio de segurança mandatória caso o usuário conste como responsável por tarefas ativas ou pendentes no sistema (**RN05**).
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Usuario as Colaborador Autenticado
+    participant Controller as UsuarioController
+    participant UsuarioService as UsuarioService
+    participant TarefaRepo as ITarefaRepository
+    participant UsuarioRepo as IUsuarioRepository
+    participant DB as PostgreSQL (Database)
+
+    Usuario->>Controller: DELETE /api/usuarios/minha-conta
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>UsuarioService: ExcluirContaAsync(usuarioId)
+    activate UsuarioService
+
+    UsuarioService->>TarefaRepo: PossuiTarefasPendentesOuAtivasAsync(usuarioId)
+    activate TarefaRepo
+    TarefaRepo->>DB: SELECT COUNT(*) FROM ResponsavelTarefa rt JOIN Tarefa t ON rt.TarefaId = t.Id WHERE rt.UsuarioId = @uId AND t.Status != 'Concluida'
+    DB-->>TarefaRepo: count > 0 ? bloqueia : permite
+    TarefaRepo-->>UsuarioService: temTarefasPendentes (bool)
+    deactivate TarefaRepo
+
+    alt Possui tarefas ativas ou pendentes (RN05)
+        UsuarioService-->>Controller: InvalidOperationException ("Não é possível excluir conta com tarefas pendentes")
+        Controller-->>Usuario: 400 Bad Request / 422 Unprocessable Entity
+    else Sem pendências impeditivas
+        UsuarioService->>UsuarioRepo: ExcluirUsuarioAsync(usuarioId)
+        activate UsuarioRepo
+        UsuarioRepo->>DB: DELETE FROM Usuario WHERE Id = @uId (Cascata em dados dependentes)
+        DB-->>UsuarioRepo: OK
+        UsuarioRepo-->>UsuarioService: OK
+        deactivate UsuarioRepo
+        UsuarioService-->>Controller: true
+        Controller-->>Usuario: 204 No Content
+    end
+    deactivate UsuarioService
+    deactivate Controller
+`
+
+---
+
+### 4.4. sd CriarEquipe (UC04)
+
+Mapeia a criação de uma nova equipe organizacional (**RF009**), associando imediatamente o criador autenticado com o cargo de Dono da equipe (**RN03**).
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Usuario as Dono / Criador
+    participant Controller as EquipeController
+    participant Service as EquipeService
+    participant EquipeRepo as IEquipeRepository
+    participant MembroRepo as IMembroEquipeRepository
+    participant DB as PostgreSQL (Database)
+
+    Usuario->>Controller: POST /api/equipes (CriarEquipeDTO: Nome)
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>Service: CriarEquipeAsync(dto, criadorId)
+    activate Service
+
+    Service->>EquipeRepo: CriarEquipeAsync(equipe)
+    activate EquipeRepo
+    EquipeRepo->>DB: INSERT INTO Equipe (Nome, DataCriacao) VALUES (...)
+    DB-->>EquipeRepo: Equipe criada (Id)
+    EquipeRepo-->>Service: novaEquipe
+    deactivate EquipeRepo
+
+    Note over Service, DB: O criador torna-se automaticamente Dono da Equipe (RF009, RN03)
+    Service->>MembroRepo: AdicionarMembroAsync(equipe.Id, criadorId, Cargo.Dono)
+    activate MembroRepo
+    MembroRepo->>DB: INSERT INTO MembroEquipe (EquipeId, UsuarioId, Cargo, DataEntrada) VALUES (...)
+    DB-->>MembroRepo: OK
+    MembroRepo-->>Service: MembroEquipe
+    deactivate MembroRepo
+
+    Service-->>Controller: ConsultaEquipeDTO
+    deactivate Service
+    Controller-->>Usuario: 201 Created (ConsultaEquipeDTO)
+    deactivate Controller
+`
+
+---
+
+### 4.5. sd GerenciarMembros (UC05)
+
+Mapeia a inclusão de integrantes na equipe com controle hierárquico estrito (somente Dono ou Admin da equipe podem adicionar membros — **RN04**) e emissão de notificação in-app.
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Gestor as Dono / Admin
+    participant Controller as EquipeController
+    participant Service as EquipeService
+    participant AuthService as EquipeAuthorizationService
+    participant MembroRepo as IMembroEquipeRepository
+    participant NotifService as INotificacaoService
+    participant DB as PostgreSQL (Database)
+
+    Gestor->>Controller: POST /api/equipes/{id}/membros (AdicionarMembroDTO: UsuarioId, Cargo)
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>Service: AdicionarMembroAsync(equipeId, dto, solicitanteId)
+    activate Service
+
+    Service->>AuthService: EhAdminOuDonoDaEquipeAsync(solicitanteId, equipeId)
+    activate AuthService
+    AuthService-->>Service: true (RN04)
+    deactivate AuthService
+
+    Service->>MembroRepo: MembroExisteAsync(equipeId, dto.UsuarioId)
+    activate MembroRepo
+    MembroRepo->>DB: SELECT COUNT(*) FROM MembroEquipe WHERE EquipeId = @eId AND UsuarioId = @uId
+    DB-->>MembroRepo: 0 (não pertence ainda)
+    MembroRepo-->>Service: false
+    deactivate MembroRepo
+
+    Service->>MembroRepo: AdicionarMembroAsync(membro)
+    activate MembroRepo
+    MembroRepo->>DB: INSERT INTO MembroEquipe (EquipeId, UsuarioId, Cargo, DataEntrada) VALUES (...)
+    DB-->>MembroRepo: OK
+    MembroRepo-->>Service: membro
+    deactivate MembroRepo
+
+    Service->>NotifService: CriarNotificacaoAsync(dto.UsuarioId, "equipe", "Você foi adicionado à equipe", ...)
+    activate NotifService
+    NotifService-->>Service: OK
+    deactivate NotifService
+
+    Service-->>Controller: ConsultaMembroEquipeDTO
+    deactivate Service
+    Controller-->>Gestor: 201 Created (ConsultaMembroEquipeDTO)
+    deactivate Controller
+`
+
+---
+
+### 4.6. sd AlterarCargoMembro (UC06)
+
+Mapeia a alteração do nível de acesso de um integrante (Membro para Admin), obedecendo à regra estrita de que **somente o Dono** possui autoridade para conceder ou revogar cargos (**RN03**).
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Dono as Dono da Equipe
+    participant Controller as EquipeController
+    participant Service as EquipeService
+    participant AuthService as EquipeAuthorizationService
+    participant MembroRepo as IMembroEquipeRepository
+    participant DB as PostgreSQL (Database)
+
+    Dono->>Controller: PATCH /api/equipes/{id}/membros/{membroId}/cargo (AlterarCargoDTO: NovoCargo)
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>Service: AlterarCargoAsync(equipeId, membroId, novoCargo, solicitanteId)
+    activate Service
+
+    Service->>AuthService: EhDonoDaEquipeAsync(solicitanteId, equipeId)
+    activate AuthService
+    AuthService-->>Service: true (Apenas Dono pode alterar cargo - RN03)
+    deactivate AuthService
+
+    Service->>MembroRepo: ObterPorIdAsync(membroId)
+    activate MembroRepo
+    MembroRepo->>DB: SELECT * FROM MembroEquipe WHERE Id = @mId
+    DB-->>MembroRepo: membro
+    MembroRepo-->>Service: membro
+    deactivate MembroRepo
+
+    Service->>MembroRepo: AtualizarCargoAsync(membroId, novoCargo)
+    activate MembroRepo
+    MembroRepo->>DB: UPDATE MembroEquipe SET Cargo = @novoCargo WHERE Id = @mId
+    DB-->>MembroRepo: OK
+    MembroRepo-->>Service: atualizado
+    deactivate MembroRepo
+
+    Service-->>Controller: ConsultaMembroEquipeDTO
+    deactivate Service
+    Controller-->>Dono: 200 OK (ConsultaMembroEquipeDTO)
+    deactivate Controller
+`
+
+---
+
+### 4.7. sd CriarTarefaComAnexos (UC07)
+
+Mapeia a criação de nova atividade com controle de prazo de entrega futuro, prioridade e pontuação (**RF003**), validando arquivos em formato binário e gravando metadados relacionais (Anexo).
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Criador as Colaborador Autenticado
+    participant Controller as TarefaController
+    participant TarefaService as TarefaService
+    participant AnexoService as AnexoService
+    participant ValidadorService as ArquivoValidacaoService
+    participant TarefaRepo as ITarefaRepository
+    participant AnexoRepo as IAnexoRepository
+    participant DB as PostgreSQL (Database)
+
+    Criador->>Controller: POST /api/tarefas (multipart/form-data: Titulo, Descricao, DataVencimento, Prioridade, Pontuacao, Arquivos)
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>TarefaService: CriarTarefaAsync(dto, criadorId)
+    activate TarefaService
+
+    TarefaService->>TarefaService: Validar: DataVencimento > UtcNow (Data futura)
+    TarefaService->>TarefaRepo: AdicionarTarefaAsync(tarefa)
+    activate TarefaRepo
+    TarefaRepo->>DB: INSERT INTO Tarefa (Titulo, Descricao, DataVencimento, Prioridade, Status, CriadorId, ...)
+    DB-->>TarefaRepo: Tarefa criada (Id)
+    TarefaRepo-->>TarefaService: tarefaCriada
+    deactivate TarefaRepo
+
+    opt Contém arquivos anexos
+        loop Para cada arquivo
+            TarefaService->>ValidadorService: ValidarArquivoAsync(arquivo)
+            activate ValidadorService
+            ValidadorService-->>TarefaService: validado (tamanho <= 20MB, extensão permitida)
+            deactivate ValidadorService
+
+            TarefaService->>AnexoService: SalvarAnexoTarefaAsync(tarefa.Id, arquivo)
+            activate AnexoService
+            AnexoService->>AnexoService: Gravar arquivo físico em wwwroot/uploads
+            AnexoService->>AnexoRepo: AdicionarAnexoAsync(anexo)
+            activate AnexoRepo
+            AnexoRepo->>DB: INSERT INTO Anexo (UrlCaminho, NomeOriginal, MimeType, TarefaId, TipoEntidade) VALUES (...)
+            DB-->>AnexoRepo: OK
+            AnexoRepo-->>AnexoService: Anexo
+            deactivate AnexoRepo
+            AnexoService-->>TarefaService: AnexoDTO
+            deactivate AnexoService
+        end
+    end
+
+    TarefaService-->>Controller: ConsultaTarefaDTO
+    deactivate TarefaService
+    Controller-->>Criador: 201 Created (ConsultaTarefaDTO)
+    deactivate Controller
+`
+
+---
+
+### 4.8. sd AtribuirResponsavelEquipe (UC08)
+
+Mapeia a delegação de tarefas com suporte duplo: atribuição individual de colaborador ou atribuição coletiva de toda uma equipe via validação de liderança (EquipeAuthorizationService), evitando duplicações.
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Gestor as Criador / Liderança
+    participant Controller as TarefaController
+    participant Service as TarefaService
+    participant AuthService as EquipeAuthorizationService
+    participant RespRepo as IResponsavelTarefaRepository
+    participant MembroRepo as IMembroEquipeRepository
+    participant NotifService as INotificacaoService
+    participant DB as PostgreSQL (Database)
+
+    alt Atribuição Individual
+        Gestor->>Controller: POST /api/tarefas/{id}/responsaveis (AtribuirResponsavelDTO: UsuarioId)
+        activate Controller
+        Controller->>Controller: ObterUsuarioIdAutenticado()
+        Controller->>Service: AtribuirResponsavelAsync(tarefaId, usuarioId, solicitanteId)
+        activate Service
+
+        Service->>Service: Validar: solicitante é criador ou Dono/Admin
+        Service->>RespRepo: ResponsavelJaAtribuidoAsync(tarefaId, usuarioId)
+        activate RespRepo
+        RespRepo->>DB: SELECT COUNT(*) FROM ResponsavelTarefa WHERE TarefaId = @tId AND UsuarioId = @uId
+        DB-->>RespRepo: 0 (não atribuído)
+        RespRepo-->>Service: false
+        deactivate RespRepo
+
+        Service->>RespRepo: AdicionarResponsavelAsync(tarefaId, usuarioId)
+        activate RespRepo
+        RespRepo->>DB: INSERT INTO ResponsavelTarefa (TarefaId, UsuarioId) VALUES (...)
+        DB-->>RespRepo: OK
+        RespRepo-->>Service: ResponsavelTarefa
+        deactivate RespRepo
+
+        Service->>NotifService: CriarNotificacaoAsync(usuarioId, "tarefa", "Nova Tarefa Atribuída", ...)
+        activate NotifService
+        NotifService-->>Service: OK
+        deactivate NotifService
+
+        Service-->>Controller: true
+        deactivate Service
+        Controller-->>Gestor: 200 OK ("Responsável atribuído com sucesso")
+        deactivate Controller
+
+    else Atribuição Coletiva por Equipe
+        Gestor->>Controller: POST /api/tarefas/{id}/responsaveis/equipe (AtribuirEquipeDTO: EquipeId)
+        activate Controller
+        Controller->>Controller: ObterUsuarioIdAutenticado()
+        Controller->>Service: AtribuirEquipeAsync(tarefaId, equipeId, solicitanteId)
+        activate Service
+
+        Service->>AuthService: EhAdminOuDonoDaEquipeAsync(solicitanteId, equipeId)
+        activate AuthService
+        AuthService-->>Service: true
+        deactivate AuthService
+
+        Service->>MembroRepo: ObterMembrosEquipePorEquipeIdAsync(equipeId)
+        activate MembroRepo
+        MembroRepo->>DB: SELECT * FROM MembroEquipe WHERE EquipeId = @eId
+        DB-->>MembroRepo: Lista de membros
+        MembroRepo-->>Service: List<MembroEquipe>
+        deactivate MembroRepo
+
+        loop Para cada membro da equipe não atribuído
+            Service->>RespRepo: AdicionarResponsavelAsync(tarefaId, membro.UsuarioId)
+            activate RespRepo
+            RespRepo->>DB: INSERT INTO ResponsavelTarefa (TarefaId, UsuarioId) VALUES (...)
+            DB-->>RespRepo: OK
+            RespRepo-->>Service: ResponsavelTarefa
+            deactivate RespRepo
+
+            Service->>NotifService: CriarNotificacaoAsync(membro.UsuarioId, "tarefa", "Nova Tarefa de Equipe", ...)
+            activate NotifService
+            NotifService-->>Service: OK
+            deactivate NotifService
+        end
+
+        Service-->>Controller: true
+        deactivate Service
+        Controller-->>Gestor: 200 OK ("Equipe atribuída com sucesso")
+        deactivate Controller
+    end
+`
+
+---
+
+### 4.9. sd ConcluirTarefaEEnviarResposta (UC09)
+
+Mapeia a submissão de evidências e resposta técnica por um colaborador responsável, transição de status para Concluida e disparo de recálculo em cascata para metas associadas (**RN08**).
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Responsavel as Responsável pela Tarefa
+    participant Controller as TarefaController / RespostaTarefaController
+    participant TarefaService as TarefaService
+    participant RespostaService as RespostaTarefaService
+    participant MetaService as MetaService
+    participant AnexoService as AnexoService
+    participant TarefaRepo as ITarefaRepository
+    participant RespostaRepo as IRespostaTarefaRepository
+    participant NotifService as INotificacaoService
+    participant DB as PostgreSQL (Database)
+
+    Responsavel->>Controller: POST /api/tarefas/{id}/respostas (multipart/form-data: Mensagem, Arquivos)
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>RespostaService: AdicionarRespostaAsync(tarefaId, dto, usuarioId)
+    activate RespostaService
+
+    RespostaService->>RespostaRepo: AdicionarRespostaTarefaAsync(resposta)
+    activate RespostaRepo
+    RespostaRepo->>DB: INSERT INTO RespostaTarefa (TarefaId, UsuarioId, DataResposta, ...) VALUES (...)
+    DB-->>RespostaRepo: RespostaTarefa criada (Id)
+    RespostaRepo-->>RespostaService: resposta
+    deactivate RespostaRepo
+
+    opt Contém evidências/anexos
+        loop Para cada anexo
+            RespostaService->>AnexoService: SalvarAnexoRespostaAsync(resposta.Id, arquivo)
+            activate AnexoService
+            AnexoService->>DB: INSERT INTO Anexo (UrlCaminho, RespostaTarefaId, TipoEntidade, ...)
+            AnexoService-->>RespostaService: AnexoDTO
+            deactivate AnexoService
+        end
+    end
+
+    RespostaService-->>Controller: ConsultaRespostaTarefaDTO
+    deactivate RespostaService
+
+    Responsavel->>Controller: PATCH /api/tarefa/{id}/concluir
+    Controller->>TarefaService: ConcluirTarefaAsync(tarefaId, usuarioId)
+    activate TarefaService
+
+    TarefaService->>TarefaRepo: ObterTarefaPorIdAsync(tarefaId)
+    activate TarefaRepo
+    TarefaRepo->>DB: SELECT * FROM Tarefa WHERE Id = @id (Include Responsáveis)
+    DB-->>TarefaRepo: tarefa
+    TarefaRepo-->>TarefaService: tarefa
+    deactivate TarefaRepo
+
+    TarefaService->>TarefaService: Atualizar Status = Status.Concluida
+    TarefaService->>TarefaRepo: AtualizarTarefaAsync(tarefa)
+    activate TarefaRepo
+    TarefaRepo->>DB: UPDATE Tarefa SET Status = 'Concluida' WHERE Id = @id
+    DB-->>TarefaRepo: OK
+    TarefaRepo-->>TarefaService: tarefaAtualizada
+    deactivate TarefaRepo
+
+    Note over TarefaService, DB: Dispara recálculo automático de metas dependentes (RN08)
+    TarefaService->>MetaService: RecalcularMetasVinculadasAsync(tarefaId)
+    activate MetaService
+    MetaService->>DB: UPDATE Meta SET Concluida = true WHERE todas as tarefas concluídas
+    MetaService-->>TarefaService: OK
+    deactivate MetaService
+
+    TarefaService->>NotifService: CriarNotificacaoAsync(tarefa.CriadorId, "tarefa", "Tarefa Concluída", ...)
+    activate NotifService
+    NotifService-->>TarefaService: OK
+    deactivate NotifService
+
+    TarefaService-->>Controller: DetalhesTarefaDTO
+    deactivate TarefaService
+    Controller-->>Responsavel: 200 OK (DetalhesTarefaDTO)
+`
+
+---
+
+### 4.10. sd SubmeterSugestaoAlteracao (UC10)
+
+Mapeia a proposição de modificação em prazos ou requisitos submetida exclusivamente por colaboradores atribuídos à tarefa (**RF004**), persistida com status Pendente.
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Responsavel as Responsável pela Tarefa
+    participant Controller as SugestaoController
+    participant Service as SugestaoService
+    participant RespRepo as IResponsavelTarefaRepository
+    participant SugRepo as ISugestaoRepository
+    participant NotifService as INotificacaoService
+    participant DB as PostgreSQL (Database)
+
+    Responsavel->>Controller: POST /api/tarefas/{id}/sugestoes (CriarSugestaoDTO: Descricao)
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>Service: CriarSugestaoAsync(tarefaId, dto, usuarioId)
+    activate Service
+
+    Service->>RespRepo: ResponsavelJaAtribuidoAsync(tarefaId, usuarioId)
+    activate RespRepo
+    RespRepo->>DB: SELECT COUNT(*) FROM ResponsavelTarefa WHERE TarefaId = @tId AND UsuarioId = @uId
+    DB-->>RespRepo: count > 0 (é responsável - RF004)
+    RespRepo-->>Service: true
+    deactivate RespRepo
+
+    Service->>SugRepo: AdicionarSugestaoAsync(sugestao)
+    activate SugRepo
+    SugRepo->>DB: INSERT INTO Sugestao (Descricao, Status, TarefaId, UsuarioId, DataCriacao) VALUES (..., 'Pendente', ...)
+    DB-->>SugRepo: Sugestao criada (Id)
+    SugRepo-->>Service: sugestao
+    deactivate SugRepo
+
+    Service->>NotifService: CriarNotificacaoAsync(tarefa.CriadorId, "sugestao", "Nova Sugestão de Alteração", ...)
+    activate NotifService
+    NotifService-->>Service: OK
+    deactivate NotifService
+
+    Service-->>Controller: ConsultaSugestaoDTO
+    deactivate Service
+    Controller-->>Responsavel: 201 Created (ConsultaSugestaoDTO)
+    deactivate Controller
+`
+
+---
+
+### 4.11. sd AprovarOuRejeitarSugestao (UC11)
+
+Mapeia o processo de decisão do criador da tarefa sobre alterações propostas, assegurando exclusividade decisória ao proprietário original (**RN14**).
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Criador as Criador da Tarefa
+    participant Controller as SugestaoController
+    participant Service as SugestaoService
+    participant SugRepo as ISugestaoRepository
+    participant TarefaRepo as ITarefaRepository
+    participant NotifService as INotificacaoService
+    participant DB as PostgreSQL (Database)
+
+    Criador->>Controller: PATCH /api/sugestoes/{id}/aprovar (ou /rejeitar)
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>Service: DecidirSugestaoAsync(sugestaoId, aprovar, solicitanteId)
+    activate Service
+
+    Service->>SugRepo: ObterPorIdAsync(sugestaoId)
+    activate SugRepo
+    SugRepo->>DB: SELECT * FROM Sugestao WHERE Id = @id
+    DB-->>SugRepo: sugestao
+    SugRepo-->>Service: sugestao
+    deactivate SugRepo
+
+    Service->>TarefaRepo: ObterTarefaPorIdAsync(sugestao.TarefaId)
+    activate TarefaRepo
+    TarefaRepo->>DB: SELECT * FROM Tarefa WHERE Id = @tId
+    DB-->>TarefaRepo: tarefa
+    TarefaRepo-->>Service: tarefa
+    deactivate TarefaRepo
+
+    Service->>Service: Validar: solicitanteId == tarefa.CriadorId (Aprovação exclusiva do criador - RN14)
+
+    alt Aprovar Sugestão
+        Service->>SugRepo: AtualizarStatusAsync(sugestaoId, StatusSugestao.Aprovada)
+        activate SugRepo
+        SugRepo->>DB: UPDATE Sugestao SET Status = 'Aprovada' WHERE Id = @id
+        DB-->>SugRepo: OK
+        SugRepo-->>Service: OK
+        deactivate SugRepo
+
+        Service->>NotifService: CriarNotificacaoAsync(sugestao.UsuarioId, "sugestao", "Sua sugestão foi Aprovada", ...)
+        activate NotifService
+        NotifService-->>Service: OK
+        deactivate NotifService
+
+    else Rejeitar Sugestão
+        Service->>SugRepo: AtualizarStatusAsync(sugestaoId, StatusSugestao.Rejeitada)
+        activate SugRepo
+        SugRepo->>DB: UPDATE Sugestao SET Status = 'Rejeitada' WHERE Id = @id
+        DB-->>SugRepo: OK
+        SugRepo-->>Service: OK
+        deactivate SugRepo
+
+        Service->>NotifService: CriarNotificacaoAsync(sugestao.UsuarioId, "sugestao", "Sua sugestão foi Rejeitada", ...)
+        activate NotifService
+        NotifService-->>Service: OK
+        deactivate NotifService
+    end
+
+    Service-->>Controller: ConsultaSugestaoDTO
+    deactivate Service
+    Controller-->>Criador: 200 OK (ConsultaSugestaoDTO)
+    deactivate Controller
+`
+
+---
+
+### 4.12. sd AbrirTicketDeReporte (UC12)
+
+Mapeia o relato formal de impedimentos técnicos ou bloqueios operacionais (**RF008**), roteando chamados prioritários diretamente aos donos e administradores de equipe com avisos urgentes.
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Responsavel as Responsável pela Tarefa
+    participant Controller as TicketReporteController
+    participant Service as TicketReporteService
+    participant RespRepo as IResponsavelTarefaRepository
+    participant MembroRepo as IMembroEquipeRepository
+    participant TicketRepo as ITicketReporteRepository
+    participant NotifService as INotificacaoService
+    participant SmsGateway as ISmsGateway (Twilio)
+    participant DB as PostgreSQL (Database)
+
+    Responsavel->>Controller: POST /api/tarefas/{id}/tickets (CriarTicketReporteDTO: Descricao)
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>Service: CriarTicketAsync(tarefaId, dto, usuarioId)
+    activate Service
+
+    Service->>RespRepo: ResponsavelJaAtribuidoAsync(tarefaId, usuarioId)
+    activate RespRepo
+    RespRepo->>DB: SELECT COUNT(*) FROM ResponsavelTarefa WHERE TarefaId = @tId AND UsuarioId = @uId
+    DB-->>RespRepo: count > 0 (valida pertença)
+    RespRepo-->>Service: true
+    deactivate RespRepo
+
+    Service->>TicketRepo: AdicionarTicketAsync(ticket)
+    activate TicketRepo
+    TicketRepo->>DB: INSERT INTO TicketReporte (Descricao, Ativo, TarefaId, UsuarioId, DataCriacao) VALUES (..., true, ...)
+    DB-->>TicketRepo: Ticket criado (Id)
+    TicketRepo-->>Service: ticket
+    deactivate TicketRepo
+
+    Note over Service, DB: Encaminha chamado de impedimento aos Donos e Administradores (RF008)
+    Service->>MembroRepo: ObterLiderancasPorTarefaAsync(tarefaId)
+    activate MembroRepo
+    MembroRepo-->>Service: Lista de Gestores (Donos e Admins)
+    deactivate MembroRepo
+
+    loop Para cada líder/gestor
+        Service->>NotifService: CriarNotificacaoAsync(lider.UsuarioId, "ticket_criador", "Alerta de Impedimento Técnico", ...)
+        activate NotifService
+        NotifService-->>Service: OK
+        deactivate NotifService
+
+        opt Gestor com canal SMS ativo
+            Service->>SmsGateway: EnviarSmsAsync(lider.Telefone, "Cortex: Chamado urgente aberto na Tarefa #" + tarefaId)
+            activate SmsGateway
+            SmsGateway-->>Service: OK
+            deactivate SmsGateway
+        end
+    end
+
+    Service-->>Controller: ConsultaTicketReporteDTO
+    deactivate Service
+    Controller-->>Responsavel: 201 Created (ConsultaTicketReporteDTO)
+    deactivate Controller
+`
+
+---
+
+### 4.13. sd CriarMetaVinculada (UC13)
+
+Mapeia o estabelecimento de metas de gamificação com vínculo obrigatório de ao menos uma tarefa válida (**RN07**), limite temporal de conclusão de até 12 meses (**RN15**) e relacionamento N:N.
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Gestor as Usuário / Gestor
+    participant Controller as MetaController
+    participant Service as MetaService
+    participant TarefaRepo as ITarefaRepository
+    participant MetaRepo as IMetaRepository
+    participant DB as PostgreSQL (Database)
+
+    Gestor->>Controller: POST /api/metas (CriarMetaDTO: Nome, DataFechamento, TarefaIds, EquipeId, UsuarioId)
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>Service: CriarMetaAsync(dto, solicitanteId)
+    activate Service
+
+    Service->>Service: Validar: TarefaIds.Count >= 1 (Mínimo 1 tarefa - RN07)
+    Service->>Service: Validar: DataFechamento <= UtcNow.AddYears(1) (Máximo 12 meses - RN15)
+
+    loop Para cada tarefaId vinculado
+        Service->>TarefaRepo: ObterTarefaPorIdAsync(tarefaId)
+        activate TarefaRepo
+        TarefaRepo->>DB: SELECT * FROM Tarefa WHERE Id = @tId
+        DB-->>TarefaRepo: tarefa
+        TarefaRepo-->>Service: tarefa
+        deactivate TarefaRepo
+    end
+
+    Service->>MetaRepo: AdicionarMetaAsync(meta)
+    activate MetaRepo
+    MetaRepo->>DB: INSERT INTO Meta (Nome, DataFechamento, Concluida, UsuarioId, TarefaId) VALUES (...)
+    DB-->>MetaRepo: Meta criada (Id)
+    MetaRepo-->>Service: metaCriada
+    deactivate MetaRepo
+
+    loop Para cada tarefa associada
+        Service->>MetaRepo: AdicionarMetaTarefaAsync(meta.Id, tarefaId)
+        activate MetaRepo
+        MetaRepo->>DB: INSERT INTO MetaTarefa (MetaId, TarefaId) VALUES (...)
+        DB-->>MetaRepo: OK
+        MetaRepo-->>Service: OK
+        deactivate MetaRepo
+    end
+
+    opt Informou EquipeId para atribuição
+        Service->>MetaRepo: AdicionarMetaEquipeAsync(meta.Id, equipeId)
+        activate MetaRepo
+        MetaRepo->>DB: INSERT INTO MetaEquipe (MetaId, EquipeId, DataVinculo) VALUES (...)
+        DB-->>MetaRepo: OK
+        MetaRepo-->>Service: OK
+        deactivate MetaRepo
+    end
+
+    Service->>Service: Avaliar conclusão inicial (100% tarefas concluídas? - RN08)
+    Service-->>Controller: ConsultaMetaDTO
+    deactivate Service
+    Controller-->>Gestor: 201 Created (ConsultaMetaDTO)
+    deactivate Controller
+`
+
+---
+
+### 4.14. sd GerarRelatorioPessoal (UC14)
+
+Mapeia a emissão de métricas de produtividade individual, aplicando isolamento estrito de visibilidade para colaboradores comuns (**RN09**).
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Membro as Membro da Equipe
+    participant Controller as RelatorioController
+    participant Service as RelatorioService
+    participant TarefaRepo as ITarefaRepository
+    participant DB as PostgreSQL (Database)
+
+    Membro->>Controller: GET /api/relatorios/tarefas
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>Service: ObterRelatorioTarefasUsuarioAsync(usuarioId)
+    activate Service
+
+    Note over Service, DB: Restrição de privacidade: membro comum só acessa dados próprios (RN09)
+    Service->>TarefaRepo: ObterTarefasPorUsuarioAsync(usuarioId)
+    activate TarefaRepo
+    TarefaRepo->>DB: SELECT * FROM Tarefa t JOIN ResponsavelTarefa rt ON t.Id = rt.TarefaId WHERE rt.UsuarioId = @uId
+    DB-->>TarefaRepo: Lista de Tarefas do usuário
+    TarefaRepo-->>Service: tarefas
+    deactivate TarefaRepo
+
+    Service->>Service: Consolidar métricas: Total, Concluídas, Atrasadas, Pontuação
+    Service-->>Controller: RelatorioTarefasDTO
+    deactivate Service
+    Controller-->>Membro: 200 OK (RelatorioTarefasDTO)
+    deactivate Controller
+`
+
+---
+
+### 4.15. sd GerarRelatorioConsolidadoEquipe (UC15)
+
+Mapeia a extração analítica de produtividade coletiva, gráficos de entregas e índices de cumprimento de metas, com acesso restrito a donos e administradores (**RN10**).
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Gestor as Dono / Admin
+    participant Controller as RelatorioController
+    participant Service as RelatorioService
+    participant AuthService as EquipeAuthorizationService
+    participant EquipeRepo as IEquipeRepository
+    participant DB as PostgreSQL (Database)
+
+    Gestor->>Controller: GET /api/relatorios/equipes/{id}
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>Service: ObterRelatorioEquipeAsync(equipeId, solicitanteId)
+    activate Service
+
+    Service->>AuthService: EhAdminOuDonoDaEquipeAsync(solicitanteId, equipeId)
+    activate AuthService
+    AuthService-->>Service: true (Acesso consolidado exclusivo a lideranças - RN10)
+    deactivate AuthService
+
+    Service->>EquipeRepo: ObterMetricasEquipeAsync(equipeId)
+    activate EquipeRepo
+    EquipeRepo->>DB: Agrega tarefas, horas, status dos membros e metas vinculadas
+    DB-->>EquipeRepo: Métricas consolidadas
+    EquipeRepo-->>Service: Dados consolidados
+    deactivate EquipeRepo
+
+    Service->>Service: Compilar produtividade coletiva, gargalos e taxas de conclusão
+    Service-->>Controller: RelatorioEquipeDTO
+    deactivate Service
+    Controller-->>Gestor: 200 OK (RelatorioEquipeDTO)
+    deactivate Controller
+`
+
+---
+
+### 4.16. sd TransicionarTarefasAtrasadas (UC16)
+
+Mapeia a automação em segundo plano via TarefaStatusBackgroundService, que detecta periodicamente tarefas cujo prazo expirou (DataVencimento < UtcNow) e transiciona para Atrasada (**RN06**).
+
+`mermaid
+sequenceDiagram
+    autonumber
+    participant Worker as TarefaStatusBackgroundService (Worker)
+    participant Scope as IServiceProvider (Scope)
+    participant TarefaRepo as ITarefaRepository
+    participant NotifService as INotificacaoService
+    participant DB as PostgreSQL (Database)
+
+    Note over Worker: Executa periodicamente a cada intervalo configurado
+    Worker->>Scope: CreateScope()
+    activate Scope
+    Scope->>TarefaRepo: ObterTarefasExpiradasNaoAtrasadasAsync(DateTime.UtcNow)
+    activate TarefaRepo
+    TarefaRepo->>DB: SELECT * FROM Tarefa WHERE DataVencimento < NOW() AND Status = 'Pendente'
+    DB-->>TarefaRepo: Lista de tarefas vencidas
+    TarefaRepo-->>Scope: tarefasExpiradas
+    deactivate TarefaRepo
+
+    loop Para cada tarefa expirada (RN06)
+        Scope->>TarefaRepo: AtualizarStatusAsync(tarefa.Id, Status.Atrasada)
+        activate TarefaRepo
+        TarefaRepo->>DB: UPDATE Tarefa SET Status = 'Atrasada' WHERE Id = @id
+        DB-->>TarefaRepo: OK
+        TarefaRepo-->>Scope: OK
+        deactivate TarefaRepo
+
+        Scope->>NotifService: CriarNotificacaoAsync(tarefa.CriadorId, "tarefa_vencida", "Tarefa Vencida e Atrasada", ..., destaque: true)
+        activate NotifService
+        NotifService-->>Scope: OK
+        deactivate NotifService
+    end
+    deactivate Scope
+`
+
+---
+
+### 4.17. sd DispararNotificacoesVencimento (UC17)
+
+Mapeia o monitoramento contínuo de janelas de antecedência via AlertaVencimentoBackgroundService (**RN11**), assegurando idempotência contra envios retroativos (**RN12**).
+
+`mermaid
+sequenceDiagram
+    autonumber
+    participant Worker as AlertaVencimentoBackgroundService (Worker)
+    participant Scope as IServiceProvider (Scope)
+    participant TarefaRepo as ITarefaRepository
+    participant PrefRepo as IPreferenciaNotificacaoRepository
+    participant AlertaRepo as IAlertaEnviadoRepository
+    participant NotifService as NotificacaoService
+    participant Gateways as IPushGateway / IEmailGateway / ISmsGateway
+    participant DB as PostgreSQL (Database)
+
+    Note over Worker: Varredura periódica de janelas de vencimento (RN11, RN12, RNF10)
+    Worker->>Scope: CreateScope()
+    activate Scope
+
+    Scope->>TarefaRepo: ObterTarefasProximasVencimentoAsync(janelaMaxima: 168h)
+    activate TarefaRepo
+    TarefaRepo->>DB: SELECT * FROM Tarefa WHERE Status = 'Pendente' AND DataVencimento BETWEEN NOW() AND NOW() + INTERVAL '7 days'
+    DB-->>TarefaRepo: tarefasEmJanela
+    TarefaRepo-->>Scope: tarefas
+    deactivate TarefaRepo
+
+    loop Para cada tarefa e seus executores
+        Scope->>PrefRepo: ObterPorUsuarioIdAsync(executor.Id)
+        activate PrefRepo
+        PrefRepo->>DB: SELECT * FROM PreferenciaNotificacao WHERE UsuarioId = @uId
+        DB-->>PrefRepo: config
+        PrefRepo-->>Scope: preferencias
+        deactivate PrefRepo
+
+        Note over Scope: Calcula janela individual configurada pelo usuário (RN11: 1h a 168h)
+        opt Agora + AntecedenciaHoras >= DataVencimento
+            Scope->>AlertaRepo: AlertaJaEnviadoAsync(executor.Id, tarefa.Id, preferencias.Canal)
+            activate AlertaRepo
+            AlertaRepo->>DB: SELECT COUNT(*) FROM AlertaEnviado WHERE UsuarioId = @uId AND TarefaId = @tId AND Canal = @canal
+            DB-->>AlertaRepo: 0 (ainda não disparado - Idempotência RN12)
+            AlertaRepo-->>Scope: false
+            deactivate AlertaRepo
+
+            Scope->>NotifService: EnviarNotificacaoAsync(executor, tarefa, preferencias.Canal)
+            activate NotifService
+            NotifService->>Gateways: Disparo assíncrono para o canal configurado
+            Gateways-->>NotifService: OK
+            NotifService->>AlertaRepo: RegistrarAlertaEnviadoAsync(executor.Id, tarefa.Id, preferencias.Canal)
+            activate AlertaRepo
+            AlertaRepo->>DB: INSERT INTO AlertaEnviado (UsuarioId, TarefaId, Canal, EnviadoEm) VALUES (...)
+            DB-->>AlertaRepo: OK
+            AlertaRepo-->>NotifService: OK
+            deactivate AlertaRepo
+            NotifService-->>Scope: OK
+            deactivate NotifService
+        end
+    end
+    deactivate Scope
+`
+
+---
+
+### 4.18. sd RecalcularConclusaoMetas (UC18)
+
+Mapeia o algoritmo de avaliação de metas vinculadas que confere automaticamente o status Concluida = true assim que 100% das tarefas componentes forem finalizadas (**RN08**).
+
+`mermaid
+sequenceDiagram
+    autonumber
+    participant Evento as TarefaService / BackgroundWorker
+    participant MetaService as MetaService
+    participant MetaRepo as IMetaRepository
+    participant NotifService as INotificacaoService
+    participant DB as PostgreSQL (Database)
+
+    Evento->>MetaService: RecalcularMetasVinculadasAsync(tarefaId)
+    activate MetaService
+
+    MetaService->>MetaRepo: ObterMetasPorTarefaIdAsync(tarefaId)
+    activate MetaRepo
+    MetaRepo->>DB: SELECT m.* FROM Meta m JOIN MetaTarefa mt ON m.Id = mt.MetaId WHERE mt.TarefaId = @tId
+    DB-->>MetaRepo: Lista de Metas dependentes
+    MetaRepo-->>MetaService: metasVinculadas
+    deactivate MetaRepo
+
+    loop Para cada meta vinculada não concluída
+        MetaService->>MetaRepo: ObterTarefasDaMetaAsync(meta.Id)
+        activate MetaRepo
+        MetaRepo->>DB: SELECT t.* FROM Tarefa t JOIN MetaTarefa mt ON t.Id = mt.TarefaId WHERE mt.MetaId = @mId
+        DB-->>MetaRepo: Todas as tarefas da meta
+        MetaRepo-->>MetaService: tarefasDaMeta
+        deactivate MetaRepo
+
+        Note over MetaService: Regra RN08: Concluída = 100% das tarefas finalizadas com Status 'Concluida'
+        alt Todas as tarefas com Status == Concluida
+            MetaService->>MetaRepo: MarcarComoConcluidaAsync(meta.Id, DateTime.UtcNow)
+            activate MetaRepo
+            MetaRepo->>DB: UPDATE Meta SET Concluida = true, DataFechamento = NOW() WHERE Id = @mId
+            DB-->>MetaRepo: OK
+            MetaRepo-->>MetaService: OK
+            deactivate MetaRepo
+
+            MetaService->>NotifService: CriarNotificacaoAsync(meta.UsuarioId, "meta", "Meta Estratégica Concluída com Sucesso!", ...)
+            activate NotifService
+            NotifService-->>MetaService: OK
+            deactivate NotifService
+        else Existem tarefas pendentes ou atrasadas
+            Note over MetaService: Mantém meta com Concluida = false
+        end
+    end
+
+    MetaService-->>Evento: OK
+    deactivate MetaService
+`
+
+---
+
+### 4.19. sd AtribuirMetaEquipe (UC19)
+
+Mapeia a vinculação e atribuição corporativa de metas a equipes e seus integrantes por Donos e Administradores via tabela associativa MetaEquipe, com notificações a todo o grupo.
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Gestor as Dono / Admin
+    participant Controller as MetaController
+    participant Service as MetaService
+    participant AuthService as EquipeAuthorizationService
+    participant MetaRepo as IMetaRepository
+    participant MembroRepo as IMembroEquipeRepository
+    participant NotifService as INotificacaoService
+    participant DB as PostgreSQL (Database)
+
+    Gestor->>Controller: POST /api/metas/{id}/equipe { equipeId: 5 }
+    activate Controller
+    Controller->>Controller: ObterUsuarioIdAutenticado()
+    Controller->>Service: AtribuirEquipeAsync(metaId, equipeId, currentUserId)
+    activate Service
+
+    Service->>MetaRepo: ObterMetaPorIdAsync(metaId)
+    activate MetaRepo
+    MetaRepo->>DB: SELECT * FROM Meta WHERE Id = @metaId
+    DB-->>MetaRepo: meta
+    MetaRepo-->>Service: meta
+    deactivate MetaRepo
+
+    Service->>AuthService: EhAdminOuDonoDaEquipeAsync(currentUserId, equipeId)
+    activate AuthService
+    AuthService-->>Service: true
+    deactivate AuthService
+
+    Service->>MetaRepo: MetaEquipeExisteAsync(metaId, equipeId)
+    activate MetaRepo
+    MetaRepo-->>Service: false
+    deactivate MetaRepo
+
+    Service->>MetaRepo: AdicionarMetaEquipeAsync(MetaEquipe)
+    activate MetaRepo
+    MetaRepo->>DB: INSERT INTO MetaEquipe (MetaId, EquipeId, DataVinculo) VALUES (...)
+    DB-->>MetaRepo: OK
+    MetaRepo-->>Service: salvo
+    deactivate MetaRepo
+
+    Service->>MembroRepo: ObterMembrosEquipePorEquipeIdAsync(equipeId)
+    activate MembroRepo
+    MembroRepo-->>Service: List<MembroEquipe>
+    deactivate MembroRepo
+
+    loop Para cada integrante (respeitando hierarquia de cargos)
+        Service->>NotifService: CriarNotificacaoAsync(membroId, "meta", "Nova Meta de Equipe", ...)
+        activate NotifService
+        NotifService-->>Service: OK
+        deactivate NotifService
+    end
+
+    Service->>MetaRepo: ObterMetaPorIdAsync(metaId)
+    activate MetaRepo
+    MetaRepo-->>Service: metaAtualizada
+    deactivate MetaRepo
+
+    Service-->>Controller: ConsultaMetaDTO
+    deactivate Service
+    Controller-->>Gestor: 200 OK (ConsultaMetaDTO)
+    deactivate Controller
+`
+
+---
+
+### 4.20. sd AtribuirNotaResposta
+
+Fluxo complementar de atribuição de nota/avaliação à resposta de entrega submetida por um responsável na tarefa. O criador da tarefa ou administradores validam o trabalho e aplicam uma nota numérica entre 0 e a pontuação máxima configurada na tarefa.
+
+`mermaid
+sequenceDiagram
+    autonumber
+    actor Criador as Criador / Admin
+    participant Controller as RespostaTarefaController
+    participant Service as RespostaTarefaService
+    participant RespRepo as IRespostaTarefaRepository
+    participant TarefaRepo as ITarefaRepository
+    participant DB as PostgreSQL (Database)
 
     Criador->>Controller: PATCH /api/respostas/{id}/nota { nota: 95 }
     activate Controller
@@ -1594,23 +2815,23 @@ sequenceDiagram
     deactivate Service
     Controller-->>Criador: 200 OK (ConsultaRespostaTarefaDTO)
     deactivate Controller
-```
+`
 
 ---
 
-### 4.6. `sd CancelarConclusaoTarefa`
+### 4.21. sd CancelarConclusaoTarefa
 
-Fluxo para desfazer/reverter a conclusão de uma tarefa. Caso a tarefa tenha sido marcada como concluída precipitadamente, o criador, responsável ou admin podem reabri-la. O sistema avalia dinamicamente se o prazo expirou: caso a data atual ultrapasse `DataVencimento`, o status torna-se `Atrasada`; caso contrário, reverte para `Pendente`.
+Fluxo complementar para desfazer/reverter a conclusão de uma tarefa. Caso a tarefa tenha sido marcada como concluída precipitadamente, o criador, responsável ou admin podem reabri-la. O sistema avalia dinamicamente se o prazo expirou: caso a data atual ultrapasse DataVencimento, o status torna-se Atrasada; caso contrário, reverte para Pendente.
 
-#### Renderização Mermaid:
-```mermaid
+`mermaid
 sequenceDiagram
     autonumber
-    actor Usuario as <<Actor>> Colaborador / Criador
-    boundary Controller as <<Boundary>> TarefaController
-    control Service as <<Control>> TarefaService
-    entity Repo as <<Entity>> ITarefaRepository
-    database DB as <<Database>> PostgreSQL
+    actor Usuario as Colaborador / Criador
+    participant Controller as TarefaController
+    participant Service as TarefaService
+    participant Repo as ITarefaRepository
+    participant RespRepo as IRespostaTarefaRepository
+    participant DB as PostgreSQL (Database)
 
     Usuario->>Controller: PATCH /api/tarefa/{id}/cancelar-conclusao
     activate Controller
@@ -1620,12 +2841,22 @@ sequenceDiagram
 
     Service->>Repo: ObterTarefaPorIdAsync(id)
     activate Repo
-    Repo->>DB: SELECT * FROM Tarefa WHERE Id = @id
-    DB-->>Repo: registro Tarefa
+    Repo->>DB: SELECT * FROM Tarefa WHERE Id = @id (Include Respostas)
+    DB-->>Repo: registro Tarefa com Respostas
     Repo-->>Service: tarefa
     deactivate Repo
 
     Service->>Service: Validar permissão (ehCriador || ehResponsavel || ehAdminOuDono)
+    
+    opt Solicitante possui RespostaTarefa sem nota e sem anexo
+        Service->>RespRepo: RemoverRespostaTarefaAsync(respostaId)
+        activate RespRepo
+        RespRepo->>DB: DELETE FROM RespostaTarefa WHERE Id = @respId
+        DB-->>RespRepo: OK
+        RespRepo-->>Service: removido
+        deactivate RespRepo
+    end
+
     Service->>Service: Recalcular Status: DataVencimento < UtcNow ? Atrasada : Pendente
 
     Service->>Repo: AtualizarTarefaAsync(tarefa)
@@ -1639,23 +2870,22 @@ sequenceDiagram
     deactivate Service
     Controller-->>Usuario: 200 OK (DetalhesTarefaDTO)
     deactivate Controller
-```
+`
 
 ---
 
-### 4.7. `sd GerenciarNotificacoes`
+### 4.22. sd GerenciarNotificacoesInApp
 
 Fluxo completo de interação com a Central de Notificações in-app: consulta do histórico ordenado, marcação de alertas lidos e expurgo do histórico pelo usuário autenticado.
 
-#### Renderização Mermaid:
-```mermaid
+`mermaid
 sequenceDiagram
     autonumber
-    actor Colaborador as <<Actor>> Colaborador
-    boundary Controller as <<Boundary>> NotificacaoController
-    control Service as <<Control>> NotificacaoService
-    entity Repo as <<Entity>> INotificacaoRepository
-    database DB as <<Database>> PostgreSQL
+    actor Colaborador as Colaborador
+    participant Controller as NotificacaoController
+    participant Service as NotificacaoService
+    participant Repo as INotificacaoRepository
+    participant DB as PostgreSQL (Database)
 
     %% 1. Listar Notificações
     Colaborador->>Controller: GET /api/notificacoes
@@ -1688,6 +2918,131 @@ sequenceDiagram
     deactivate Service
     Controller-->>Colaborador: 204 No Content
     deactivate Controller
+`
+
+---
+
+### 4.23. Diagramas de Sequência — Gateways de Mensageria (Push, E-mail e SMS)
+
+Os diagramas a seguir representam o ciclo de envio assíncrono de notificações ([RNF10](file:///c:/Users/yuma2/Repositorios/Cortex-backend/AGENTS.md)) para os três canais suportados pelo Cortex Backend ([CanalNotificacao](file:///c:/Users/yuma2/Repositorios/Cortex-backend/Entities/ENUMS/CanalNotificacao.cs): `Push`, `Email` e `Sms`), seguindo a arquitetura de interação entre o **Colaborador**, o **App Cortex**, o **Servidor de Backend** e os **Gateways Externos** de comunicação.
+
+---
+
+#### 4.23.1. Envio de Notificação Push (FCM / APNs)
+
+Mapeia o registro do token do dispositivo no primeiro logon do colaborador e o disparo de notificação push quando uma tarefa é atribuída ou quando um alerta de vencimento é processado.
+
+##### Renderização Mermaid:
+```mermaid
+sequenceDiagram
+    actor Colaborador as Colaborador
+    participant AppCortex as App Cortex
+    participant Backend as Servidor de Backend
+    participant PushGateway as Serviço de Notificação Push (FCM/APNs)
+
+    Colaborador->>AppCortex: Abrir App / Logar
+    Note over AppCortex: *primeiro logon*
+    AppCortex->>Backend: Registrar token do dispositivo (usuarioId, token)
+    Backend-->>AppCortex: Confirmação de registro
+
+    Backend->>Backend: Insere/recebe dados da tarefa
+    Note over Backend: Servidor atribuiu tarefa ou processa alerta
+
+    Backend->>PushGateway: Enviar Mensagem Push (token, payload)
+    PushGateway-->>Backend: Confirmação de recebimento/erro
+    PushGateway->>AppCortex: Enviar notificação para o dispositivo
+    AppCortex->>Colaborador: Exibir notificação na tela
+```
+
+---
+
+#### 4.23.2. Envio de Notificação por E-mail (SMTP / SendGrid)
+
+Mapeia o ciclo de entrega de alertas por e-mail com a validação mandatória da regra **RN13** (o envio só é autorizado caso o e-mail do colaborador esteja com `EmailVerificado == true`).
+
+##### Renderização Mermaid:
+```mermaid
+sequenceDiagram
+    actor Colaborador as Colaborador
+    participant AppCortex as App Cortex
+    participant Backend as Servidor de Backend
+    participant EmailGateway as Provedor de E-mail (SMTP / SendGrid)
+    participant ClienteEmail as Cliente de E-mail (Gmail/Outlook)
+
+    Colaborador->>AppCortex: Confirmar e-mail cadastrado
+    AppCortex->>Backend: VerificarEmailAsync(codigoConfirmacao)
+    Backend->>Backend: Validar token e marcar EmailVerificado = true (RN13)
+    Backend-->>AppCortex: Confirmação de e-mail verificado
+
+    Backend->>Backend: Evento: Tarefa próxima do vencimento (RN06/RN11)
+    Note over Backend: Valida: usuario.EmailVerificado == true (RN13)
+
+    Backend->>EmailGateway: EnviarEmailAsync(destinatario, assunto, mensagemCorpo)
+    EmailGateway-->>Backend: Confirmação de envio (250 OK / Accepted)
+    EmailGateway->>ClienteEmail: Entregar mensagem na caixa de entrada
+    ClienteEmail->>Colaborador: Notificar novo e-mail recebido
+```
+
+---
+
+#### 4.23.3. Envio de Notificação por SMS (Gateway de Telefonia)
+
+Mapeia o envio de mensagens SMS via operadora de telefonia para eventos críticos (como abertura de chamado técnico de impedimento - **RF008** ou prazos iminentes), validando o número telefônico cadastrado.
+
+##### Renderização Mermaid:
+```mermaid
+sequenceDiagram
+    actor Colaborador as Colaborador
+    participant AppCortex as App Cortex
+    participant Backend as Servidor de Backend
+    participant SmsGateway as Gateway de SMS (Twilio/Zenvia)
+    participant Celular as Dispositivo Móvel (Rede Celular)
+
+    Colaborador->>AppCortex: Cadastrar telefone celular no perfil
+    AppCortex->>Backend: AtualizarUsuarioAsync(telefone)
+    Backend-->>AppCortex: Confirmação de perfil atualizado
+
+    Backend->>Backend: Evento: Ticket de Reporte aberto / Alerta de Prazo
+    Note over Backend: Valida: telefone presente e canal SMS ativo
+
+    Backend->>SmsGateway: EnviarSmsAsync(telefone, mensagem)
+    SmsGateway-->>Backend: Confirmação de despacho / MessageId
+    SmsGateway->>Celular: Transmitir SMS via operadora
+    Celular->>Colaborador: Exibir mensagem SMS na tela
+```
+
+---
+
+#### 4.23.4. Visão Arquitetural Unificada — Roteamento Multi-Canal (`NotificacaoService`)
+
+Consolidação da lógica interna do método `EnviarNotificacaoAsync` no `NotificacaoService`, mostrando o roteamento assíncrono para cada gateway conforme as preferências do usuário ([RN11](file:///c:/Users/yuma2/Repositorios/Cortex-backend/AGENTS.md)) e persistência do histórico em `AlertasEnviados`.
+
+##### Renderização Mermaid:
+```mermaid
+sequenceDiagram
+    participant Backend as Cortex Backend (NotificacaoService)
+    participant DB as PostgreSQL (Preferencias / Alertas)
+    participant Push as IPushGateway (FCM/APNs)
+    participant Email as IEmailGateway (SMTP)
+    participant SMS as ISmsGateway (Twilio)
+
+    Backend->>DB: ObterPreferenciasAsync(usuarioId)
+    DB-->>Backend: PreferenciaNotificacao (Canal, Antecedencia, Ativo)
+
+    alt Canal == Push
+        Backend->>Push: EnviarPushAsync(usuarioId, assunto, mensagem)
+        Push-->>Backend: bool sucesso
+    else Canal == Email (Valida RN13: EmailVerificado)
+        Backend->>Email: EnviarEmailAsync(email, assunto, mensagem)
+        Email-->>Backend: bool sucesso
+    else Canal == Sms (Valida telefone presente)
+        Backend->>SMS: EnviarSmsAsync(telefone, mensagem)
+        SMS-->>Backend: bool sucesso
+    end
+
+    opt Envio bem-sucedido
+        Backend->>DB: RegistrarAlertaEnviadoAsync(usuarioId, tarefaId, canal)
+    end
 ```
 
 ---
@@ -1722,6 +3077,7 @@ flowchart TB
         S_Equipe["Serviço de Equipes"]
         S_Meta["Serviço de Metas"]
         S_Ticket["Serviço de Tickets / Reportes"]
+        S_Notif["Serviço de Notificações"]
     end
 
     subgraph CamadaPersistencia["Camada de Persistência"]
@@ -1734,8 +3090,10 @@ flowchart TB
         T_Cat["Tabela Categoria"]
         T_Status["Tabela Status"]
         T_Meta["Tabela Meta"]
+        T_MetaEquipe["Tabela MetaEquipe"]
         T_Sug["Tabela Sugestão"]
         T_Ticket["Tabela TicketReport"]
+        T_Notif["Tabela Notificação"]
     end
 
     subgraph ServicosExternos["Serviços Externos"]
@@ -1751,65 +3109,6 @@ flowchart TB
     Frontend --> CamadaNegocio
     CamadaNegocio --> CamadaPersistencia
     CamadaNegocio --> ServicosExternos
-```
-
-### Especificação no Padrão PlantUML
-
-```plantuml
-@startuml
-skinparam componentStyle uml2
-skinparam packageStyle rectangle
-
-title Diagrama de Componentes
-
-actor "Administrador" as Admin
-
-package "Camada de Apresentação" {
-    component "Front-end Web" as Frontend {
-        note as N1
-            • Formulários
-            • Visualização de tarefas
-        end note
-    }
-}
-
-package "Camada de Negócio / API" {
-    component "Serviço de Categorias" as S_Cat
-    component "Serviço de Autenticação" as S_Auth
-    component "Serviço de Usuários" as S_User
-    component "Serviço de Tarefas" as S_Tarefa
-    component "Serviço de Sugestões" as S_Sug
-    component "Serviço de Relatórios" as S_Rel
-    component "Serviço de Equipes" as S_Equipe
-    component "Serviço de Metas" as S_Meta
-    component "Serviço de Tickets" as S_Ticket
-}
-
-package "Camada de Persistência" {
-    component "Tabela Usuário" as T_User
-    component "Tabela Tarefa" as T_Tarefa
-    component "Tabela Cargo" as T_Cargo
-    component "Tabela Prioridade" as T_Prioridade
-    component "Tabela Anexo" as T_Anexo
-    component "Tabela Categoria" as T_Cat
-    component "Tabela Status" as T_Status
-    component "Tabela Meta" as T_Meta
-    component "Tabela Sugestão" as T_Sug
-    component "Tabela TicketReport" as T_Ticket
-}
-
-package "Serviços Externos" {
-    component "Serviço de E-mail" as Ext_Email
-    component "Serviço de SMS" as Ext_SMS
-    component "Serviço de Calendário" as Ext_Cal
-    component "Serviço de Backup" as Ext_Backup
-}
-
-Admin --> Frontend
-Frontend --> "Camada de Negócio / API"
-"Camada de Negócio / API" --> "Camada de Persistência"
-"Camada de Negócio / API" --> "Serviços Externos"
-@enduml
 ```
 
 ### Mapeamento dos Componentes para o Código do Backend
@@ -1852,23 +3151,6 @@ flowchart LR
     end
 ```
 
-### Especificação no Padrão PlantUML
-
-```plantuml
-@startuml
-skinparam nodeStyle uml2
-
-package "pkg" {
-    node "<<desktop>>\nNavegador" as Desktop
-    node "<<servidor de aplicacao>>\nWEB" as AppServer
-    node "<<Servidor DB>>\nPostgreSQL" as DbServer
-
-    Desktop -- AppServer : TCP/IP
-    AppServer -- DbServer : TCP/IP
-}
-@enduml
-```
-
 ### Detalhamento dos Nós de Execução
 
 | Nó no Diagrama | Estereótipo | Tecnologia e Runtime no Projeto | Descrição e Protocolos |
@@ -1879,33 +3161,69 @@ package "pkg" {
 
 ---
 
-## 7. Matriz de Rastreabilidade de Regras de Negócio Representadas
+## 7. Matriz de Rastreabilidade de Requisitos e Regras de Negócio
 
-| Regra / Requisito | Título / Descrição | Como está refletida nos Diagramas |
+A matriz a seguir mapeia a correspondência exaustiva entre os **Requisitos Funcionais (RF001 a RF013)**, **Requisitos Não Funcionais (RNF01 a RNF10)** e as **Regras de Negócio (RN01 a RN18)** formalizadas nos Quadros 1, 2 e 3 da especificação, evidenciando como cada item está refletido nos diagramas de arquitetura, entidades e código de implementação do Cortex:
+
+### 7.1. Rastreabilidade das Regras de Negócio (RN01 a RN18)
+
+| Código | Descrição da Regra de Negócio | Vinculada ao RF | Como está refletida nos Diagramas e no Código |
+| :--- | :--- | :---: | :--- |
+| **RN01** | Um e-mail só pode estar vinculado a uma única conta no sistema. | **RF001** | Constraint `UNIQUE` no diagrama de classes na entidade `Usuario`, índice único `IX_Usuario_Email` no modelo lógico relacional (DER), validação no `UsuarioService` e caso de uso **UC01**. |
+| **RN02** | A senha deve conter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e símbolos. | **RF001** | Criptografia com hash irreversível e salt dinâmico via `PasswordService` (`BCrypt.Net`), validação de regex e DTO de cadastro no caso de uso **UC01**. |
+| **RN03** | Somente donos de equipes podem alterar o cargo de outro usuário. | **RF006** | Modelagem do enum `Cargo` na entidade `MembroEquipe`, validação de autorização em `EquipeAuthorizationService` (`EhDonoDaEquipeAsync`) e caso de uso **UC06**. |
+| **RN04** | Somente donos e administradores podem adicionar ou remover usuários. | **RF006** | Verificação de privilégios em `EquipeAuthorizationService` (`EhAdminOuDonoDaEquipeAsync`), diagrama de componentes e caso de uso **UC06**. |
+| **RN05** | Um usuário não pode excluir a própria conta se houver tarefas atribuídas a ele em andamento. | **RF001, RF002** | Verificação de pendências em `UsuarioService` com bloqueio de exclusão (`PossuiTarefasPendentesOuAtivasAsync`) e caso de uso **UC01**. |
+| **RN06** | Uma tarefa vencida e não concluída muda automaticamente para o status "Atrasada" e notifica o responsável. | **RF010** | Valor enumerado `Status.Atrasada`, execução do serviço em background `TarefaStatusBackgroundService` e caso de uso **UC10**. |
+| **RN07** | Cada meta deve estar vinculada a no mínimo uma tarefa para ser considerada válida. | **RF007** | Instância associativa `MetaTarefa` no Diagrama de Objetos, validação de cardinalidade mínima no `MetaService` e caso de uso **UC07**. |
+| **RN08** | O sistema só contabiliza uma meta como "Atingida" se todas as tarefas relacionadas estiverem concluídas. | **RF007** | Atributo booleano `Meta.Concluida`, rotina reativa de verificação (`RecalcularMetasVinculadasAsync`) no `MetaService` e caso de uso **UC07 / UC10**. |
+| **RN09** | Usuários comuns só podem gerar relatórios de suas próprias tarefas. | **RF011** | Cláusula `WHERE ResponsavelTarefa.UsuarioId = @solicitanteId` no `RelatorioService` e caso de uso **UC11**. |
+| **RN10** | Donos e administradores de equipe podem gerar relatórios por equipe. | **RF011** | Consolidação de métricas por equipe com validação de liderança no `RelatorioService` e caso de uso **UC11**. |
+| **RN11** | O usuário deve configurar a antecedência mínima para receber notificações de expiração de tarefas (mínimo: 1 hora, máximo: 7 dias). | **RF008** | Atributo `AntecedenciaHoras` em `PreferenciaNotificacao` (range 1h a 168h), agendador `AlertaVencimentoBackgroundService` e caso de uso **UC08**. |
+| **RN12** | Para notificações por e-mail, o usuário deve confirmar o endereço antes de ativar o envio. | **RF001, RF008** | Atributo booleano `Usuario.EmailVerificado`, validação prévia em `NotificacaoService` e casos de uso **UC01 e UC08**. |
+| **RN13** | Sugestões de alteração de tarefa devem ser aprovadas ou recusadas pelo criador antes de serem aplicadas. | **RF004** | Entidade `Sugestao` com enum `StatusSugestao.Pendente`, validação de decisão privativa em `SugestaoService` e caso de uso **UC04**. |
+| **RN14** | Metas devem ter validade definida pelo usuário com prazo máximo de 12 meses. | **RF007** | Validação `DataFechamento <= UtcNow.AddYears(1)` no `MetaService`, anotações de validação e caso de uso **UC07**. |
+| **RN15** | Entregas de tarefas só podem ser avaliadas com nota pelo criador da tarefa. | **RF003** | Verificação `solicitanteId == tarefa.CriadorId` no `RespostaTarefaService`, atributo `Nota` em `RespostaTarefa` e caso de uso **UC03**. |
+| **RN16** | Tickets de reporte só podem ser abertos em tarefas não concluídas e devem ser encerrados exclusivamente pelo criador da tarefa. | **RF005** | Validação de status `tarefa.Status != Concluida` e encerramento com chave `Ativo = false` no `TicketReporteService` e caso de uso **UC05**. |
+| **RN17** | O sistema deve bloquear o reenvio de alertas de vencimento para o mesmo usuário, tarefa e canal dentro da janela de antecedência configurada. | **RF010** | Tabela física de idempotência `AlertaEnviado`, verificação prévia no worker de agendamento e caso de uso **UC10**. |
+| **RN18** | A configuração de tamanho de fonte por acessibilidade deve aceitar exclusivamente valores pares entre 12 e 24 pixels. | **RF013** | Constraint e validação em `PreferenciaNotificacao.TamanhoFonte` (`12, 14, 16, 18, 20, 22, 24`) e caso de uso **UC08**. |
+
+---
+
+### 7.2. Rastreabilidade dos Requisitos Funcionais (RF001 a RF013)
+
+| Requisito | Título / Escopo | Casos de Uso Vinculados | Camada de Implementação no Backend |
+| :--- | :--- | :---: | :--- |
+| **RF001** | Gestão de Usuários, Credenciais e Confirmação de E-mail | **UC01** | `AuthController`, `UsuarioController`, `UsuarioService`, `VerificacaoEmailService`. |
+| **RF002** | Gestão e Ciclo Completo de Tarefas com Atribuição Coletiva/Individual | **UC02** | `TarefaController`, `TarefaService`, `ResponsavelTarefaService`. |
+| **RF003** | Submissão de Entregas e Avaliação por Notas do Criador | **UC03** | `RespostaTarefaController`, `RespostaTarefaService`. |
+| **RF004** | Submissão e Julgamento de Sugestões de Alteração | **UC04** | `SugestaoController`, `SugestaoService`. |
+| **RF005** | Abertura e Encerramento de Tickets de Impedimento | **UC05** | `TicketReporteController`, `TicketReporteService`. |
+| **RF006** | Gestão Organizacional de Equipes e Governança RBAC | **UC06** | `EquipeController`, `EquipeService`, `EquipeAuthorizationService`. |
+| **RF007** | Gestão e Conclusão Automática de Metas Vinculadas a Tarefas e Equipes | **UC07** | `MetaController`, `MetaService`, relacionamento associativo `MetaEquipe`. |
+| **RF008** | Parametrização de Alertas e Canais de Mensageria | **UC08** | `NotificacaoController`, `NotificacaoService`, tabela `PreferenciaNotificacao`. |
+| **RF009** | Central e Histórico de Notificações In-App | **UC09** | `NotificacaoController`, tabela `Notificacao`, rotas de leitura e expurgo. |
+| **RF010** | Automação em Segundo Plano (Transição de Atrasadas e Alertas Anti-Duplicação) | **UC10** | `TarefaStatusBackgroundService`, `AlertaVencimentoBackgroundService`, `AlertaEnviado`. |
+| **RF011** | Emissão de Relatórios Pessoais e Consolidados por Equipe | **UC11** | `RelatorioController`, `RelatorioService`. |
+| **RF012** | Gerenciamento e Download de Arquivos Anexos (Tarefas, Entregas e Perfil) | **UC01, UC02, UC03** | `AnexoController`, `AnexoService`, `ArquivoValidacaoService`, pasta `wwwroot/uploads`. |
+| **RF013** | Preferências Visuais e Acessibilidade (Tema Claro/Escuro, Alto Contraste e Fonte) | **UC08** | `NotificacaoController`, colunas `Tema`, `AltoContraste`, `TamanhoFonte` em `PreferenciaNotificacao`. |
+
+---
+
+### 7.3. Rastreabilidade dos Requisitos Não Funcionais (RNF01 a RNF10)
+
+| Requisito | Título / Especificação | Como está refletido na Arquitetura e Código |
 | :--- | :--- | :--- |
-| **RN01** | E-mail Único | Constraint e índice único no diagrama de classes na entidade `Usuario`, caso de uso `UC01` e validação no `UsuarioService`. |
-| **RN02** | Complexidade de Senha | Criptografia com salt via `PasswordService` (`BCrypt.Net`), diagrama de componentes e caso de uso `UC01`. |
-| **RN03 / RN04**| Cargos e Permissões em Equipes | Modelagem de `MembroEquipe` (`Dono`, `Admin`, `Membro`), serviço `EquipeAuthorizationService` e casos de uso `UC05` e `UC06`. |
-| **RN05** | Impedimento de Exclusão de Conta | Caso de uso `UC03` com bloqueio se existirem tarefas ativas/pendentes atribuídas, validado em `UsuarioService`. |
-| **RN06** | Tarefa Atrasada e Notificações | Enum `Status.Atrasada`, componente `TarefaStatusBackgroundService` e caso de uso `UC16`. |
-| **RN07** | Vínculo Mínimo de Metas | No Diagrama de Objetos (`metaTarefaLink`), fluxo de Criação de Metas, `MetaService` e caso de uso `UC13`. |
-| **RN08** | Conclusão Automática de Metas | No Diagrama de Objetos (`metaQ4.Concluida = false`), no fluxo de Criação de Metas, `MetaService` e caso de uso `UC18`. |
-| **RN11** | Antecedência de Alertas | Configuração em `PreferenciaNotificacao` (1 a 168 horas), componente `AlertaVencimentoBackgroundService` e caso de uso `UC02`. |
-| **RN12** | Descarte de Alertas Expirados | Validação temporal em `NotificacaoService` e descarte de disparos retroativos. |
-| **RN13** | Confirmação de E-mail para Alertas | Validação em `NotificacaoService` e diagrama de sequência de notificações multi-canal. |
-| **RN14** | Aprovação de Sugestões | No fluxo de Sugestões: estado `Pendente` com aprovação posterior exclusiva do criador (`UC11`) via `SugestaoService`. |
-| **RN15** | Validade Máxima de Metas | No fluxo de Criação de Metas: validação de data limite de 12 meses no `MetaService` e caso de uso `UC13`. |
-| **RF001** | Gerenciar Usuários | CRUD completo com `UsuarioController`, `UsuarioService` e `UsuarioRepository`. |
-| **RF003** | Gerenciar Tarefas | CRUD com delegação em lote ou individual via `TarefaService` e `ResponsavelTarefaService`. |
-| **RF004** | Permissão de Sugestão | No fluxo de Sugestões e caso de uso `UC10`: apenas responsáveis atribuídos podem sugerir. |
-| **RF008** | Ticket de Reporte | No Diagrama de Objetos (`ticketReporte7`), associado à tarefa e ao executor, e no caso de uso `UC12`. |
-| **RNF01** | Segurança & Autenticação | `JwtAuthenticationMiddleware`, extração segura de cookie HttpOnly e Bearer token. |
-| **RNF04** | Concorrência e Transações | Execução assíncrona (`async/await`) em todas as camadas e isolamento no PostgreSQL via EF Core. |
-| **RNF05** | Auditoria & Rastreabilidade | `Serilog` configurado no `Program.cs` gravando logs estruturados com rotação diária em `logs/cortex-.json`. |
-| **RNF07** | Persistência PostgreSQL | Mapeamento integral no `CortexDbContext` com Enums nativos registrados via Npgsql. |
-| **RNF08** | Desenvolvimento Seguro | `ExceptionHandlingMiddleware` padronizando RFC 7807 (`ProblemDetails`) e `RateLimitingMiddleware`. |
-| **RNF09** | Performance de Ações Críticas | Queries LINQ otimizadas, connection pooling do Npgsql e indexação única e relacional. |
-| **RNF10** | Serviço de Notificações Assíncrono | `IHostedService` rodando em segundo plano e gateways desacoplados de mensageria. |
+| **RNF01** | Segurança, Criptografia e Níveis de Permissão | Tokens JWT com validação de claims, cookies `HttpOnly`, hashing irreversible via BCrypt e políticas RBAC no ASP.NET Core. |
+| **RNF02** | Interface Amigável, Responsiva e Acessível | Suporte a alto contraste, ajuste de fontes (12 a 24px) e contratos estruturados para consumo pela SPA Next.js/React. |
+| **RNF03** | Compatibilidade Multi-Plataforma | Endpoints REST padronizados em JSON (RFC 8259) compatíveis com navegadores desktop e clientes móveis (Android/iOS). |
+| **RNF04** | Alta Concorrência e Performance Transacional | Métodos assíncronos não bloqueantes (`async/await`) ponta a ponta e connection pooling otimizado do driver Npgsql. |
+| **RNF05** | Logs de Atividades, Auditoria e Rastreabilidade | Framework `Serilog` configurado no `Program.cs` gravando trilhas estruturadas com rotação diária de arquivos JSON em `logs/cortex-.json`. |
+| **RNF06** | Backups Periódicos e Integridade dos Dados | Estratégia de backup transacional do PostgreSQL e persistência de arquivos anexos com caminhos seguros em disco. |
+| **RNF07** | Banco de Dados Relacional PostgreSQL 16 | Mapeamento relacional com constraints estritas, integridade referencial `CASCADE` / `NO ACTION` e enums nativos via EF Core 10. |
+| **RNF08** | Boas Práticas de Desenvolvimento Seguro e RFC 7807 | Middleware global de exceções formatando respostas em `ProblemDetails`, validações estritas de DTOs e prevenção contra injeção SQL. |
+| **RNF09** | Tempo de Resposta para Ações Críticas $\le$ 2s | Consultas LINQ indexadas com `AsNoTracking` para leituras, otimização de índices compostos e limites de paginação. |
+| **RNF10** | Processamento Assíncrono de Mensageria Multi-Canal | Workers desacoplados em segundo plano (`IHostedService`) e abstrações `IPushGateway` (FCM/APNs), `IEmailGateway` (SMTP) e `ISmsGateway` (Twilio). |
 
 ---
 
@@ -1998,6 +3316,7 @@ erDiagram
     TAREFA ||--o{ TICKET_REPORTE : "origina_impedimento_em"
     USUARIO ||--o{ META : "gerencia"
     META }o--o{ TAREFA : "vincula_para_conclusao"
+    EQUIPE }o--o{ META : "possui_metas_vinculadas"
     USUARIO ||--o{ PREFERENCIA_NOTIFICACAO : "configura"
     USUARIO ||--o{ ALERTA_ENVIADO : "recebe"
     TAREFA ||--o{ ALERTA_ENVIADO : "gera_alerta"
@@ -2005,111 +3324,7 @@ erDiagram
     USUARIO ||--o| ANEXO : "possui_foto_perfil"
 ```
 
-### 8.2. Especificação no Padrão PlantUML Conceitual
-
-```plantuml
-@startuml
-skinparam linetype ortho
-skinparam packageStyle rectangle
-
-title Modelo Conceitual do Banco de Dados (MER) — Cortex
-
-entity "USUARIO" as Usuario {
-    * id : int <<PK>>
-    --
-    nome : string
-    email : string <<UK>>
-    senha : string
-    telefone : string
-    data_criacao : datetime
-}
-
-entity "EQUIPE" as Equipe {
-    * id : int <<PK>>
-    --
-    nome : string
-    data_criacao : datetime
-}
-
-entity "TAREFA" as Tarefa {
-    * id : int <<PK>>
-    --
-    titulo : string
-    descricao : string
-    data_vencimento : datetime
-    pontuacao : int
-    status : enum
-    prioridade : enum
-}
-
-entity "SUGESTAO" as Sugestao {
-    * id : int <<PK>>
-    --
-    descricao : string
-    data_criacao : datetime
-    status : enum
-}
-
-entity "TICKET_REPORTE" as Ticket {
-    * id : int <<PK>>
-    --
-    descricao : string
-    ativo : boolean
-    data_criacao : datetime
-}
-
-entity "META" as Meta {
-    * id : int <<PK>>
-    --
-    nome : string
-    data_fechamento : datetime
-    concluida : boolean
-}
-
-entity "ANEXO" as Anexo {
-    * id : int <<PK>>
-    --
-    url_caminho : string
-    nome_original : string
-    mime_type : string
-    data_envio : datetime
-    tipo_entidade : enum
-}
-
-entity "PREFERENCIA_NOTIFICACAO" as PrefNotif {
-    * id : int <<PK>>
-    --
-    canal : enum
-    antecedencia_horas : int
-    ativo_vencimento : boolean
-}
-
-entity "ALERTA_ENVIADO" as Alerta {
-    * id : int <<PK>>
-    --
-    canal : enum
-    enviado_em : datetime
-}
-
-' Relacionamentos
-Usuario "1" -- "0..*" Tarefa : cria >
-Usuario "0..*" -- "1..*" Equipe : participa >
-Usuario "0..*" -- "1..*" Tarefa : executa >
-Usuario "1" -- "0..*" Sugestao : submete >
-Tarefa "1" -- "0..*" Sugestao : recebe >
-Usuario "1" -- "0..*" Ticket : relata >
-Tarefa "1" -- "0..*" Ticket : vincula >
-Usuario "1" -- "0..*" Meta : define >
-Meta "0..*" -- "1..*" Tarefa : associa >
-Usuario "1" -- "0..*" PrefNotif : configura >
-Usuario "1" -- "0..*" Alerta : recebe >
-Tarefa "1" -- "0..*" Alerta : dispara >
-Tarefa "1" -- "0..*" Anexo : contém >
-Usuario "1" -- "0..1" Anexo : possui foto >
-@enduml
-```
-
-### 8.3. Tabela de Cardinalidades Conceituais e Regras Semânticas
+### 8.2. Tabela de Cardinalidades Conceituais e Regras Semânticas
 
 | Entidade Origem | Cardinalidade | Relacionamento | Cardinalidade | Entidade Destino | Regra de Negócio Associada |
 | :--- | :---: | :---: | :---: | :--- | :--- |
@@ -2119,6 +3334,7 @@ Usuario "1" -- "0..1" Anexo : possui foto >
 | **USUARIO** | $1,1$ | *submete* | $0,N$ | **SUGESTAO** | Apenas usuários atribuídos à tarefa podem emitir propostas de alteração (**RF004**, **RN14**). |
 | **TAREFA** | $1,1$ | *origina* | $0,N$ | **TICKET_REPORTE** | Canal de reporte de impedimentos vinculado à tarefa específica e roteado aos donos/administradores (**RF008**). |
 | **META** | $0,N$ | *vincula* | $1,N$ | **TAREFA** | Toda meta deve conter no mínimo uma tarefa válida (**RN07**) e é concluída quando 100% das tarefas finalizarem (**RN08**). |
+| **EQUIPE** | $0,N$ | *vincula* | $0,N$ | **META** | Donos e administradores vinculam metas às equipes via tabela associativa `MetaEquipe`. |
 | **USUARIO** | $1,1$ | *configura* | $0,N$ | **PREFERENCIA_NOTIFICACAO** | Configuração de canal (Push, E-mail, SMS) e antecedência de 1h a 168h (**RN11**). |
 | **TAREFA** | $1,1$ | *gera* | $0,N$ | **ALERTA_ENVIADO** | Registro de alertas disparados para evitar repetições retroativas (**RN12**). |
 | **USUARIO** | $1,1$ | *possui foto* | $0,1$ | **ANEXO** | Vínculo opcional de anexo para foto de perfil do usuário. |
@@ -2160,6 +3376,9 @@ erDiagram
     
     Meta ||--o{ MetaTarefa : "MetaId -> Id [CASCADE]"
     Tarefa ||--o{ MetaTarefa : "TarefaId -> Id [CASCADE]"
+    
+    Meta ||--o{ MetaEquipe : "MetaId -> Id [CASCADE]"
+    Equipe ||--o{ MetaEquipe : "EquipeId -> Id [CASCADE]"
     
     Usuario ||--o{ Anexo : "UsuarioId -> Id [CASCADE]"
     Tarefa ||--o{ Anexo : "TarefaId -> Id [CASCADE]"
@@ -2254,6 +3473,13 @@ erDiagram
         int TarefaId FK "NOT NULL"
     }
 
+    MetaEquipe {
+        int Id PK
+        int MetaId FK "NOT NULL"
+        int EquipeId FK "NOT NULL"
+        timestamptz DataVinculo "NOT NULL DEFAULT CURRENT_TIMESTAMP"
+    }
+
     Anexo {
         int Id PK
         varchar(255) UrlCaminho "NOT NULL"
@@ -2302,180 +3528,7 @@ erDiagram
     }
 ```
 
-### 9.2. Especificação no Padrão PlantUML Lógico-Relacional
-
-```plantuml
-@startuml
-skinparam linetype ortho
-skinparam roundcorner 5
-skinparam classAttributeIconSize 0
-
-title Modelo Lógico do Banco de Dados (DER) — Cortex
-
-entity "Usuario" as Usuario {
-    * Id : INTEGER <<PK>>
-    --
-    * Nome : VARCHAR(255)
-    * Email : VARCHAR(255) <<UK>>
-    * SenhaHash : VARCHAR(255)
-    Telefone : VARCHAR(20)
-    * EmailVerificado : BOOLEAN
-    CodigoVerificacaoHash : VARCHAR(255)
-    CodigoVerificacaoExpiracao : TIMESTAMPTZ
-    * DataCriacao : TIMESTAMPTZ
-}
-
-entity "Equipe" as Equipe {
-    * Id : INTEGER <<PK>>
-    --
-    * Nome : VARCHAR(255)
-    * DataCriacao : TIMESTAMPTZ
-}
-
-entity "MembroEquipe" as MembroEquipe {
-    * Id : INTEGER <<PK>>
-    --
-    * UsuarioId : INTEGER <<FK>>
-    * EquipeId : INTEGER <<FK>>
-    * Cargo : ENUM Cargo
-    * DataEntrada : TIMESTAMPTZ
-}
-
-entity "Tarefa" as Tarefa {
-    * Id : INTEGER <<PK>>
-    --
-    * Titulo : VARCHAR(255)
-    Descricao : VARCHAR(1000)
-    * DataVencimento : TIMESTAMPTZ
-    Pontuacao : INTEGER
-    * Status : ENUM Status
-    * Prioridade : ENUM Prioridade
-    * CriadorId : INTEGER <<FK>>
-}
-
-entity "ResponsavelTarefa" as ResponsavelTarefa {
-    * Id : INTEGER <<PK>>
-    --
-    * UsuarioId : INTEGER <<FK>>
-    * TarefaId : INTEGER <<FK>>
-}
-
-entity "RespostaTarefa" as RespostaTarefa {
-    * Id : INTEGER <<PK>>
-    --
-    * DataResposta : TIMESTAMPTZ
-    * UsuarioId : INTEGER <<FK>>
-    * TarefaId : INTEGER <<FK>>
-}
-
-entity "Sugestao" as Sugestao {
-    * Id : INTEGER <<PK>>
-    --
-    * Descricao : VARCHAR(1000)
-    * DataCriacao : TIMESTAMPTZ
-    * Status : ENUM StatusSugestao
-    * TarefaId : INTEGER <<FK>>
-    * UsuarioId : INTEGER <<FK>>
-}
-
-entity "TicketReporte" as TicketReporte {
-    * Id : INTEGER <<PK>>
-    --
-    * Descricao : VARCHAR(1000)
-    * Ativo : BOOLEAN
-    * DataCriacao : TIMESTAMPTZ
-    * TarefaId : INTEGER <<FK>>
-    * UsuarioId : INTEGER <<FK>>
-}
-
-entity "Meta" as Meta {
-    * Id : INTEGER <<PK>>
-    --
-    * Nome : VARCHAR(255)
-    DataFechamento : TIMESTAMPTZ
-    * Concluida : BOOLEAN
-    * TarefaId : INTEGER <<FK>>
-    * UsuarioId : INTEGER <<FK>>
-}
-
-entity "MetaTarefa" as MetaTarefa {
-    * Id : INTEGER <<PK>>
-    --
-    * MetaId : INTEGER <<FK>>
-    * TarefaId : INTEGER <<FK>>
-}
-
-entity "Anexo" as Anexo {
-    * Id : INTEGER <<PK>>
-    --
-    * UrlCaminho : VARCHAR(255)
-    * NomeOriginal : VARCHAR(255)
-    * MimeType : VARCHAR(100)
-    * DataEnvio : TIMESTAMPTZ
-    * TipoEntidade : ENUM TipoEntidade
-    UsuarioId : INTEGER <<FK>>
-    TarefaId : INTEGER <<FK>>
-    RespostaTarefaId : INTEGER <<FK>>
-}
-
-entity "PreferenciaNotificacao" as PreferenciaNotificacao {
-    * Id : INTEGER <<PK>>
-    --
-    * UsuarioId : INTEGER <<FK>>
-    * Canal : ENUM CanalNotificacao
-    * AntecedenciaHoras : INTEGER
-    * AtivoNovaAtribuicao : BOOLEAN
-    * AtivoVencimento : BOOLEAN
-    * AtivoConclusaoMeta : BOOLEAN
-    * AtivoTicket : BOOLEAN
-    * Tema : VARCHAR(20)
-    * AltoContraste : BOOLEAN
-    * TamanhoFonte : INTEGER
-}
-
-entity "AlertaEnviado" as AlertaEnviado {
-    * Id : INTEGER <<PK>>
-    --
-    * UsuarioId : INTEGER <<FK>>
-    * TarefaId : INTEGER <<FK>>
-    * Canal : ENUM CanalNotificacao
-    * EnviadoEm : TIMESTAMPTZ
-}
-
-' Relações com Cardinalidade
-Usuario ||--o{ Tarefa : "CriadorId"
-Usuario ||--o{ MembroEquipe : "UsuarioId"
-Equipe ||--o{ MembroEquipe : "EquipeId"
-
-Usuario ||--o{ ResponsavelTarefa : "UsuarioId"
-Tarefa ||--o{ ResponsavelTarefa : "TarefaId"
-
-Usuario ||--o{ RespostaTarefa : "UsuarioId"
-Tarefa ||--o{ RespostaTarefa : "TarefaId"
-
-Usuario ||--o{ Sugestao : "UsuarioId"
-Tarefa ||--o{ Sugestao : "TarefaId"
-
-Usuario ||--o{ TicketReporte : "UsuarioId"
-Tarefa ||--o{ TicketReporte : "TarefaId"
-
-Usuario ||--o{ Meta : "UsuarioId"
-Tarefa ||--o{ Meta : "TarefaId"
-
-Meta ||--o{ MetaTarefa : "MetaId"
-Tarefa ||--o{ MetaTarefa : "TarefaId"
-
-Usuario ||--o{ Anexo : "UsuarioId"
-Tarefa ||--o{ Anexo : "TarefaId"
-RespostaTarefa ||--o{ Anexo : "RespostaTarefaId"
-
-Usuario ||--o{ PreferenciaNotificacao : "UsuarioId"
-Usuario ||--o{ AlertaEnviado : "UsuarioId"
-Tarefa ||--o{ AlertaEnviado : "TarefaId"
-@enduml
-```
-
-### 9.3. Integridade Referencial e Estratégia de Deleção
+### 9.2. Integridade Referencial e Estratégia de Deleção
 
 | Tabela Filha | Chave Estrangeira (FK) | Tabela Pai | Ação ON DELETE | Justificativa de Negócio e Segurança |
 | :--- | :--- | :--- | :---: | :--- |
@@ -2487,6 +3540,7 @@ Tarefa ||--o{ AlertaEnviado : "TarefaId"
 | `TicketReporte` | `UsuarioId`, `TarefaId` | `Usuario(Id)`, `Tarefa(Id)` | **`NO ACTION`** | **RNF05 (Auditoria)**: Tickets de reporte a superiores são registros formais de auditoria e não podem ser apagados silenciosamente em cascata. |
 | `Meta` | `UsuarioId`, `TarefaId` | `Usuario(Id)`, `Tarefa(Id)` | `CASCADE` | Metas vinculadas acompanham a integridade do seu proprietário e tarefa base. |
 | `MetaTarefa` | `MetaId`, `TarefaId` | `Meta(Id)`, `Tarefa(Id)` | `CASCADE` | Vínculos N:N mantidos em sincronia automática. |
+| `MetaEquipe` | `MetaId`, `EquipeId` | `Meta(Id)`, `Equipe(Id)` | `CASCADE` | Vínculos associativos N:N com equipes mantidos em sincronia automática. |
 | `Anexo` | `UsuarioId`, `TarefaId`, `RespostaTarefaId` | Tabelas de vínculo | `CASCADE` | Quando a entidade de origem é excluída, os metadados do anexo são deletados (com limpeza do arquivo físico em `wwwroot/uploads`). |
 | `Notificacao` | `UsuarioId` | `Usuario(Id)` | `CASCADE` | Notificações in-app expurgadas caso o usuário encerre sua conta. |
 | `Notificacao` | `TarefaId` | `Tarefa(Id)` | `SET NULL` | A notificação é mantida no histórico mesmo se a tarefa associada for excluída. |
@@ -2495,7 +3549,7 @@ Tarefa ||--o{ AlertaEnviado : "TarefaId"
 
 ---
 
-### 9.4. Visões do Modelo Lógico por Subdomínio
+### 9.3. Visões do Modelo Lógico por Subdomínio
 
 Para facilitar a leitura e inspeção modular do banco de dados, o modelo lógico é subdividido em quatro recortes contextuais correspondentes aos principais fluxos de negócio do sistema:
 
@@ -2601,8 +3655,8 @@ erDiagram
     }
 ```
 
-#### Subdomínio 3: Gamificação e Metas
-Mapeia o relacionamento $N:N$ entre Metas e múltiplas Tarefas via tabela associativa `MetaTarefa`, controlando os prazos limites de 12 meses (**RN15**) e a conclusão automática calculada (**RN08**).
+#### Subdomínio 3: Gamificação, Metas e Equipes
+Mapeia o relacionamento $N:N$ entre Metas e múltiplas Tarefas via tabela associativa `MetaTarefa`, a vinculação e compartilhamento de Metas com Equipes via `MetaEquipe` (permitindo a atribuição a integrantes por donos e admins), os prazos limites de 12 meses (**RN15**) e a conclusão automática calculada (**RN08**).
 
 ```mermaid
 erDiagram
@@ -2610,11 +3664,18 @@ erDiagram
     Tarefa ||--o{ Meta : "tarefa_base (TarefaId)"
     Meta ||--o{ MetaTarefa : "contem (MetaId)"
     Tarefa ||--o{ MetaTarefa : "vinculada (TarefaId)"
+    Meta ||--o{ MetaEquipe : "atribuida_a (MetaId)"
+    Equipe ||--o{ MetaEquipe : "recebe (EquipeId)"
 
     Usuario {
         int Id PK "Identificador único"
         varchar(255) Nome "NOT NULL"
         varchar(255) Email UK "NOT NULL"
+    }
+
+    Equipe {
+        int Id PK "Identificador único"
+        varchar(255) Nome "NOT NULL"
     }
 
     Tarefa {
@@ -2637,6 +3698,13 @@ erDiagram
         int Id PK "Identificador associativo N:N"
         int MetaId FK "NOT NULL (Meta.Id)"
         int TarefaId FK "NOT NULL (Tarefa.Id)"
+    }
+
+    MetaEquipe {
+        int Id PK "Identificador associativo N:N"
+        int MetaId FK "NOT NULL (Meta.Id)"
+        int EquipeId FK "NOT NULL (Equipe.Id)"
+        timestamptz DataVinculo "NOT NULL DEFAULT CURRENT_TIMESTAMP"
     }
 ```
 
@@ -2898,7 +3966,24 @@ Central de notificações in-app persistidas no PostgreSQL para alimentação do
 
 ---
 
-### 10.15. Tipos Enumerados Customizados do PostgreSQL (ENUMs)
+### 10.15. Tabela: `MetaEquipe`
+Tabela associativa que gerencia a vinculação e atribuição de metas a equipes e seus integrantes por donos e administradores.
+
+| Coluna | Tipo PostgreSQL | Chave | Nulo? | Padrão | Descrição & Regras de Negócio |
+| :--- | :--- | :---: | :---: | :---: | :--- |
+| `Id` | `INTEGER` | **PK** | NÃO | `IDENTITY` | Identificador único primário do vínculo da meta com a equipe. |
+| `MetaId` | `INTEGER` | **FK** | NÃO | - | Referência à tabela `Meta(Id)`. Exclusão em cascata (**CASCADE**). |
+| `EquipeId` | `INTEGER` | **FK** | NÃO | - | Referência à tabela `Equipe(Id)`. Exclusão em cascata (**CASCADE**). |
+| `DataVinculo` | `TIMESTAMPTZ` | - | NÃO | `CURRENT_TIMESTAMP` | Timestamp UTC do momento da vinculação da meta à equipe. |
+
+> **Índices de Performance:**
+> - `IX_MetaEquipe_MetaId` (`MetaId`) para busca rápida de equipes vinculadas à meta.
+> - `IX_MetaEquipe_EquipeId` (`EquipeId`) para consulta eficiente de metas atribuídas a uma equipe.
+> - `IX_MetaEquipe_MetaId_EquipeId` (`MetaId`, `EquipeId`) para garantia de integridade e consultas compostas.
+
+---
+
+### 10.16. Tipos Enumerados Customizados do PostgreSQL (ENUMs)
 
 O Cortex utiliza tipos `ENUM` nativos registrados no banco de dados via driver `Npgsql` para assegurar integridade de domínio estrita no nível de banco:
 
@@ -2915,18 +4000,6 @@ O Cortex utiliza tipos `ENUM` nativos registrados no banco de dados via driver `
 
 ## 11. Ferramentas Utilizadas
 
-Para o desenvolvimento deste sistema e ecossistema de aplicação, foram utilizadas ferramentas nas quais melhor atenderam às necessidades de arquitetura para que a solução funcione com alta performance, responsividade e estabilidade tanto no formato web para computadores quanto no acesso mobile em smartphones e tablets, garantindo fácil interoperabilidade, segurança e compatibilidade entre plataformas. Visando esta facilidade de adaptação de ambientes, alta produtividade no desenvolvimento de interfaces e solidez transacional corporativa, as tecnologias **Next.js / React** no front-end, **.NET 10 / ASP.NET Core** no back-end e **PostgreSQL** para o armazenamento de dados foram as mais indicadas.
-
-O **Next.js**[^1] se trata de uma estrutura e framework web de código aberto, baseado na biblioteca **React**[^2] (criada originalmente pela Meta/Facebook), que possui como objetivo o desenvolvimento de interfaces de usuário reativas, modulares e de alto desempenho. Alguns dos maiores atrativos em utilizar esta tecnologia residem na economia de recursos e agilidade de entrega para as equipes, visto que ela permite a construção de aplicações com renderização híbrida (Server-Side Rendering — SSR e Client-Side Rendering — CSR), resultando em tempos de carregamento mínimos e alta fidelidade visual em qualquer dispositivo (desktops, tablets e dispositivos móveis). Por ser fundamentado no ecossistema de **TypeScript**[^3] e JavaScript[^4], permitiu que desenvolvedores front-end realizassem a criação de fluxos de telas responsivas e componentes visuais ricos de forma mais rápida, tipada e com fácil integração assíncrona às APIs REST disponibilizadas pelo servidor.
-
-Já o **.NET 10 / ASP.NET Core**[^5] se trata de uma plataforma moderna de código aberto e ambiente de execução de alto desempenho mantido pela Microsoft, que permite que o código escrito em **C#**[^6] seja executado no lado do servidor para a construção de Web APIs robustas e microsserviços. Diferente de soluções puramente interpretadas, o compilador e o runtime do .NET oferecem tipagem estática rigorosa, gerenciamento de memória otimizado e processamento assíncrono nativo (`async/await`), permitindo que a aplicação back-end funcione de maneira autônoma (*standalone*) como um serviço de alta concorrência via servidor HTTP Kestrel, sem necessidade de servidores legados pesados. Essa infraestrutura permitiu centralizar com máxima segurança e isolamento as regras de negócio complexas do sistema, como auditoria detalhada via Serilog, controle de acessos RBAC em equipes, envio de notificações assíncronas multicanal e cálculo de tarefas em segundo plano (*Background Services*).
-
-Conforme mencionado anteriormente, o armazenamento de dados ficou a cargo do banco de dados relacional **PostgreSQL**[^7], devido à sua comprovada confiabilidade, conformidade estrita com as propriedades ACID (Atomicidade, Consistência, Isolamento e Durabilidade), alto desempenho sob concorrência e robustez para o armazenamento seguro dos dados. No projeto Cortex, o PostgreSQL destaca-se adicionalmente pelo suporte nativo a tipos enumerados customizados (`ENUM`), garantindo que regras de integridade (como status de tarefas, níveis de prioridade e cargos de equipe) sejam validadas e asseguradas diretamente no motor do banco de dados, impedindo qualquer estado inconsistente.
-
-Como camada de abstração entre a aplicação back-end e o banco de dados, utilizou-se o **Entity Framework Core 10 (EF Core)**[^8] em conjunto com o provedor **Npgsql**[^9]. O EF Core viabiliza o mapeamento objeto-relacional (ORM) fluente, traduzindo classes e consultas LINQ tipadas do C# em instruções SQL altamente otimizadas, controlando migrações de esquema versionadas (*Migrations*) e prevenindo vulnerabilidades de injeção de SQL (*SQL Injection*). Para autenticação e segurança de tráfego, foram empregados **JWT (JSON Web Tokens)** trafegados em cookies seguros com a flag `HttpOnly` e a biblioteca **BCrypt.Net**[^10] para dispersão criptográfica irreversível (*hashing*) de senhas com *salt* dinâmico.
-
-No que tange à segurança e governança de dados, o ecossistema do Cortex foi concebido em estrita conformidade com os princípios da **Lei Geral de Proteção de Dados Pessoais (LGPD — Lei nº 13.709/2018)**[^11]. Em atendimento aos preceitos de **segurança**, **confidencialidade** e **necessidade** (Art. 6º da LGPD), o sistema implementa medidas técnicas e administrativas robustas para salvaguardar os dados dos titulares: minimização da coleta cadastral ao estritamente essencial para a prestação do serviço (nome, e-mail e telefone), proteção criptográfica contra vazamentos (senhas salgadas e hasheadas sem armazenamento em texto plano), transporte seguro de credenciais via HTTPS/TLS e segregação de acessos por controle baseado em papéis (RBAC). Ademais, alinhando-se ao princípio da **prestação de contas e responsabilização** (*accountability*), o registro de logs estruturados com Serilog viabiliza trilhas de auditoria para operações críticas sem persistir dados sensíveis ou informações protegidas em texto puro, mitigando vulnerabilidades e assegurando total rastreabilidade transacional.
-
 ### Tabela Síntese das Ferramentas e Tecnologias
 
 | Camada / Função | Ferramenta / Tecnologia | Versão Utilizada | Papel e Justificativa no Projeto Cortex |
@@ -2941,17 +4014,5 @@ No que tange à segurança e governança de dados, o ecossistema do Cortex foi c
 | **Logging & Auditoria** | `Serilog` | 10.0.0 | Registro estruturado em JSON com rotação diária para monitoramento e auditoria de ações críticas (**RNF05**). |
 
 ---
-
-[^1]: **Next.js** – Site oficial: https://nextjs.org/ — Acesso em: 28 out. 2026.  
-[^2]: **React** – Site oficial: https://react.dev/ — Acesso em: 28 out. 2026.  
-[^3]: **TypeScript** – Site oficial: https://www.typescriptlang.org/ — Acesso em: 28 out. 2026.  
-[^4]: **JavaScript** – Documentação oficial MDN: https://developer.mozilla.org/pt-BR/docs/Web/JavaScript — Acesso em: 28 out. 2026.  
-[^5]: **ASP.NET Core / .NET** – Site oficial da Microsoft: https://dotnet.microsoft.com/ — Acesso em: 28 out. 2026.  
-[^6]: **Documentação da Linguagem C#** – Site oficial da Microsoft: https://learn.microsoft.com/dotnet/csharp/ — Acesso em: 28 out. 2026.  
-[^7]: **PostgreSQL** – Site oficial: https://www.postgresql.org/ — Acesso em: 28 out. 2026.  
-[^8]: **Entity Framework Core** – Documentação oficial: https://learn.microsoft.com/ef/core/ — Acesso em: 28 out. 2026.  
-[^9]: **Npgsql (PostgreSQL provider for .NET)** – Site oficial: https://www.npgsql.org/ — Acesso em: 28 out. 2026.  
-[^10]: **BCrypt.Net-Next** – Repositório e documentação oficial: https://github.com/BcryptNet/bcrypt.net — Acesso em: 28 out. 2026.  
-[^11]: **Brasil. Lei nº 13.709, de 14 de agosto de 2018** – Lei Geral de Proteção de Dados Pessoais (LGPD). Diário Oficial da União: Brasília, DF. Disponível em: https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm — Acesso em: 28 out. 2026.
 
 
