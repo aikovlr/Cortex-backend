@@ -1,11 +1,22 @@
 using Cortex.DTOs.Request;
 using Cortex.DTOs.Response;
 using Cortex.Entities;
+using Cortex.Entities.ENUMS;
 
 namespace Cortex.Services.Interfaces
 {
     public interface INotificacaoService
     {
+        // Orquestrador Central de Notificações
+        Task<NotificacaoDTO> NotificarAsync(
+            TipoEventoNotificacao evento,
+            int usuarioId,
+            string titulo,
+            string mensagem,
+            string? link = null,
+            bool destaque = false,
+            int? tarefaId = null);
+
         Task<bool> EnviarNotificacaoAsync(int usuarioId, CanalNotificacao canal, string assunto, string mensagem);
         Task<PreferenciaNotificacaoDTO> ConfigurarPreferenciasAsync(int usuarioId, ConfigurarPreferenciaDTO dto);
         Task<IEnumerable<PreferenciaNotificacaoDTO>> ObterPreferenciasAsync(int usuarioId);

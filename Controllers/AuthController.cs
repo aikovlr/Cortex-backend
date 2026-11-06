@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Cortex.DTOs;
 using Cortex.DTOs.Request;
 using Cortex.DTOs.Response;
+using Cortex.Infra.Gateways;
 using Cortex.Repositories.Interface;
 using Cortex.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -20,6 +21,7 @@ namespace Cortex.Controllers
         private readonly ITokenService _tokenService;
         private readonly IVerificacaoEmailService _verificacaoEmailService;
         private readonly IEmailGateway _emailGateway;
+        private readonly IEmailTemplateService _emailTemplateService;
         private readonly ILogger<AuthController> _logger;
         private readonly IConfiguration _configuration;
 
@@ -29,6 +31,7 @@ namespace Cortex.Controllers
             ITokenService tokenService,
             IVerificacaoEmailService verificacaoEmailService,
             IEmailGateway emailGateway,
+            IEmailTemplateService emailTemplateService,
             ILogger<AuthController> logger,
             IConfiguration configuration)
         {
@@ -37,6 +40,7 @@ namespace Cortex.Controllers
             _tokenService = tokenService;
             _verificacaoEmailService = verificacaoEmailService;
             _emailGateway = emailGateway;
+            _emailTemplateService = emailTemplateService;
             _logger = logger;
             _configuration = configuration;
         }
@@ -84,7 +88,8 @@ namespace Cortex.Controllers
 
                 // Gera novo código válido por 15 minutos e envia por e-mail / exibe no console para dev
                 var codigo = await _verificacaoEmailService.GerarEArmazenarCodigoAsync(usuario.Id);
-                await _emailGateway.EnviarEmailAsync(usuario.Email, "Verificação de e-mail - Cortex", $"Seu código de verificação é: {codigo}");
+                var emailMsg = _emailTemplateService.GerarCodigoVerificacao(usuario.Email, usuario.Nome, codigo, 15);
+                await _emailGateway.EnviarAsync(emailMsg);
 
                 var problem = new ProblemDetails
                 {
@@ -93,7 +98,6 @@ namespace Cortex.Controllers
                     Detail = "O seu e-mail ainda não foi verificado. Por favor, confirme o código de 6 dígitos enviado para seu e-mail.",
                     Instance = HttpContext.Request.Path
                 };
-                problem.Extensions["codigoDev"] = codigo;
                 problem.Extensions["expiraEmMinutos"] = 15;
                 problem.Extensions["email"] = usuario.Email;
 
@@ -175,32 +179,27 @@ namespace Cortex.Controllers
 
         [HttpPost("esqueci-senha")]
         [AllowAnonymous]
-        [EnableRateLimiting("verificacao-email-policy")]
+        [EnableRateLimiting("esqueci-senha-policy")]
         public async Task<IActionResult> EsqueciSenha([FromBody] SolicitarRedefinicaoSenhaDTO dto)
         {
-            var usuario = await _usuarioRepository.ObterUsuarioPorEmailAsync(dto.Email);
-            if (usuario == null)
-            {
-                // Resposta genérica para evitar enumeração de usuários
-                return Ok(new { message = "Se o e-mail informado estiver cadastrado, um código de recuperação foi enviado." });
-            }
+            await _usuarioService.SolicitarRedefinicaoSenhaAsync(dto.Email);
 
-            var codigo = await _verificacaoEmailService.GerarEArmazenarCodigoAsync(usuario.Id);
-            await _emailGateway.EnviarEmailAsync(dto.Email, "Recuperação de Senha - Cortex", $"Seu código para redefinição de senha é: {codigo}");
+            _logger.LogInformation("Solicitação de redefinição de senha processada para {Email}",
+                LogEmailGateway.MascararEmail(dto.Email));
 
-            _logger.LogInformation("Código de recuperação de senha enviado para UsuarioId {UserId}", usuario.Id);
-
+            // Resposta idêntica sempre para evitar enumeração de usuários
             return Ok(new { message = "Se o e-mail informado estiver cadastrado, um código de recuperação foi enviado." });
         }
 
         [HttpPost("redefinir-senha")]
         [AllowAnonymous]
-        [EnableRateLimiting("login-policy")]
+        [EnableRateLimiting("redefinir-senha-policy")]
         public async Task<IActionResult> RedefinirSenha([FromBody] RedefinirSenhaDTO dto)
         {
             await _usuarioService.RedefinirSenhaComCodigoAsync(dto.Email, dto.Codigo, dto.NovaSenha);
 
-            _logger.LogInformation("Senha redefinida com sucesso para o e-mail {Email}", dto.Email);
+            _logger.LogInformation("Senha redefinida com sucesso para o e-mail {Email}",
+                LogEmailGateway.MascararEmail(dto.Email));
 
             return Ok(new { message = "Senha redefinida com sucesso. Você já pode fazer login com a nova senha." });
         }
@@ -215,12 +214,12 @@ namespace Cortex.Controllers
                 return Ok(new { message = "Se o e-mail existir, um código foi enviado." });
 
             var codigo = await _verificacaoEmailService.GerarEArmazenarCodigoAsync(usuario.Id);
-            await _emailGateway.EnviarEmailAsync(dto.Email, "Verificação de e-mail", $"Seu código: {codigo}");
+            var emailMsg = _emailTemplateService.GerarCodigoVerificacao(usuario.Email, usuario.Nome, codigo, 15);
+            await _emailGateway.EnviarAsync(emailMsg);
 
             return Ok(new 
             { 
                 message = "Código de verificação enviado com sucesso.",
-                codigoDev = codigo,
                 expiraEmMinutos = 15
             });
         }

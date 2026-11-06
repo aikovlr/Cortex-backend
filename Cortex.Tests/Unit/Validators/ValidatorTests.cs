@@ -95,5 +95,51 @@ namespace Cortex.Tests.Unit.Validators
             Assert.False(resultado.IsValid);
             Assert.Contains(resultado.Errors, e => e.PropertyName == "DataVencimento");
         }
+
+        [Theory]
+        [InlineData("usuario@dominio.com", true)]
+        [InlineData("usuario.sobrenome@empresa.com.br", true)]
+        [InlineData("dev@cortex.io", true)]
+        [InlineData("invalido@", false)]
+        [InlineData("invalido@dominio", false)]
+        [InlineData("invalido@dominio.", false)]
+        [InlineData("invalido@.com", false)]
+        [InlineData("@dominio.com", false)]
+        [InlineData("sem_arroba.com", false)]
+        public void CriarUsuario_ValidacaoEmailEstrito(string email, bool esperadaValida)
+        {
+            var validator = new CriarUsuarioValidator();
+            var dto = new CriarUsuarioDTO
+            {
+                Nome = "Teste",
+                Email = email,
+                Senha = "SenhaForte123!@"
+            };
+
+            var resultado = validator.Validate(dto);
+            Assert.Equal(esperadaValida, resultado.IsValid);
+        }
+
+        [Theory]
+        [InlineData("+55 (11) 98765-4321", true)]
+        [InlineData("11987654321", true)]
+        [InlineData("+1 202-555-0143", true)]
+        [InlineData("abc-def", false)]
+        [InlineData("123", false)] // Menos de 8 dígitos
+        [InlineData("123456789012345678", false)] // Mais de 15 dígitos
+        public void CriarUsuario_ValidacaoTelefone(string telefone, bool esperadaValida)
+        {
+            var validator = new CriarUsuarioValidator();
+            var dto = new CriarUsuarioDTO
+            {
+                Nome = "Teste",
+                Email = "teste@exemplo.com",
+                Senha = "SenhaForte123!@",
+                Telefone = telefone
+            };
+
+            var resultado = validator.Validate(dto);
+            Assert.Equal(esperadaValida, resultado.IsValid);
+        }
     }
 }

@@ -1,3 +1,4 @@
+using Cortex.DTOs;
 using Cortex.Services.Interfaces;
 
 namespace Cortex.Infra.Gateways
@@ -11,12 +12,24 @@ namespace Cortex.Infra.Gateways
             _logger = logger;
         }
 
-        public Task<bool> EnviarEmailAsync(string destinatario, string assunto, string mensagemCorpo)
+        public Task<bool> EnviarAsync(EmailMensagem mensagem, CancellationToken ct = default)
         {
-            _logger.LogInformation("[GATEWAY EMAIL STUB] Para: {Destinatario} | Assunto: '{Assunto}' | Conteúdo: {Corpo}",
-                destinatario, assunto, mensagemCorpo);
+            var emailMascarado = LogEmailGateway.MascararEmail(mensagem.Destinatario);
+            _logger.LogInformation("[GATEWAY EMAIL STUB] Para: {Destinatario} | Assunto: '{Assunto}'",
+                emailMascarado, mensagem.Assunto);
 
             return Task.FromResult(true);
+        }
+
+        public Task<bool> EnviarEmailAsync(string destinatario, string assunto, string mensagemCorpo)
+        {
+            return EnviarAsync(new EmailMensagem
+            {
+                Destinatario = destinatario,
+                Assunto = assunto,
+                CorpoHtml = $"<p>{mensagemCorpo}</p>",
+                CorpoTexto = mensagemCorpo
+            });
         }
     }
 }

@@ -1,6 +1,8 @@
+using Cortex.DTOs;
 using Cortex.DTOs.Request;
 using Cortex.DTOs.Response;
 using Cortex.Entities;
+using Cortex.Entities.ENUMS;
 using Cortex.Repositories.Interface;
 using Cortex.Services.Interfaces;
 
@@ -16,6 +18,8 @@ namespace Cortex.Services.Implementations
         private readonly IEmailGateway _emailGateway;
         private readonly IPushGateway _pushGateway;
         private readonly ISmsGateway _smsGateway;
+        private readonly INotificacaoQueue _notificacaoQueue;
+        private readonly IEmailTemplateService _emailTemplateService;
         private readonly ILogger<NotificacaoService> _logger;
 
         public NotificacaoService(
@@ -27,6 +31,8 @@ namespace Cortex.Services.Implementations
             IEmailGateway emailGateway,
             IPushGateway pushGateway,
             ISmsGateway smsGateway,
+            INotificacaoQueue notificacaoQueue,
+            IEmailTemplateService emailTemplateService,
             ILogger<NotificacaoService> logger)
         {
             _preferenciaRepository = preferenciaRepository;
@@ -37,7 +43,139 @@ namespace Cortex.Services.Implementations
             _emailGateway = emailGateway;
             _pushGateway = pushGateway;
             _smsGateway = smsGateway;
+            _notificacaoQueue = notificacaoQueue;
+            _emailTemplateService = emailTemplateService;
             _logger = logger;
+        }
+
+        // ==========================================
+        // Orquestrador Central de Notificações
+        // ==========================================
+
+        public async Task<NotificacaoDTO> NotificarAsync(
+            TipoEventoNotificacao evento,
+            int usuarioId,
+            string titulo,
+            string mensagem,
+            string? link = null,
+            bool destaque = false,
+            int? tarefaId = null)
+        {
+            var tipoString = ConverterEventoParaTipoString(evento);
+
+            // 1. Sempre persiste a notificação in-app (RF009)
+            var notificacaoDto = await SalvarNotificacaoInAppAsync(usuarioId, tipoString, titulo, mensagem, link ?? string.Empty, destaque, tarefaId);
+
+            var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(usuarioId);
+            if (usuario == null)
+            {
+                _logger.LogWarning("Tentativa de envio externo de notificação para usuário inexistente: {UsuarioId}", usuarioId);
+                return notificacaoDto;
+            }
+
+            // 2. Consulta preferências do usuário para despachar nos canais externos
+            var preferencias = (await _preferenciaRepository.ObterPorUsuarioAsync(usuarioId)).ToList();
+            var canais = Enum.GetValues<CanalNotificacao>();
+            var agoraUtc = DateTime.UtcNow;
+
+            foreach (var canal in canais)
+            {
+                var pref = preferencias.FirstOrDefault(p => p.Canal == canal);
+                var ativo = IsCanalAtivoParaEvento(pref, evento);
+                if (!ativo) continue;
+
+                // RN17: Deduplicação para eventos de vencimento com tarefa vinculada
+                if (evento == TipoEventoNotificacao.Vencimento && tarefaId.HasValue)
+                {
+                    var antecedencia = pref?.AntecedenciaHoras ?? 24;
+                    var jaEnviado = await _alertaEnviadoRepository.ExisteAlertaEnviadoAsync(
+                        usuarioId, tarefaId.Value, canal, agoraUtc.AddHours(-antecedencia));
+
+                    if (jaEnviado)
+                    {
+                        _logger.LogInformation(
+                            "[ORQUESTRADOR] Alerta de vencimento já enviado na janela para UsuarioId {UsuarioId}, TarefaId {TarefaId}, Canal {Canal}. Suprimindo duplicata.",
+                            usuarioId, tarefaId.Value, canal);
+                        continue;
+                    }
+                }
+
+                // Despacho por canal
+                switch (canal)
+                {
+                    case CanalNotificacao.Email:
+                        // RN12: Só envia por e-mail se o usuário estiver com o e-mail verificado
+                        if (!usuario.EmailVerificado)
+                        {
+                            _logger.LogInformation(
+                                "[ORQUESTRADOR] Disparo de e-mail suprimido para UsuarioId {UsuarioId}: e-mail não verificado (RN12).",
+                                usuarioId);
+                            break;
+                        }
+
+                        var emailMsg = _emailTemplateService?.GerarNotificacaoEvento(
+                            usuario.Email, usuario.Nome, tipoString, titulo, mensagem, link);
+
+                        if (_notificacaoQueue != null)
+                        {
+                            await _notificacaoQueue.EnfileirarAsync(new NotificacaoDespacho
+                            {
+                                Canal = CanalNotificacao.Email,
+                                UsuarioId = usuarioId,
+                                TarefaId = tarefaId,
+                                Destinatario = usuario.Email,
+                                NomeDestinatario = usuario.Nome,
+                                Assunto = emailMsg?.Assunto ?? titulo,
+                                MensagemHtml = emailMsg?.CorpoHtml,
+                                MensagemTexto = emailMsg?.CorpoTexto ?? mensagem,
+                                TipoEvento = tipoString
+                            });
+                        }
+                        break;
+
+                    case CanalNotificacao.Push:
+                        if (_notificacaoQueue != null)
+                        {
+                            await _notificacaoQueue.EnfileirarAsync(new NotificacaoDespacho
+                            {
+                                Canal = CanalNotificacao.Push,
+                                UsuarioId = usuarioId,
+                                TarefaId = tarefaId,
+                                Destinatario = usuario.Id.ToString(),
+                                NomeDestinatario = usuario.Nome,
+                                Assunto = titulo,
+                                MensagemTexto = mensagem,
+                                TipoEvento = tipoString
+                            });
+                        }
+                        break;
+
+                    case CanalNotificacao.Sms:
+                        if (string.IsNullOrWhiteSpace(usuario.Telefone))
+                        {
+                            _logger.LogDebug("[ORQUESTRADOR] Disparo de SMS ignorado para UsuarioId {UsuarioId}: telefone não cadastrado.", usuarioId);
+                            break;
+                        }
+
+                        if (_notificacaoQueue != null)
+                        {
+                            await _notificacaoQueue.EnfileirarAsync(new NotificacaoDespacho
+                            {
+                                Canal = CanalNotificacao.Sms,
+                                UsuarioId = usuarioId,
+                                TarefaId = tarefaId,
+                                Destinatario = usuario.Telefone,
+                                NomeDestinatario = usuario.Nome,
+                                Assunto = titulo,
+                                MensagemTexto = mensagem,
+                                TipoEvento = tipoString
+                            });
+                        }
+                        break;
+                }
+            }
+
+            return notificacaoDto;
         }
 
         public async Task<bool> EnviarNotificacaoAsync(int usuarioId, CanalNotificacao canal, string assunto, string mensagem)
@@ -52,10 +190,10 @@ namespace Cortex.Services.Implementations
             switch (canal)
             {
                 case CanalNotificacao.Email:
-                    // RN13: O envio de notificações por e-mail só pode ser ativado caso o e-mail do usuário esteja verificado/confirmado
+                    // RN12/RN13: O envio de notificações por e-mail só pode ser ativado caso o e-mail do usuário esteja verificado
                     if (!usuario.EmailVerificado)
                     {
-                        _logger.LogWarning("Envio de e-mail bloqueado para UsuarioId {UsuarioId}: e-mail não confirmado (RN13).", usuarioId);
+                        _logger.LogWarning("Envio de e-mail bloqueado para UsuarioId {UsuarioId}: e-mail não confirmado (RN12).", usuarioId);
                         return false;
                     }
                     return await _emailGateway.EnviarEmailAsync(usuario.Email, assunto, mensagem);
@@ -88,7 +226,7 @@ namespace Cortex.Services.Implementations
                 throw new ArgumentException("A antecedência para disparo de notificações deve ser configurada entre 1 hora e 7 dias (1 a 168 horas).");
             }
 
-            // RN13: Bloquear ativação por e-mail se e-mail não verificado
+            // RN12/RN13: Bloquear ativação por e-mail se e-mail não verificado
             if (dto.Canal == CanalNotificacao.Email && !usuario.EmailVerificado)
             {
                 var algumaAtiva = dto.AtivoNovaAtribuicao || dto.AtivoVencimento || dto.AtivoConclusaoMeta || dto.AtivoTicket;
@@ -236,10 +374,7 @@ namespace Cortex.Services.Implementations
         public async Task<int> ProcessarAlertasVencimentoAsync()
         {
             var agoraUtc = DateTime.UtcNow;
-
-            // Busca tarefas pendentes que ainda não venceram (RN12: descartar expiradas)
             var tarefasPendentes = await _tarefaRepository.ObterTarefasPendentesAVencerAsync(agoraUtc);
-
             var alertasDisparados = 0;
 
             foreach (var tarefa in tarefasPendentes)
@@ -248,36 +383,42 @@ namespace Cortex.Services.Implementations
 
                 foreach (var usuarioId in responsaveisIds)
                 {
-                    var preferencias = await ObterPreferenciasAsync(usuarioId);
+                    var preferencias = (await ObterPreferenciasAsync(usuarioId)).ToList();
 
                     foreach (var pref in preferencias.Where(p => p.AtivoVencimento))
                     {
                         var janelaAlerta = agoraUtc.AddHours(pref.AntecedenciaHoras);
 
-                        // Se a data de vencimento está dentro da janela de antecedência configurada
                         if (tarefa.DataVencimento <= janelaAlerta)
                         {
-                            var jaEnviado = await _alertaEnviadoRepository
-                                .ExisteAlertaEnviadoAsync(usuarioId, tarefa.Id, pref.Canal, agoraUtc.AddHours(-pref.AntecedenciaHoras));
+                            var jaEnviado = await _alertaEnviadoRepository.ExisteAlertaEnviadoAsync(
+                                usuarioId, tarefa.Id, pref.Canal, agoraUtc.AddHours(-pref.AntecedenciaHoras));
 
-                            if (!jaEnviado)
+                            if (jaEnviado)
                             {
-                                var assunto = $"Alerta de Vencimento: Tarefa '{tarefa.Titulo}'";
-                                var mensagem = $"Olá! A tarefa '{tarefa.Titulo}' está próxima do vencimento ({tarefa.DataVencimento:dd/MM/yyyy HH:mm} UTC).";
+                                continue;
+                            }
 
-                                var enviado = await EnviarNotificacaoAsync(usuarioId, pref.Canal, assunto, mensagem);
-                                if (enviado)
-                                {
-                                    await _alertaEnviadoRepository.RegistrarAsync(usuarioId, tarefa.Id, pref.Canal);
-                                    alertasDisparados++;
-                                }
+                            var assunto = $"Alerta de Vencimento: Tarefa '{tarefa.Titulo}'";
+                            var mensagem = $"Atenção: A tarefa '{tarefa.Titulo}' está próxima do vencimento ({tarefa.DataVencimento:dd/MM/yyyy HH:mm} UTC).";
+                            var link = $"/minhas-tarefas/{tarefa.Id}";
+
+                            // Salva notificação in-app
+                            await SalvarNotificacaoInAppAsync(usuarioId, "tarefa_vencida", assunto, mensagem, link, true, tarefa.Id);
+
+                            // Dispara canal externo
+                            var enviado = await EnviarNotificacaoAsync(usuarioId, pref.Canal, assunto, mensagem);
+                            if (enviado)
+                            {
+                                await _alertaEnviadoRepository.RegistrarAsync(usuarioId, tarefa.Id, pref.Canal);
+                                alertasDisparados++;
                             }
                         }
                     }
                 }
             }
 
-            _logger.LogInformation("Processamento de alertas de vencimento concluído: {Count} alertas enviados", alertasDisparados);
+            _logger.LogInformation("Processamento de alertas de vencimento concluído: {Count} alertas avaliados/enfileirados", alertasDisparados);
             return alertasDisparados;
         }
 
@@ -294,7 +435,20 @@ namespace Cortex.Services.Implementations
             bool destaque,
             int? tarefaId = null)
         {
-            // Quando for notificação de conclusão de tarefa, stacka na notificação existente da mesma tarefa para não poluir
+            var evento = ConverterTipoStringParaEvento(tipo);
+            return await NotificarAsync(evento, usuarioId, titulo, mensagem, link, destaque, tarefaId);
+        }
+
+        private async Task<NotificacaoDTO> SalvarNotificacaoInAppAsync(
+            int usuarioId,
+            string tipo,
+            string titulo,
+            string mensagem,
+            string link,
+            bool destaque,
+            int? tarefaId)
+        {
+            // Quando for notificação de conclusão de tarefa, stacka na notificação existente da mesma tarefa
             if (tarefaId.HasValue && titulo.StartsWith("Tarefa Concluída"))
             {
                 var existente = await _notificacaoRepository
@@ -371,6 +525,53 @@ namespace Cortex.Services.Implementations
         public async Task<bool> RemoverNotificacaoAsync(int notificacaoId, int usuarioId)
         {
             return await _notificacaoRepository.RemoverNotificacaoAsync(notificacaoId, usuarioId);
+        }
+
+        // ==========================================
+        // Helpers de Regra de Negócio e Mapeamento
+        // ==========================================
+
+        private static bool IsCanalAtivoParaEvento(PreferenciaNotificacao? pref, TipoEventoNotificacao evento)
+        {
+            // Se o usuário ainda não tiver preferência configurada para o canal, o padrão é true
+            if (pref == null) return true;
+
+            return evento switch
+            {
+                TipoEventoNotificacao.NovaAtribuicao => pref.AtivoNovaAtribuicao,
+                TipoEventoNotificacao.Vencimento => pref.AtivoVencimento,
+                TipoEventoNotificacao.ConclusaoMeta => pref.AtivoConclusaoMeta,
+                TipoEventoNotificacao.Ticket => pref.AtivoTicket,
+                _ => true
+            };
+        }
+
+        private static TipoEventoNotificacao ConverterTipoStringParaEvento(string tipo)
+        {
+            return tipo.ToLowerInvariant() switch
+            {
+                "tarefa" => TipoEventoNotificacao.NovaAtribuicao,
+                "tarefa_vencida" or "tarefa_urgente" => TipoEventoNotificacao.Vencimento,
+                "meta" => TipoEventoNotificacao.ConclusaoMeta,
+                "ticket" or "ticket_criador" or "resposta_ticket" => TipoEventoNotificacao.Ticket,
+                "sugestao" => TipoEventoNotificacao.Sugestao,
+                "equipe" => TipoEventoNotificacao.Equipe,
+                _ => TipoEventoNotificacao.Geral
+            };
+        }
+
+        private static string ConverterEventoParaTipoString(TipoEventoNotificacao evento)
+        {
+            return evento switch
+            {
+                TipoEventoNotificacao.NovaAtribuicao => "tarefa",
+                TipoEventoNotificacao.Vencimento => "tarefa_vencida",
+                TipoEventoNotificacao.ConclusaoMeta => "meta",
+                TipoEventoNotificacao.Ticket => "ticket",
+                TipoEventoNotificacao.Sugestao => "sugestao",
+                TipoEventoNotificacao.Equipe => "equipe",
+                _ => "geral"
+            };
         }
 
         private static NotificacaoDTO MapNotificacaoToDTO(Notificacao n)

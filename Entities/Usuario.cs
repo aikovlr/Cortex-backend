@@ -10,8 +10,17 @@ namespace Cortex.Entities
         public bool EmailVerificado { get; set; } = false;
         public string? CodigoVerificacaoHash { get; set; }
         public DateTime? CodigoVerificacaoExpiracao { get; set; }
+
+        // Redefinição de Senha (RF001 - Campos segregados de verificação)
+        public string? CodigoRedefinicaoHash { get; set; }
+        public DateTime? CodigoRedefinicaoExpiracao { get; set; }
+        public int TentativasRedefinicao { get; set; } = 0;
+        public DateTime? UltimaSolicitacaoRedefinicaoEm { get; set; }
+        public DateTime? SenhaAlteradaEm { get; set; }
+
         public Anexo? FotoPerfil { get; set; }
         public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
+
         // navegacao
         public ICollection<Tarefa> TarefasCriadas { get; set; } = new List<Tarefa>();
         public ICollection<RespostaTarefa> Respostas { get; set; } = new List<RespostaTarefa>();

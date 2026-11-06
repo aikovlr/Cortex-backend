@@ -8,8 +8,7 @@ namespace Cortex.DTOs.Validators
         public VerificarEmailValidator()
         {
             RuleFor(x => x.Email)
-                .NotEmpty().WithMessage("O e-mail é obrigatório.")
-                .EmailAddress().WithMessage("O e-mail informado é inválido.");
+                .ValidarEmailEstrito();
 
             RuleFor(x => x.Codigo)
                 .NotEmpty().WithMessage("O código de verificação é obrigatório.")
@@ -22,8 +21,7 @@ namespace Cortex.DTOs.Validators
         public SolicitarCodigoVerificacaoValidator()
         {
             RuleFor(x => x.Email)
-                .NotEmpty().WithMessage("O e-mail é obrigatório.")
-                .EmailAddress().WithMessage("O e-mail informado é inválido.");
+                .ValidarEmailEstrito();
         }
     }
 }

@@ -1,6 +1,9 @@
+using System.Security.Cryptography;
+using Cortex.DTOs;
 using Cortex.DTOs.Request;
 using Cortex.DTOs.Response;
 using Cortex.Entities;
+using Cortex.Infra.Gateways;
 using Cortex.Repositories.Interface;
 using Cortex.Services.Interfaces;
 using Microsoft.AspNetCore.Hosting;
@@ -16,6 +19,8 @@ namespace Cortex.Services.Implementations
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<UsuarioService> _logger;
         private readonly IAnexoRepository? _anexoRepository;
+        private readonly INotificacaoQueue? _notificacaoQueue;
+        private readonly IEmailTemplateService? _emailTemplateService;
 
         public UsuarioService(
             IUsuarioRepository usuarioRepository, 
@@ -23,7 +28,9 @@ namespace Cortex.Services.Implementations
             IArquivoValidacaoService arquivoValidacaoService,
             IWebHostEnvironment environment,
             ILogger<UsuarioService> logger,
-            IAnexoRepository? anexoRepository = null)
+            IAnexoRepository? anexoRepository = null,
+            INotificacaoQueue? notificacaoQueue = null,
+            IEmailTemplateService? emailTemplateService = null)
         {
             _usuarioRepository = usuarioRepository;
             _passwordService = passwordService;
@@ -31,6 +38,8 @@ namespace Cortex.Services.Implementations
             _environment = environment;
             _logger = logger;
             _anexoRepository = anexoRepository;
+            _notificacaoQueue = notificacaoQueue;
+            _emailTemplateService = emailTemplateService;
         }
 
         public async Task<ConsultaUsuarioDTO> CriarUsuarioAsync(CriarUsuarioDTO dto)
@@ -218,47 +227,146 @@ namespace Cortex.Services.Implementations
 
             // Hash and update new password
             usuario.SenhaHash = _passwordService.HashPassword(novaSenha);
+            usuario.SenhaAlteradaEm = DateTime.UtcNow;
             await _usuarioRepository.AtualizarUsuarioAsync(usuario);
+
+            return true;
+        }
+
+        public async Task<bool> SolicitarRedefinicaoSenhaAsync(string email)
+        {
+            var usuario = await _usuarioRepository.ObterUsuarioPorEmailAsync(email);
+            if (usuario == null)
+            {
+                // Resposta genérica constante para evitar enumeração de usuários
+                return true;
+            }
+
+            // Cooldown de 60 segundos entre solicitações para a mesma conta
+            var agoraUtc = DateTime.UtcNow;
+            if (usuario.UltimaSolicitacaoRedefinicaoEm.HasValue &&
+                usuario.UltimaSolicitacaoRedefinicaoEm.Value.AddSeconds(60) > agoraUtc)
+            {
+                _logger.LogInformation(
+                    "Solicitação de redefinição de senha para {Email} ignorada devido ao cooldown de 60 segundos.",
+                    LogEmailGateway.MascararEmail(email));
+                return true;
+            }
+
+            // 6 dígitos numéricos gerados com RandomNumberGenerator (0 a 999999 formatado como D6)
+            var codigo = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+
+            usuario.CodigoRedefinicaoHash = _passwordService.HashPassword(codigo);
+            usuario.CodigoRedefinicaoExpiracao = agoraUtc.AddMinutes(15);
+            usuario.TentativasRedefinicao = 0;
+            usuario.UltimaSolicitacaoRedefinicaoEm = agoraUtc;
+
+            await _usuarioRepository.AtualizarUsuarioAsync(usuario);
+
+            _logger.LogInformation(
+                "Código de redefinição de senha gerado para UsuarioId {UsuarioId}. Expira em {Expiracao} UTC.",
+                usuario.Id, usuario.CodigoRedefinicaoExpiracao);
+
+            // Enfileira o e-mail na fila assíncrona (não espera SMTP)
+            if (_emailTemplateService != null && _notificacaoQueue != null)
+            {
+                var emailMsg = _emailTemplateService.GerarCodigoRedefinicaoSenha(usuario.Email, usuario.Nome, codigo, 15);
+                await _notificacaoQueue.EnfileirarAsync(new NotificacaoDespacho
+                {
+                    Canal = CanalNotificacao.Email,
+                    UsuarioId = usuario.Id,
+                    Destinatario = usuario.Email,
+                    NomeDestinatario = usuario.Nome,
+                    Assunto = emailMsg.Assunto,
+                    MensagemHtml = emailMsg.CorpoHtml,
+                    MensagemTexto = emailMsg.CorpoTexto ?? string.Empty,
+                    TipoEvento = "redefinicao_senha"
+                });
+            }
 
             return true;
         }
 
         public async Task<bool> RedefinirSenhaComCodigoAsync(string email, string codigo, string novaSenha)
         {
-            var usuario = await _usuarioRepository.ObterUsuarioPorEmailAsync(email)
-                ?? throw new KeyNotFoundException("Usuário não encontrado.");
+            const string mensagemErroGenerico = "Código inválido ou expirado.";
 
-            if (string.IsNullOrWhiteSpace(usuario.CodigoVerificacaoHash) ||
-                !usuario.CodigoVerificacaoExpiracao.HasValue)
-                throw new InvalidOperationException("Nenhum código de recuperação foi solicitado para este e-mail.");
+            var usuario = await _usuarioRepository.ObterUsuarioPorEmailAsync(email);
+            if (usuario == null)
+                throw new ArgumentException(mensagemErroGenerico);
 
-            if (DateTime.UtcNow > usuario.CodigoVerificacaoExpiracao.Value)
-                throw new InvalidOperationException("O código de recuperação expirou. Solicite um novo código.");
+            if (string.IsNullOrWhiteSpace(usuario.CodigoRedefinicaoHash) ||
+                !usuario.CodigoRedefinicaoExpiracao.HasValue)
+            {
+                throw new ArgumentException(mensagemErroGenerico);
+            }
 
-            var codigoValido = BCrypt.Net.BCrypt.Verify(codigo, usuario.CodigoVerificacaoHash);
-            if (!codigoValido)
-                throw new ArgumentException("Código de recuperação inválido.");
+            if (DateTime.UtcNow > usuario.CodigoRedefinicaoExpiracao.Value)
+            {
+                throw new ArgumentException(mensagemErroGenerico);
+            }
 
-            // Verifica se nova senha é igual à atual
+            if (usuario.TentativasRedefinicao >= 5)
+            {
+                // Invalida o código após estourar 5 tentativas
+                usuario.CodigoRedefinicaoHash = null;
+                usuario.CodigoRedefinicaoExpiracao = null;
+                await _usuarioRepository.AtualizarUsuarioAsync(usuario);
+                throw new ArgumentException(mensagemErroGenerico);
+            }
+
+            // Valida os requisitos da nova senha ANTES de consumir a tentativa do código (RN02)
             if (_passwordService.VerifyPassword(novaSenha, usuario.SenhaHash))
                 throw new ArgumentException("A nova senha não pode ser igual à senha atual.");
 
-            // Valida requisitos de senha (RN02)
             var (isValid, errorMessage) = _passwordService.ValidatePassword(novaSenha);
             if (!isValid)
                 throw new ArgumentException(errorMessage);
 
-            // Atualiza senha e consome código
+            // Valida o código com hash BCrypt
+            var codigoValido = _passwordService.VerifyPassword(codigo, usuario.CodigoRedefinicaoHash);
+            if (!codigoValido)
+            {
+                usuario.TentativasRedefinicao++;
+                if (usuario.TentativasRedefinicao >= 5)
+                {
+                    usuario.CodigoRedefinicaoHash = null;
+                    usuario.CodigoRedefinicaoExpiracao = null;
+                }
+                await _usuarioRepository.AtualizarUsuarioAsync(usuario);
+                throw new ArgumentException(mensagemErroGenerico);
+            }
+
+            // Sucesso: atualiza senha e invalida dados do código
             usuario.SenhaHash = _passwordService.HashPassword(novaSenha);
-            usuario.CodigoVerificacaoHash = null;
-            usuario.CodigoVerificacaoExpiracao = null;
+            usuario.CodigoRedefinicaoHash = null;
+            usuario.CodigoRedefinicaoExpiracao = null;
+            usuario.TentativasRedefinicao = 0;
+            usuario.SenhaAlteradaEm = DateTime.UtcNow;
 
             // Se o usuário conseguiu recuperar a senha via e-mail, confirmamos a posse do e-mail
             usuario.EmailVerificado = true;
 
             await _usuarioRepository.AtualizarUsuarioAsync(usuario);
 
-            _logger.LogInformation("Senha redefinida com sucesso para UsuarioId {UsuarioId} via código de recuperação.", usuario.Id);
+            _logger.LogInformation("Senha redefinida com sucesso para UsuarioId {UsuarioId}.", usuario.Id);
+
+            // Envia e-mail assíncrono de confirmação
+            if (_emailTemplateService != null && _notificacaoQueue != null)
+            {
+                var emailMsg = _emailTemplateService.GerarConfirmacaoSenhaAlterada(usuario.Email, usuario.Nome);
+                await _notificacaoQueue.EnfileirarAsync(new NotificacaoDespacho
+                {
+                    Canal = CanalNotificacao.Email,
+                    UsuarioId = usuario.Id,
+                    Destinatario = usuario.Email,
+                    NomeDestinatario = usuario.Nome,
+                    Assunto = emailMsg.Assunto,
+                    MensagemHtml = emailMsg.CorpoHtml,
+                    MensagemTexto = emailMsg.CorpoTexto ?? string.Empty,
+                    TipoEvento = "senha_alterada"
+                });
+            }
 
             return true;
         }

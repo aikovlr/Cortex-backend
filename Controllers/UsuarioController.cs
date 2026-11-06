@@ -16,6 +16,7 @@ namespace Cortex.Controllers
         private readonly IEquipeAuthorizationService _authService;
         private readonly IVerificacaoEmailService _verificacaoEmailService;
         private readonly IEmailGateway _emailGateway;
+        private readonly IEmailTemplateService _emailTemplateService;
         private readonly ILogger<UsuarioController> _logger;
 
         public UsuarioController(
@@ -23,12 +24,14 @@ namespace Cortex.Controllers
             IEquipeAuthorizationService authService,
             IVerificacaoEmailService verificacaoEmailService,
             IEmailGateway emailGateway,
+            IEmailTemplateService emailTemplateService,
             ILogger<UsuarioController> logger)
         {
             _usuarioService = usuarioService;
             _authService = authService;
             _verificacaoEmailService = verificacaoEmailService;
             _emailGateway = emailGateway;
+            _emailTemplateService = emailTemplateService;
             _logger = logger;
         }
 
@@ -46,7 +49,8 @@ namespace Cortex.Controllers
             try
             {
                 var codigo = await _verificacaoEmailService.GerarEArmazenarCodigoAsync(usuario.Id);
-                await _emailGateway.EnviarEmailAsync(usuario.Email, "Bem-vindo ao Cortex - Verifique seu e-mail", $"Seu código de verificação é: {codigo}");
+                var emailMsg = _emailTemplateService.GerarCodigoVerificacao(usuario.Email, usuario.Nome, codigo, 15);
+                await _emailGateway.EnviarAsync(emailMsg);
             }
             catch (Exception ex)
             {

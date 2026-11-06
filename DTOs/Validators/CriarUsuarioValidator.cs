@@ -12,15 +12,13 @@ namespace Cortex.DTOs.Validators
                 .MaximumLength(255).WithMessage("O nome não pode exceder 255 caracteres.");
 
             RuleFor(x => x.Email)
-                .NotEmpty().WithMessage("O e-mail é obrigatório.")
-                .EmailAddress().WithMessage("Formato de e-mail inválido.")
-                .MaximumLength(255).WithMessage("O e-mail não pode exceder 255 caracteres.");
+                .ValidarEmailEstrito();
 
             RuleFor(x => x.Senha)
                 .ValidarComplexidadeSenha();
 
             RuleFor(x => x.Telefone)
-                .MaximumLength(20).WithMessage("O telefone não pode exceder 20 caracteres.")
+                .ValidarTelefoneOpcional()
                 .When(x => !string.IsNullOrEmpty(x.Telefone));
         }
     }

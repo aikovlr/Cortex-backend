@@ -55,7 +55,7 @@ namespace Cortex.Tests.Integration
                 {
                     Nome = "Usuario Nao Verificado",
                     Email = "unverified@cortex.com",
-                    SenhaHash = BCrypt.Net.BCrypt.HashPassword("SenhaForte123!"),
+                    SenhaHash = BCrypt.Net.BCrypt.EnhancedHashPassword("SenhaForte123!", 12, BCrypt.Net.HashType.SHA384),
                     EmailVerificado = false,
                     DataCriacao = DateTime.UtcNow
                 };

@@ -32,14 +32,6 @@ namespace Cortex.Services.Implementations
 
             await _usuarioRepository.AtualizarUsuarioAsync(usuario);
 
-            // Exibição em console para fins de desenvolvimento
-            Console.WriteLine("\n=======================================================");
-            Console.WriteLine("[DESENVOLVIMENTO] CÓDIGO DE VERIFICAÇÃO GERADO");
-            Console.WriteLine($"UsuarioId: {usuarioId} | E-mail: {usuario.Email}");
-            Console.WriteLine($"Código (6 dígitos): {codigo}");
-            Console.WriteLine($"Tempo limite de expiração: {CodigoExpiracaoMinutos} minutos (expira em {usuario.CodigoVerificacaoExpiracao:yyyy-MM-dd HH:mm:ss} UTC)");
-            Console.WriteLine("=======================================================\n");
-
             _logger.LogInformation(
                 "Código de verificação gerado para UsuarioId {UsuarioId}. Expira em {Expiracao} UTC.",
                 usuarioId, usuario.CodigoVerificacaoExpiracao);
