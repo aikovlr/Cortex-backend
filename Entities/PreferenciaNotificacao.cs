@@ -10,6 +10,9 @@ namespace Cortex.Entities
         public bool AtivoVencimento { get; set; } = true;
         public bool AtivoConclusaoMeta { get; set; } = true;
         public bool AtivoTicket { get; set; } = true;
+        public bool AtivoSugestao { get; set; } = true;
+        public bool AtivoEquipe { get; set; } = true;
+        public bool AtivoGeral { get; set; } = true;
 
         // Preferências de Acessibilidade (Sincronização entre dispositivos)
         public string Tema { get; set; } = "light";
