@@ -38,6 +38,12 @@ namespace Cortex.Services.Implementations
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
+            if (usuario.SenhaAlteradaEm.HasValue)
+            {
+                var pwdAtSeconds = new DateTimeOffset(usuario.SenhaAlteradaEm.Value).ToUnixTimeSeconds();
+                claims.Add(new Claim("pwd_at", pwdAtSeconds.ToString()));
+            }
+
             // O token passa a conter apenas dados de identidade: sub, email, name, jti
             // A autorização de cargos é contextual por equipe via IEquipeAuthorizationService
             var tokenDescriptor = new SecurityTokenDescriptor

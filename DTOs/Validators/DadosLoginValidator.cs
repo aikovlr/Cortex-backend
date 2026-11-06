@@ -8,8 +8,7 @@ namespace Cortex.DTOs.Validators
         public DadosLoginValidator()
         {
             RuleFor(x => x.Email)
-                .NotEmpty().WithMessage("O e-mail é obrigatório.")
-                .EmailAddress().WithMessage("Formato de e-mail inválido.");
+                .ValidarEmailEstrito();
 
             RuleFor(x => x.Senha)
                 .NotEmpty().WithMessage("A senha é obrigatória.");

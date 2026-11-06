@@ -1,5 +1,6 @@
 using System.Text;
 using Cortex.Entities;
+using Cortex.Infra.Configuration;
 using Cortex.Infra.Gateways;
 using Cortex.Infra.Middleware;
 using Cortex.Infra.Persistence;
@@ -95,14 +96,33 @@ builder.Services.AddScoped<IRespostaTarefaService, RespostaTarefaService>();
 builder.Services.AddScoped<IAnexoService, AnexoService>();
 builder.Services.AddScoped<IArquivoValidacaoService, ArquivoValidacaoService>();
 builder.Services.AddScoped<IRelatorioService, RelatorioService>();
+builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
 
-// Gateways de Notificação (Stubs)
-builder.Services.AddScoped<IEmailGateway, EmailGatewayStub>();
+// Configuração SMTP (Options Pattern com validação no Startup)
+builder.Services.AddOptions<SmtpOptions>()
+    .Bind(builder.Configuration.GetSection(SmtpOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+// Gateways de Notificação
+if (builder.Configuration.GetValue<bool>("Smtp:Enabled"))
+{
+    builder.Services.AddScoped<IEmailGateway, SmtpEmailGateway>();
+}
+else
+{
+    builder.Services.AddScoped<IEmailGateway, LogEmailGateway>();
+}
+
 builder.Services.AddScoped<IPushGateway, PushGatewayStub>();
 builder.Services.AddScoped<ISmsGateway, SmsGatewayStub>();
 builder.Services.AddScoped<INotificacaoService, NotificacaoService>();
 
+// Fila Assíncrona de Notificações (RNF10)
+builder.Services.AddSingleton<INotificacaoQueue, InMemoryNotificacaoQueue>();
+
 // Background Services (RN06, RNF10)
+builder.Services.AddHostedService<NotificacaoDispatcherBackgroundService>();
 builder.Services.AddHostedService<TarefaStatusBackgroundService>();
 builder.Services.AddHostedService<AlertaVencimentoBackgroundService>();
 
@@ -166,6 +186,38 @@ builder.Services.AddAuthentication(options =>
                 context.Token = tokenFromCookie;
             }
             return Task.CompletedTask;
+        },
+        OnTokenValidated = async context =>
+        {
+            var principal = context.Principal;
+            if (principal == null) return;
+
+            // Invalidação de sessões antigas após troca de senha
+            var pwdAtClaim = principal.FindFirst("pwd_at");
+            if (pwdAtClaim == null) return; // Tokens antigos sem o claim continuam válidos até expirarem
+
+            if (!long.TryParse(pwdAtClaim.Value, out var tokenPwdAt)) return;
+
+            var userIdClaim = principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? principal.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+
+            if (int.TryParse(userIdClaim, out var userId))
+            {
+                var db = context.HttpContext.RequestServices.GetRequiredService<CortexDbContext>();
+                var senhaAlteradaEm = await db.Usuarios
+                    .Where(u => u.Id == userId)
+                    .Select(u => u.SenhaAlteradaEm)
+                    .FirstOrDefaultAsync();
+
+                if (senhaAlteradaEm.HasValue)
+                {
+                    var userPwdAt = new DateTimeOffset(senhaAlteradaEm.Value).ToUnixTimeSeconds();
+                    if (tokenPwdAt < userPwdAt)
+                    {
+                        context.Fail("A sessão foi invalidada devido a uma alteração de senha recente.");
+                    }
+                }
+            }
         }
     };
 });
@@ -186,6 +238,20 @@ builder.Services.AddRateLimiter(options =>
     options.AddFixedWindowLimiter("verificacao-email-policy", opt =>
     {
         opt.PermitLimit = 3;
+        opt.Window = TimeSpan.FromMinutes(5);
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        opt.QueueLimit = 0;
+    });
+    options.AddFixedWindowLimiter("esqueci-senha-policy", opt =>
+    {
+        opt.PermitLimit = 3;
+        opt.Window = TimeSpan.FromMinutes(5);
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        opt.QueueLimit = 0;
+    });
+    options.AddFixedWindowLimiter("redefinir-senha-policy", opt =>
+    {
+        opt.PermitLimit = 5;
         opt.Window = TimeSpan.FromMinutes(5);
         opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
         opt.QueueLimit = 0;

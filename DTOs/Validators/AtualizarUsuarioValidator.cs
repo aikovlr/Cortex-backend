@@ -12,8 +12,7 @@ namespace Cortex.DTOs.Validators
                 .When(x => !string.IsNullOrEmpty(x.Nome));
 
             RuleFor(x => x.Email)
-                .EmailAddress().WithMessage("Formato de e-mail inválido.")
-                .MaximumLength(255).WithMessage("O e-mail não pode exceder 255 caracteres.")
+                .ValidarEmailEstrito()
                 .When(x => !string.IsNullOrEmpty(x.Email));
 
             RuleFor(x => x.Senha!)
@@ -21,7 +20,7 @@ namespace Cortex.DTOs.Validators
                 .When(x => !string.IsNullOrEmpty(x.Senha));
 
             RuleFor(x => x.Telefone)
-                .MaximumLength(20).WithMessage("O telefone não pode exceder 20 caracteres.")
+                .ValidarTelefoneOpcional()
                 .When(x => !string.IsNullOrEmpty(x.Telefone));
         }
     }

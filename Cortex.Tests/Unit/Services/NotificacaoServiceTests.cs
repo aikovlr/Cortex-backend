@@ -18,6 +18,8 @@ namespace Cortex.Tests.Unit.Services
         private readonly Mock<IEmailGateway> _emailGatewayMock;
         private readonly Mock<IPushGateway> _pushGatewayMock;
         private readonly Mock<ISmsGateway> _smsGatewayMock;
+        private readonly Mock<INotificacaoQueue> _notificacaoQueueMock;
+        private readonly Mock<IEmailTemplateService> _emailTemplateServiceMock;
         private readonly Mock<ILogger<NotificacaoService>> _loggerMock;
         private readonly CortexDbContext _dbContext;
         private readonly NotificacaoService _notificacaoService;
@@ -28,6 +30,8 @@ namespace Cortex.Tests.Unit.Services
             _emailGatewayMock = new Mock<IEmailGateway>();
             _pushGatewayMock = new Mock<IPushGateway>();
             _smsGatewayMock = new Mock<ISmsGateway>();
+            _notificacaoQueueMock = new Mock<INotificacaoQueue>();
+            _emailTemplateServiceMock = new Mock<IEmailTemplateService>();
             _loggerMock = new Mock<ILogger<NotificacaoService>>();
 
             var options = new DbContextOptionsBuilder<CortexDbContext>()
@@ -49,6 +53,8 @@ namespace Cortex.Tests.Unit.Services
                 _emailGatewayMock.Object,
                 _pushGatewayMock.Object,
                 _smsGatewayMock.Object,
+                _notificacaoQueueMock.Object,
+                _emailTemplateServiceMock.Object,
                 _loggerMock.Object);
         }
 

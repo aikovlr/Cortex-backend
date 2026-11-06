@@ -567,6 +567,12 @@ namespace Cortex_backend.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("CodigoRedefinicaoExpiracao")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CodigoRedefinicaoHash")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("CodigoVerificacaoExpiracao")
                         .HasColumnType("timestamp with time zone");
 
@@ -593,6 +599,9 @@ namespace Cortex_backend.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<DateTime?>("SenhaAlteradaEm")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("SenhaHash")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -601,6 +610,12 @@ namespace Cortex_backend.Migrations
                     b.Property<string>("Telefone")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<int>("TentativasRedefinicao")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UltimaSolicitacaoRedefinicaoEm")
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 

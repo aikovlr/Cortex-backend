@@ -8,8 +8,7 @@ namespace Cortex.DTOs.Validators
         public SolicitarRedefinicaoSenhaValidator()
         {
             RuleFor(x => x.Email)
-                .NotEmpty().WithMessage("O e-mail é obrigatório.")
-                .EmailAddress().WithMessage("Formato de e-mail inválido.");
+                .ValidarEmailEstrito();
         }
     }
 
@@ -18,8 +17,7 @@ namespace Cortex.DTOs.Validators
         public RedefinirSenhaValidator()
         {
             RuleFor(x => x.Email)
-                .NotEmpty().WithMessage("O e-mail é obrigatório.")
-                .EmailAddress().WithMessage("Formato de e-mail inválido.");
+                .ValidarEmailEstrito();
 
             RuleFor(x => x.Codigo)
                 .NotEmpty().WithMessage("O código de verificação é obrigatório.")
