@@ -229,7 +229,7 @@ namespace Cortex.Services.Implementations
             // RN12/RN13: Bloquear ativação por e-mail se e-mail não verificado
             if (dto.Canal == CanalNotificacao.Email && !usuario.EmailVerificado)
             {
-                var algumaAtiva = dto.AtivoNovaAtribuicao || dto.AtivoVencimento || dto.AtivoConclusaoMeta || dto.AtivoTicket;
+                var algumaAtiva = dto.AtivoNovaAtribuicao || dto.AtivoVencimento || dto.AtivoConclusaoMeta || dto.AtivoTicket || dto.AtivoSugestao || dto.AtivoEquipe || dto.AtivoGeral;
                 if (algumaAtiva)
                 {
                     throw new InvalidOperationException("O envio de notificações por e-mail só pode ser ativado caso o e-mail do usuário esteja verificado/confirmado.");
@@ -249,6 +249,9 @@ namespace Cortex.Services.Implementations
                     AtivoVencimento = dto.AtivoVencimento,
                     AtivoConclusaoMeta = dto.AtivoConclusaoMeta,
                     AtivoTicket = dto.AtivoTicket,
+                    AtivoSugestao = dto.AtivoSugestao,
+                    AtivoEquipe = dto.AtivoEquipe,
+                    AtivoGeral = dto.AtivoGeral,
                     Tema = dto.Tema ?? "light",
                     AltoContraste = dto.AltoContraste ?? false,
                     TamanhoFonte = dto.TamanhoFonte ?? 16
@@ -262,6 +265,9 @@ namespace Cortex.Services.Implementations
                 preferencia.AtivoVencimento = dto.AtivoVencimento;
                 preferencia.AtivoConclusaoMeta = dto.AtivoConclusaoMeta;
                 preferencia.AtivoTicket = dto.AtivoTicket;
+                preferencia.AtivoSugestao = dto.AtivoSugestao;
+                preferencia.AtivoEquipe = dto.AtivoEquipe;
+                preferencia.AtivoGeral = dto.AtivoGeral;
                 if (dto.Tema != null) preferencia.Tema = dto.Tema;
                 if (dto.AltoContraste.HasValue) preferencia.AltoContraste = dto.AltoContraste.Value;
                 if (dto.TamanhoFonte.HasValue) preferencia.TamanhoFonte = dto.TamanhoFonte.Value;
@@ -301,6 +307,9 @@ namespace Cortex.Services.Implementations
                         AtivoVencimento = true,
                         AtivoConclusaoMeta = true,
                         AtivoTicket = true,
+                        AtivoSugestao = true,
+                        AtivoEquipe = true,
+                        AtivoGeral = true,
                         Tema = "light",
                         AltoContraste = false,
                         TamanhoFonte = 16
@@ -542,6 +551,9 @@ namespace Cortex.Services.Implementations
                 TipoEventoNotificacao.Vencimento => pref.AtivoVencimento,
                 TipoEventoNotificacao.ConclusaoMeta => pref.AtivoConclusaoMeta,
                 TipoEventoNotificacao.Ticket => pref.AtivoTicket,
+                TipoEventoNotificacao.Sugestao => pref.AtivoSugestao,
+                TipoEventoNotificacao.Equipe => pref.AtivoEquipe,
+                TipoEventoNotificacao.Geral => pref.AtivoGeral,
                 _ => true
             };
         }
@@ -603,6 +615,9 @@ namespace Cortex.Services.Implementations
                 AtivoVencimento = p.AtivoVencimento,
                 AtivoConclusaoMeta = p.AtivoConclusaoMeta,
                 AtivoTicket = p.AtivoTicket,
+                AtivoSugestao = p.AtivoSugestao,
+                AtivoEquipe = p.AtivoEquipe,
+                AtivoGeral = p.AtivoGeral,
                 Tema = p.Tema,
                 AltoContraste = p.AltoContraste,
                 TamanhoFonte = p.TamanhoFonte

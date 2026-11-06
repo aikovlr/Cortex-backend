@@ -35,6 +35,18 @@ namespace Cortex.Infra.Persistence.Configuration
                 .HasDefaultValue(true)
                 .IsRequired();
 
+            builder.Property(p => p.AtivoSugestao)
+                .HasDefaultValue(true)
+                .IsRequired();
+
+            builder.Property(p => p.AtivoEquipe)
+                .HasDefaultValue(true)
+                .IsRequired();
+
+            builder.Property(p => p.AtivoGeral)
+                .HasDefaultValue(true)
+                .IsRequired();
+
             builder.Property(p => p.Tema)
                 .HasMaxLength(20)
                 .HasDefaultValue("light")
