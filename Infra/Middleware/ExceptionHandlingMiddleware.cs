@@ -28,12 +28,15 @@ namespace Cortex.Infra.Middleware
             }
         }
 
+        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
         private async Task HandleExceptionAsync(HttpContext context, Exception exception)
         {
             var problemDetails = exception switch
             {
                 KeyNotFoundException keyNotFound => new ProblemDetails
                 {
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.5",
                     Status = (int)HttpStatusCode.NotFound,
                     Title = "Recurso não encontrado",
                     Detail = keyNotFound.Message,
@@ -41,6 +44,7 @@ namespace Cortex.Infra.Middleware
                 },
                 ForbiddenException forbidden => new ProblemDetails
                 {
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.4",
                     Status = (int)HttpStatusCode.Forbidden,
                     Title = "Acesso proibido",
                     Detail = forbidden.Message,
@@ -48,6 +52,7 @@ namespace Cortex.Infra.Middleware
                 },
                 UnauthorizedAccessException unauthorized => new ProblemDetails
                 {
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.2",
                     Status = (int)HttpStatusCode.Unauthorized,
                     Title = "Não autorizado",
                     Detail = unauthorized.Message,
@@ -55,6 +60,7 @@ namespace Cortex.Infra.Middleware
                 },
                 InvalidOperationException invalidOp when invalidOp.InnerException is Npgsql.NpgsqlException || invalidOp.InnerException is System.Net.Sockets.SocketException => new ProblemDetails
                 {
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.6.4",
                     Status = (int)HttpStatusCode.ServiceUnavailable,
                     Title = "Banco de dados indisponível",
                     Detail = "Não foi possível conectar ao servidor PostgreSQL (127.0.0.1:5432). Verifique se o serviço do banco está ativo.",
@@ -62,6 +68,7 @@ namespace Cortex.Infra.Middleware
                 },
                 Npgsql.NpgsqlException => new ProblemDetails
                 {
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.6.4",
                     Status = (int)HttpStatusCode.ServiceUnavailable,
                     Title = "Banco de dados indisponível",
                     Detail = "Falha de comunicação com o banco de dados PostgreSQL. Verifique se o serviço está em execução.",
@@ -69,6 +76,7 @@ namespace Cortex.Infra.Middleware
                 },
                 InvalidOperationException invalidOp => new ProblemDetails
                 {
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.10",
                     Status = (int)HttpStatusCode.Conflict,
                     Title = "Conflito na operação",
                     Detail = invalidOp.Message,
@@ -76,6 +84,7 @@ namespace Cortex.Infra.Middleware
                 },
                 ArgumentException argument => new ProblemDetails
                 {
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.1",
                     Status = (int)HttpStatusCode.BadRequest,
                     Title = "Requisição inválida",
                     Detail = argument.Message,
@@ -83,6 +92,7 @@ namespace Cortex.Infra.Middleware
                 },
                 _ => new ProblemDetails
                 {
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.6.1",
                     Status = (int)HttpStatusCode.InternalServerError,
                     Title = "Erro interno do servidor",
                     Detail = "Ocorreu um erro inesperado no processamento da solicitação.",
@@ -104,7 +114,7 @@ namespace Cortex.Infra.Middleware
             context.Response.ContentType = "application/problem+json";
             context.Response.StatusCode = problemDetails.Status ?? (int)HttpStatusCode.InternalServerError;
 
-            var json = JsonSerializer.Serialize(problemDetails);
+            var json = JsonSerializer.Serialize(problemDetails, JsonOptions);
             await context.Response.WriteAsync(json);
         }
     }

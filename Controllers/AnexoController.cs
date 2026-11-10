@@ -30,7 +30,14 @@ namespace Cortex.Controllers
             var currentUserId = ObterUsuarioIdAutenticado();
 
             if (arquivos == null || !arquivos.Any())
-                return BadRequest(new { message = "Nenhum arquivo enviado para upload." });
+                return BadRequest(new ProblemDetails
+                {
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Requisição inválida",
+                    Detail = "Nenhum arquivo enviado para upload.",
+                    Instance = HttpContext.Request.Path
+                });
 
             var anexos = await _anexoService.AdicionarAnexosTarefaAsync(id, arquivos, currentUserId);
 

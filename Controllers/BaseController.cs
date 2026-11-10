@@ -26,9 +26,10 @@ namespace Cortex.Controllers
             throw new UnauthorizedAccessException("Usuário não autenticado ou identificador inválido no token.");
         }
 
-        /// <summary>Retorna ProblemDetails padronizado para 404.</summary>
+        /// <summary>Retorna ProblemDetails padronizado para 404 (RFC 9457).</summary>
         protected IActionResult NaoEncontrado(string detalhe, string titulo = "Recurso não encontrado") => NotFound(new ProblemDetails
         {
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.5",
             Status = StatusCodes.Status404NotFound,
             Title = titulo,
             Detail = detalhe,

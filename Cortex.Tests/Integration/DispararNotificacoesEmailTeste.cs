@@ -36,12 +36,18 @@ namespace Cortex.Tests.Integration
 
             _output.WriteLine($"Host: {smtpOptions.Host}, Port: {smtpOptions.Port}, User: {smtpOptions.Username}, From: {smtpOptions.FromAddress}, PassSet: {!string.IsNullOrEmpty(smtpOptions.Password)}");
 
+            var emailDestino = config["TestSettings:EmailDestino"];
+            var nomeDestino = config["TestSettings:NomeDestino"] ?? "Usuário Teste";
+
+            if (string.IsNullOrWhiteSpace(emailDestino))
+            {
+                _output.WriteLine("Teste de disparo manual ignorado: defina 'TestSettings:EmailDestino' nos segredos/configuração para executar.");
+                return;
+            }
+
             var optionsWrapper = Options.Create(smtpOptions);
             var gateway = new SmtpEmailGateway(optionsWrapper, NullLogger<SmtpEmailGateway>.Instance);
             var templateService = new EmailTemplateService(config);
-
-            var emailDestino = "sp.rafael.mota1@gmail.com";
-            var nomeDestino = "Rafael Mota";
 
             var mensagens = new List<EmailMensagem>
             {
