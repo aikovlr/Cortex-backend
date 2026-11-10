@@ -137,7 +137,22 @@ namespace Cortex.Services.Implementations
                 ? null
                 : solicitanteId;
 
-            return tarefas.Select(t => MapToConsultaDTO(t, solicitanteEfetivo));
+            var resultado = tarefas.Select(t => MapToConsultaDTO(t, solicitanteEfetivo));
+
+            if (!string.IsNullOrWhiteSpace(filtros?.Aba))
+            {
+                var aba = filtros.Aba.Trim().ToLowerInvariant();
+                if (aba == "tarefas-concluidas" || aba == "concluidas" || aba == "concluida")
+                {
+                    resultado = resultado.Where(dto => dto.Status == Status.Concluida);
+                }
+                else if (aba == "tarefas-pendentes" || aba == "pendentes" || aba == "pendente")
+                {
+                    resultado = resultado.Where(dto => dto.Status != Status.Concluida);
+                }
+            }
+
+            return resultado;
         }
 
         public async Task<DetalhesTarefaDTO> AtualizarTarefaAsync(int id, AtualizarTarefaDTO dto, int solicitanteId)
@@ -414,7 +429,7 @@ namespace Cortex.Services.Implementations
                         "tarefa",
                         titulo,
                         mensagem,
-                        $"/tarefas-atribuidas/{tarefa.Id}",
+                        $"/tarefas-atribuidas/{tarefa.Id}?aba=respostas",
                         false,
                         tarefa.Id);
                 }

@@ -82,7 +82,7 @@ namespace Cortex.Services.Implementations
                         "ticket_criador",
                         "Novo Ticket de Reporte Aberto",
                         $"Problema reportado na tarefa \"{tarefa.Titulo}\": {dto.Descricao}",
-                        $"/tarefas-atribuidas/{tarefa.Id}?tab=tickets",
+                        $"/tarefas-atribuidas/{tarefa.Id}?aba=tickets",
                         destaque: true,
                         tarefaId: tarefa.Id);
                 }
@@ -130,7 +130,7 @@ namespace Cortex.Services.Implementations
                         "resposta_ticket",
                         "Ticket de Reporte Resolvido",
                         $"O problema reportado na tarefa \"{tarefa?.Titulo ?? "Tarefa"}\" foi marcado como resolvido.",
-                        $"/minhas-tarefas/{ticket.TarefaId}?tab=tickets",
+                        $"/minhas-tarefas/{ticket.TarefaId}?aba=tickets",
                         false,
                         ticket.TarefaId);
                 }

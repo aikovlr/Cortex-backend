@@ -31,6 +31,12 @@ namespace Cortex.DTOs.Validators
                 RuleFor(x => x.TermoBusca!)
                     .MaximumLength(100).WithMessage("O termo de busca não pode exceder 100 caracteres.");
             });
+
+            When(x => !string.IsNullOrEmpty(x.Aba), () =>
+            {
+                RuleFor(x => x.Aba!)
+                    .MaximumLength(50).WithMessage("O identificador de aba não pode exceder 50 caracteres.");
+            });
         }
     }
 }

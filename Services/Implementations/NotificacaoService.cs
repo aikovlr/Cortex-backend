@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Cortex.DTOs;
 using Cortex.DTOs.Request;
 using Cortex.DTOs.Response;
@@ -10,6 +11,8 @@ namespace Cortex.Services.Implementations
 {
     public class NotificacaoService : INotificacaoService
     {
+        private static readonly ConcurrentDictionary<string, DateTime> _ultimosDisparosCanais = new();
+        private static readonly TimeSpan JanelaBloqueioMesmoDisparo = TimeSpan.FromMinutes(1);
         private readonly IPreferenciaNotificacaoRepository _preferenciaRepository;
         private readonly ITarefaRepository _tarefaRepository;
         private readonly IUsuarioRepository _usuarioRepository;
@@ -99,6 +102,17 @@ namespace Cortex.Services.Implementations
                         continue;
                     }
                 }
+
+                // Bloqueio de duplicidade: se o mesmo disparo for acionado mais de 1 vez em 1 minuto, bloqueia
+                var chaveDisparo = $"{usuarioId}:{canal}:{evento}:{titulo.Trim()}";
+                if (_ultimosDisparosCanais.TryGetValue(chaveDisparo, out var ultimoDisparo) && (agoraUtc - ultimoDisparo) < JanelaBloqueioMesmoDisparo)
+                {
+                    _logger.LogInformation(
+                        "[ORQUESTRADOR] Disparo suprimido para UsuarioId {UsuarioId}, Canal {Canal}: o mesmo disparo com título '{Titulo}' foi acionado há menos de 1 minuto.",
+                        usuarioId, canal, titulo);
+                    continue;
+                }
+                _ultimosDisparosCanais[chaveDisparo] = agoraUtc;
 
                 // Despacho por canal
                 switch (canal)
@@ -584,6 +598,11 @@ namespace Cortex.Services.Implementations
                 TipoEventoNotificacao.Equipe => "equipe",
                 _ => "geral"
             };
+        }
+
+        internal static void LimparHistoricoDisparos()
+        {
+            _ultimosDisparosCanais.Clear();
         }
 
         private static NotificacaoDTO MapNotificacaoToDTO(Notificacao n)

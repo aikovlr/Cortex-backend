@@ -11,5 +11,6 @@ namespace Cortex.DTOs.Request
         public DateTime? DataInicio { get; set; }
         public DateTime? DataFim { get; set; }
         public string? TermoBusca { get; set; }
+        public string? Aba { get; set; }
     }
 }

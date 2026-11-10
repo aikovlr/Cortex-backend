@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net.Sockets;
 using Cortex.DTOs;
@@ -14,7 +15,11 @@ namespace Cortex.Infra.Gateways
     {
         private readonly SmtpOptions _options;
         private readonly ILogger<SmtpEmailGateway> _logger;
-        private const int MaxTentativas = 3;
+        private const int MaxTentativas = 1;
+
+        // Controle de duplicidade: bloqueia se o mesmo disparo for acionado mais de 1 vez em 1 minuto
+        private static readonly ConcurrentDictionary<string, DateTime> _ultimosDisparos = new();
+        private static readonly TimeSpan JanelaBloqueioMesmoDisparo = TimeSpan.FromMinutes(1);
 
         public SmtpEmailGateway(
             IOptions<SmtpOptions> options,
@@ -38,6 +43,22 @@ namespace Cortex.Infra.Gateways
         public async Task<bool> EnviarAsync(EmailMensagem mensagem, CancellationToken ct = default)
         {
             var emailMascarado = LogEmailGateway.MascararEmail(mensagem.Destinatario);
+            var chaveDisparo = $"{mensagem.Destinatario?.Trim().ToLowerInvariant()}:{mensagem.Assunto?.Trim()}";
+            var agoraUtc = DateTime.UtcNow;
+
+            // Bloqueio de duplicidade: se o mesmo disparo for acionado mais de 1 vez em 1 minuto, bloqueia
+            if (_ultimosDisparos.TryGetValue(chaveDisparo, out var ultimoEnvio) && (agoraUtc - ultimoEnvio) < JanelaBloqueioMesmoDisparo)
+            {
+                var decorrido = (agoraUtc - ultimoEnvio).TotalSeconds;
+                _logger.LogWarning(
+                    "[SMTP] Disparo bloqueado: o mesmo e-mail para {Destinatario} com assunto '{Assunto}' foi acionado mais de 1 vez em menos de 1 minuto ({Segundos:N1}s atrás).",
+                    emailMascarado,
+                    mensagem.Assunto,
+                    decorrido);
+
+                return false;
+            }
+
             var stopwatch = Stopwatch.StartNew();
 
             for (var tentativa = 1; tentativa <= MaxTentativas; tentativa++)
@@ -47,6 +68,8 @@ namespace Cortex.Infra.Gateways
                     await EnviarViaSmtpAsync(mensagem, ct);
                     stopwatch.Stop();
 
+                    _ultimosDisparos[chaveDisparo] = agoraUtc;
+
                     _logger.LogInformation(
                         "[SMTP] E-mail enviado com sucesso para {Destinatario} | Assunto: '{Assunto}' | Tentativa: {Tentativa}/{Max} | Duração: {ElapsedMilliseconds}ms",
                         emailMascarado,
@@ -54,6 +77,8 @@ namespace Cortex.Infra.Gateways
                         tentativa,
                         MaxTentativas,
                         stopwatch.ElapsedMilliseconds);
+
+                    LimparChavesAntigas(agoraUtc);
 
                     return true;
                 }
@@ -120,7 +145,15 @@ namespace Cortex.Infra.Gateways
             }
 
             await client.SendAsync(mimeMessage, ct);
-            await client.DisconnectAsync(true, ct);
+
+            try
+            {
+                await client.DisconnectAsync(true, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "[SMTP] Desconexão do servidor SMTP finalizada com aviso não fatal: {Message}", ex.Message);
+            }
         }
 
         private SecureSocketOptions ObterSecureSocketOptions()
@@ -141,6 +174,28 @@ namespace Cortex.Infra.Gateways
         {
             return ex is SmtpCommandException or SmtpProtocolException or IOException or SocketException or TimeoutException;
         }
+
+        private static void LimparChavesAntigas(DateTime agoraUtc)
+        {
+            if (_ultimosDisparos.Count > 100)
+            {
+                var limite = agoraUtc.AddMinutes(-5);
+                foreach (var item in _ultimosDisparos.Where(kvp => kvp.Value < limite).ToList())
+                {
+                    _ultimosDisparos.TryRemove(item.Key, out _);
+                }
+            }
+        }
+
+        public static void LimparHistoricoDisparos()
+        {
+            _ultimosDisparos.Clear();
+        }
+
+        public static void SimularDisparo(string destinatario, string assunto, DateTime quando)
+        {
+            var chave = $"{destinatario.Trim().ToLowerInvariant()}:{assunto.Trim()}";
+            _ultimosDisparos[chave] = quando;
+        }
     }
 }
-
