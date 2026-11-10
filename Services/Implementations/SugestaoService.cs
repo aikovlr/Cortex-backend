@@ -69,7 +69,7 @@ namespace Cortex.Services.Implementations
                         "sugestao",
                         "Nova Sugestão de Alteração",
                         $"Sugestão de alteração enviada na tarefa \"{tarefa.Titulo}\": {dto.Descricao}",
-                        $"/tarefas-atribuidas/{tarefa.Id}?tab=sugestoes",
+                        $"/tarefas-atribuidas/{tarefa.Id}?aba=sugestoes",
                         destaque: false,
                         tarefaId: tarefa.Id);
                 }
@@ -124,7 +124,7 @@ namespace Cortex.Services.Implementations
                         "sugestao",
                         "Sugestão Aprovada",
                         $"Sua sugestão de alteração na tarefa \"{sugestao.Tarefa.Titulo}\" foi aceita!",
-                        $"/minhas-tarefas/{sugestao.TarefaId}?tab=sugestoes",
+                        $"/minhas-tarefas/{sugestao.TarefaId}?aba=sugestoes",
                         destaque: false,
                         tarefaId: sugestao.TarefaId);
 
@@ -173,7 +173,7 @@ namespace Cortex.Services.Implementations
                         "sugestao",
                         "Sugestão Recusada",
                         $"Sua sugestão de alteração na tarefa \"{sugestao.Tarefa?.Titulo ?? "Tarefa"}\" foi recusada.",
-                        $"/minhas-tarefas/{sugestao.TarefaId}?tab=sugestoes",
+                        $"/minhas-tarefas/{sugestao.TarefaId}?aba=sugestoes",
                         false,
                         sugestao.TarefaId);
                 }

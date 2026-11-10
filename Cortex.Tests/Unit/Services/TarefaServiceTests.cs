@@ -242,7 +242,7 @@ namespace Cortex.Tests.Unit.Services
                 "tarefa",
                 "Tarefa Concluída",
                 It.Is<string>(msg => msg.Contains("Tarefa sem Anexo")),
-                $"/tarefas-atribuidas/{tarefaId}",
+                $"/tarefas-atribuidas/{tarefaId}?aba=respostas",
                 false,
                 tarefaId), Times.Once);
         }
@@ -339,7 +339,7 @@ namespace Cortex.Tests.Unit.Services
                 "tarefa",
                 It.Is<string>(t => t.Contains("(2)")),
                 It.Is<string>(msg => msg.Contains("Alice") && msg.Contains("Bob")),
-                $"/tarefas-atribuidas/{tarefaId}",
+                $"/tarefas-atribuidas/{tarefaId}?aba=respostas",
                 false,
                 tarefaId), Times.Once);
         }
@@ -441,6 +441,77 @@ namespace Cortex.Tests.Unit.Services
                 $"/minhas-tarefas/{tarefaId}",
                 false,
                 tarefaId), Times.Once);
+        }
+
+        [Fact]
+        public async Task ListarTarefasAsync_ComFiltroAbaTarefasConcluidas_DeveRetornarApenasConcluidas()
+        {
+            // Arrange
+            var solicitanteId = 1;
+            var criador = new Usuario { Id = solicitanteId, Nome = "Admin", Email = "admin@test.com", SenhaHash = "hash" };
+            var tarefasMock = new List<Tarefa>
+            {
+                new Tarefa { Id = 1, Titulo = "Tarefa 1", Status = Status.Pendente, DataVencimento = DateTime.UtcNow.AddDays(1), CriadorId = solicitanteId, Criador = criador, ResponsaveisTarefas = new List<ResponsavelTarefa>() },
+                new Tarefa { Id = 2, Titulo = "Tarefa 2", Status = Status.Concluida, DataVencimento = DateTime.UtcNow.AddDays(1), CriadorId = solicitanteId, Criador = criador, ResponsaveisTarefas = new List<ResponsavelTarefa>() },
+                new Tarefa { Id = 3, Titulo = "Tarefa 3", Status = Status.Atrasada, DataVencimento = DateTime.UtcNow.AddDays(-1), CriadorId = solicitanteId, Criador = criador, ResponsaveisTarefas = new List<ResponsavelTarefa>() }
+            };
+
+            _tarefaRepoMock.Setup(r => r.ObterTarefasComFiltroAsync(
+                It.IsAny<Status?>(),
+                It.IsAny<Prioridade?>(),
+                It.IsAny<int?>(),
+                It.IsAny<int?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<string?>()
+            )).ReturnsAsync(tarefasMock);
+
+            var filtros = new FiltroTarefasDTO { Aba = "tarefas-concluidas" };
+
+            // Act
+            var resultado = await _tarefaService.ListarTarefasAsync(filtros, solicitanteId);
+
+            // Assert
+            Assert.NotNull(resultado);
+            var lista = resultado.ToList();
+            Assert.Single(lista);
+            Assert.Equal(2, lista[0].Id);
+            Assert.Equal(Status.Concluida, lista[0].Status);
+        }
+
+        [Fact]
+        public async Task ListarTarefasAsync_ComFiltroAbaTarefasPendentes_DeveRetornarApenasNaoConcluidas()
+        {
+            // Arrange
+            var solicitanteId = 1;
+            var criador = new Usuario { Id = solicitanteId, Nome = "Admin", Email = "admin@test.com", SenhaHash = "hash" };
+            var tarefasMock = new List<Tarefa>
+            {
+                new Tarefa { Id = 1, Titulo = "Tarefa 1", Status = Status.Pendente, DataVencimento = DateTime.UtcNow.AddDays(1), CriadorId = solicitanteId, Criador = criador, ResponsaveisTarefas = new List<ResponsavelTarefa>() },
+                new Tarefa { Id = 2, Titulo = "Tarefa 2", Status = Status.Concluida, DataVencimento = DateTime.UtcNow.AddDays(1), CriadorId = solicitanteId, Criador = criador, ResponsaveisTarefas = new List<ResponsavelTarefa>() },
+                new Tarefa { Id = 3, Titulo = "Tarefa 3", Status = Status.Atrasada, DataVencimento = DateTime.UtcNow.AddDays(-1), CriadorId = solicitanteId, Criador = criador, ResponsaveisTarefas = new List<ResponsavelTarefa>() }
+            };
+
+            _tarefaRepoMock.Setup(r => r.ObterTarefasComFiltroAsync(
+                It.IsAny<Status?>(),
+                It.IsAny<Prioridade?>(),
+                It.IsAny<int?>(),
+                It.IsAny<int?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<string?>()
+            )).ReturnsAsync(tarefasMock);
+
+            var filtros = new FiltroTarefasDTO { Aba = "tarefas-pendentes" };
+
+            // Act
+            var resultado = await _tarefaService.ListarTarefasAsync(filtros, solicitanteId);
+
+            // Assert
+            Assert.NotNull(resultado);
+            var lista = resultado.ToList();
+            Assert.Equal(2, lista.Count);
+            Assert.DoesNotContain(lista, t => t.Status == Status.Concluida);
         }
     }
 }

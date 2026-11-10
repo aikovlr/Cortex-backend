@@ -330,6 +330,7 @@ Podem ser informados como inteiros ou seus nomes como strings:
   - `dataInicio` (DateTime UTC)
   - `dataFim` (DateTime UTC)
   - `termoBusca` (string)
+  - `aba` (string — `tarefas-pendentes` ou `tarefas-concluidas`)
 - **Retorno (`200 OK - List<ConsultaTarefaDTO>`)**:
 ```json
 [
