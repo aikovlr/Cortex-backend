@@ -18,6 +18,11 @@ namespace Cortex.DTOs.Validators
             RuleFor(x => x.DataFechamento)
                 .Must(data => !data.HasValue || data.Value <= DateTime.UtcNow.AddMonths(12))
                 .WithMessage("A data de término da meta não pode exceder 12 meses a partir da data de criação.");
+
+            RuleFor(x => x.XpRecompensa)
+                .GreaterThanOrEqualTo(0)
+                .When(x => x.XpRecompensa.HasValue)
+                .WithMessage("O XP de recompensa não pode ser negativo.");
         }
     }
 }

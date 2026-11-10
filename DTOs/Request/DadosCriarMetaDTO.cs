@@ -8,5 +8,6 @@ namespace Cortex.DTOs.Request
         public List<int>? TarefaIds { get; set; }
         public int? UsuarioId { get; set; }
         public int? EquipeId { get; set; }
+        public int? XpRecompensa { get; set; }
     }
 }

@@ -110,7 +110,7 @@ namespace Cortex.Controllers
         public async Task<IActionResult> AtribuirEquipe(int id, [FromBody] AtribuirEquipeMetaDTO dto)
         {
             var currentUserId = ObterUsuarioIdAutenticado();
-            var metaAtualizada = await _metaService.AtribuirEquipeAsync(id, dto.EquipeId, currentUserId);
+            var metaAtualizada = await _metaService.AtribuirEquipeAsync(id, dto.EquipeId, currentUserId, dto.XpRecompensa);
 
             _logger.LogInformation("Equipe {EquipeId} atribuída à Meta {MetaId} pelo UsuarioId {UsuarioId}",
                 dto.EquipeId, id, currentUserId);

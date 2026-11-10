@@ -16,6 +16,10 @@ namespace Cortex.Infra.Persistence.Configuration
             builder.HasIndex(me => me.EquipeId);
             builder.HasIndex(me => new { me.MetaId, me.EquipeId });
 
+            builder.Property(me => me.XpRecompensa)
+                .IsRequired()
+                .HasDefaultValue(0);
+
             builder.HasOne(me => me.Meta)
                 .WithMany(m => m.MetasEquipes)
                 .HasForeignKey(me => me.MetaId)

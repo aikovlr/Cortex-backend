@@ -37,6 +37,14 @@ namespace Cortex.Infra.Persistence.Configuration
                 .IsRequired()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+            builder.Property(u => u.Nivel)
+                .IsRequired()
+                .HasDefaultValue(1);
+
+            builder.Property(u => u.Experiencia)
+                .IsRequired()
+                .HasDefaultValue(0);
+
             builder.HasMany(u => u.TarefasCriadas)
                 .WithOne(t => t.Criador)
                 .HasForeignKey(t => t.CriadorId)

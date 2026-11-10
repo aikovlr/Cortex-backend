@@ -135,6 +135,9 @@ namespace Cortex.Controllers
                     Nome = usuario.Nome,
                     Email = usuario.Email,
                     Telefone = usuario.Telefone,
+                    EmailVerificado = usuario.EmailVerificado,
+                    Nivel = usuario.Nivel,
+                    Experiencia = usuario.Experiencia,
                     FotoPerfil = usuario.FotoPerfil != null ? new ConsultaAnexoDTO
                     {
                         Id = usuario.FotoPerfil.Id,

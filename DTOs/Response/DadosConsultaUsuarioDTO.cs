@@ -7,6 +7,8 @@ namespace Cortex.DTOs.Response
         public string Email { get; set; } = null!;
         public string? Telefone { get; set; }
         public bool EmailVerificado { get; set; }
+        public int Nivel { get; set; }
+        public int Experiencia { get; set; }
         public ConsultaAnexoDTO? FotoPerfil { get; set; }
     }
 }

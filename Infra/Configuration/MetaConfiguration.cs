@@ -24,13 +24,7 @@ namespace Cortex.Infra.Persistence.Configuration
 
             // Índices de Performance (RNF09 / Fase 13)
             builder.HasIndex(m => m.UsuarioId);
-            builder.HasIndex(m => m.TarefaId);
             builder.HasIndex(m => new { m.UsuarioId, m.Concluida });
-
-            builder.HasOne(m => m.Tarefa)
-                .WithMany(t => t.Metas)
-                .HasForeignKey(m => m.TarefaId)
-                .OnDelete(DeleteBehavior.Cascade);
 
             builder.HasOne(m => m.Usuario)
                 .WithMany(u => u.Metas)

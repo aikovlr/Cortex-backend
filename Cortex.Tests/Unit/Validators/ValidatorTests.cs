@@ -141,5 +141,36 @@ namespace Cortex.Tests.Unit.Validators
             var resultado = validator.Validate(dto);
             Assert.Equal(esperadaValida, resultado.IsValid);
         }
+
+        [Fact]
+        public void CriarMeta_XpRecompensaNegativo_DeveFalhar()
+        {
+            var validator = new CriarMetaValidator();
+            var dto = new CriarMetaDTO
+            {
+                Nome = "Meta Inválida",
+                TarefaId = 1,
+                XpRecompensa = -50
+            };
+
+            var resultado = validator.Validate(dto);
+            Assert.False(resultado.IsValid);
+            Assert.Contains(resultado.Errors, e => e.PropertyName == "XpRecompensa");
+        }
+
+        [Fact]
+        public void AtribuirEquipeMeta_XpRecompensaNegativo_DeveFalhar()
+        {
+            var validator = new AtribuirEquipeMetaValidator();
+            var dto = new AtribuirEquipeMetaDTO
+            {
+                EquipeId = 1,
+                XpRecompensa = -10
+            };
+
+            var resultado = validator.Validate(dto);
+            Assert.False(resultado.IsValid);
+            Assert.Contains(resultado.Errors, e => e.PropertyName == "XpRecompensa");
+        }
     }
 }

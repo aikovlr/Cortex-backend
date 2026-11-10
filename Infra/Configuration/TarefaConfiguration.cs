@@ -73,11 +73,6 @@ namespace Cortex.Infra.Persistence.Configuration
                 .WithOne(s => s.Tarefa)
                 .HasForeignKey(s => s.TarefaId)
                 .OnDelete(DeleteBehavior.Cascade);
-
-            builder.HasMany(t => t.Metas)
-                .WithOne(m => m.Tarefa)
-                .HasForeignKey(m => m.TarefaId)
-                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }
