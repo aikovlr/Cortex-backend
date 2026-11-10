@@ -61,3 +61,6 @@ build/
 
 # uploads
 uploads/
+# Test Results
+[Tt]est[Rr]esults/
+*.trx

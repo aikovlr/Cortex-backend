@@ -21,6 +21,10 @@ namespace Cortex.Entities
         public Anexo? FotoPerfil { get; set; }
         public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
 
+        // Gamificação / Sistema de Nível
+        public int Nivel { get; set; } = 1;
+        public int Experiencia { get; set; } = 0;
+
         // navegacao
         public ICollection<Tarefa> TarefasCriadas { get; set; } = new List<Tarefa>();
         public ICollection<RespostaTarefa> Respostas { get; set; } = new List<RespostaTarefa>();

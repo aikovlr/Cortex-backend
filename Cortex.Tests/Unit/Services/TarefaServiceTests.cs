@@ -106,7 +106,6 @@ namespace Cortex.Tests.Unit.Services
             {
                 Id = 100,
                 Nome = "Meta Vinculada",
-                TarefaId = tarefaId,
                 Concluida = false
             };
 

@@ -28,7 +28,8 @@ namespace Cortex.Repositories.Implementations
                         .ThenInclude(u => u.FotoPerfil)
                 .Include(t => t.Respostas)
                     .ThenInclude(r => r.Anexos)
-                .Include(t => t.Metas)
+                .Include(t => t.MetasTarefas)
+                    .ThenInclude(mt => mt.Meta)
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
 

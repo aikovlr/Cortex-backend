@@ -90,10 +90,13 @@ classDiagram
         +bool EmailVerificado
         +string CodigoVerificacaoHash
         +DateTime CodigoVerificacaoExpiracao
+        +int Nivel
+        +int Experiencia
         +DateTime DataCriacao
         +VerificarEmail(codigo: string) bool
         +AlterarSenha(novaSenhaHash: string) void
         +AtualizarFotoPerfil(anexoId: int) void
+        +IncrementarXp(xp: int) void
     }
 
     class Equipe {
@@ -178,7 +181,6 @@ classDiagram
         +string Nome
         +DateTime DataFechamento
         +bool Concluida
-        +int TarefaId
         +int UsuarioId
         +VincularTarefa(tarefaId: int) void
         +VincularEquipe(equipeId: int) MetaEquipe
@@ -198,8 +200,9 @@ classDiagram
         +int Id
         +int MetaId
         +int EquipeId
+        +int XpRecompensa
         +DateTime DataVinculo
-        +Vincular(metaId: int, equipeId: int) void
+        +Vincular(metaId: int, equipeId: int, xpRecompensa: int) void
     }
 
     %% Suporte, Anexos e Notificações
@@ -274,7 +277,6 @@ classDiagram
 
     %% Relacionamentos de Metas
     Usuario "1" --> "*" Meta : proprietario_ou_atribuido
-    Tarefa "1" --> "*" Meta : tarefa_referencia
     Meta "1" --> "*" MetaTarefa : contem
     Tarefa "1" --> "*" MetaTarefa : vinculada
     Equipe "1" --> "*" MetaEquipe : vinculada
@@ -393,9 +395,12 @@ classDiagram
         +string Email
         +string SenhaHash
         +bool EmailVerificado
+        +int Nivel
+        +int Experiencia
         +DateTime DataCriacao
         +VerificarEmail(codigo: string) bool
         +AlterarSenha(novaSenhaHash: string) void
+        +IncrementarXp(xp: int) void
     }
 
     class Equipe {
@@ -421,8 +426,9 @@ classDiagram
         +int Id
         +int MetaId
         +int EquipeId
+        +int XpRecompensa
         +DateTime DataVinculo
-        +Vincular(metaId: int, equipeId: int) void
+        +Vincular(metaId: int, equipeId: int, xpRecompensa: int) void
     }
 
     class PreferenciaNotificacao {
@@ -467,7 +473,10 @@ classDiagram
         +int Id
         +string Nome
         +string Email
+        +int Nivel
+        +int Experiencia
         +VerificarEmail(codigo: string) bool
+        +IncrementarXp(xp: int) void
     }
 
     class Tarefa {
@@ -491,7 +500,6 @@ classDiagram
         +string Nome
         +DateTime DataFechamento
         +bool Concluida
-        +int TarefaId
         +int UsuarioId
         +VincularTarefa(tarefaId: int) void
         +VincularEquipe(equipeId: int) MetaEquipe
@@ -510,8 +518,9 @@ classDiagram
         +int Id
         +int MetaId
         +int EquipeId
+        +int XpRecompensa
         +DateTime DataVinculo
-        +Vincular(metaId: int, equipeId: int) void
+        +Vincular(metaId: int, equipeId: int, xpRecompensa: int) void
     }
 
     Usuario "1" --> "*" Meta : proprietario_ou_atribuido
@@ -526,21 +535,21 @@ classDiagram
 
 | Entidade | Tabela | Descrição e Regras Chave |
 | :--- | :--- | :--- |
-| **`Usuario`** | `Usuarios` | Contém credenciais com hash BCrypt (`SenhaHash`), flag de verificação de e-mail (RN13) e índice único no e-mail (RN01). Não pode ser excluído caso possua tarefas pendentes (RN05). |
-| **`Tarefa`** | `Tarefas` | Núcleo do sistema. Controla status, prioridade e vencimento. Atualizações de status recalculam metas (RN08) e tarefas com prazo vencido transicionam para `Atrasada` (RN06). Suporta múltiplos responsáveis com conclusão individual e visão de status efetivo. |
+| **`Usuario`** | `Usuarios` | Contém credenciais com hash BCrypt (`SenhaHash`), flag de verificação de e-mail (RN012), índice único no e-mail (RN001), nível e experiência da conta (sistema de gamificação). Não pode ser excluído caso possua tarefas pendentes ou atrasadas (RN005). |
+| **`Tarefa`** | `Tarefas` | Núcleo do sistema. Controla status, prioridade e vencimento. Atualizações de status recalculam metas (RN008) e tarefas com prazo vencido transicionam para `Atrasada` (RN006). Suporta múltiplos responsáveis com conclusão individual e visão de status efetivo. |
 | **`Equipe`** | `Equipes` | Agrupamento corporativo de usuários. |
-| **`MembroEquipe`**| `MembrosEquipe` | Tabela associativa com controle de cargos RBAC (`Dono`, `Admin`, `Membro`). Apenas donos alteram cargos (RN03) e apenas donos/admins gerenciam membros (RN04) e atribuem tarefas e metas a integrantes respeitando a hierarquia de cargos. |
+| **`MembroEquipe`**| `MembrosEquipe` | Tabela associativa com controle de cargos RBAC (`Dono`, `Admin`, `Membro`). Apenas donos alteram cargos (RN003) e apenas donos/admins gerenciam membros (RN004) e atribuem tarefas e metas a integrantes respeitando a hierarquia de cargos. |
 | **`ResponsavelTarefa`** | `ResponsaveisTarefa` | Usuários responsáveis pela execução da tarefa. Permite atribuição unitária ou em lote por equipe com respeito à hierarquia de liderança. |
-| **`Sugestao`** | `Sugestoes` | Permite que responsáveis sugiram ajustes de escopo/prazo. Exige aprovação explícita do criador da tarefa (RN14 / RF004). |
-| **`Meta`** | `Metas` | Metas vinculadas a tarefas (RN07). Validade máxima de 12 meses (RN15) e conclusão automática baseada no status de todas as tarefas vinculadas (RN08). Pode ser atribuída por donos/admins a integrantes específicos ou vinculada à equipe inteira. |
+| **`Sugestao`** | `Sugestoes` | Permite que responsáveis sugiram ajustes de escopo/prazo. Exige aprovação explícita do criador da tarefa (RN013 / RF004). |
+| **`Meta`** | `Metas` | Metas vinculadas a tarefas (RN007). Validade máxima de 12 meses (RN014) e conclusão automática baseada no status de todas as tarefas vinculadas (RN008). Pode ser atribuída por donos/admins a integrantes específicos ou vinculada à equipe inteira. Metas puramente individuais não acumulam XP, enquanto metas de equipes concedem XP e progressão de nível (RN019). |
 | **`MetaTarefa`** | `MetasTarefas` | Tabela associativa N:N entre `Meta` e `Tarefa`. |
-| **`MetaEquipe`** | `MetaEquipe` | Tabela associativa N:N entre `Meta` e `Equipe`. Permite que donos e administradores atribuam metas a integrantes de sua equipe e acompanhem o progresso coletivo. |
-| **`TicketReporte`** | `TicketReporte` | Chamado de impedimento aberto pelo executor da tarefa direcionado a administradores e donos (RF008). |
+| **`MetaEquipe`** | `MetaEquipe` | Tabela associativa N:N entre `Meta` e `Equipe`. Permite que donos e administradores atribuam metas a equipes, configurando o `XpRecompensa` para bonificação de nível dos usuários na conclusão (RN019). |
+| **`TicketReporte`** | `TicketReporte` | Chamado de impedimento aberto pelo executor da tarefa direcionado a administradores e donos (RF005, RN016). |
 | **`Anexo`** | `Anexos` | Armazenamento de metadados e caminhos físicos de arquivos associados a tarefas, respostas ou usuários. |
-| **`RespostaTarefa`** | `RespostaTarefa` | Armazena entregas, respostas e devolutivas dos executores, incluindo avaliação e nota atribuída pelo criador da tarefa e anexos comprobatórios. |
+| **`RespostaTarefa`** | `RespostaTarefa` | Armazena entregas, respostas e devolutivas dos executores, incluindo avaliação e nota atribuída exclusivamente pelo criador da tarefa (RN015) e anexos comprobatórios. |
 | **`Notificacao`** | `Notificacao` | Central de notificações in-app persistidas no banco com indicação de tipo, rota para navegação rápida, status de leitura e flags visuais de destaque (vencidas/urgentes). |
-| **`PreferenciaNotificacao`** | `PreferenciasNotificacao` | Configurações personalizadas por canal (Email, Push, SMS) e janela de antecedência entre 1h e 168h (RN11). |
-| **`AlertaEnviado`** | `AlertasEnviados` | Registro de disparos efetuados para evitar notificações duplicadas ou fora da janela válida (RN12). |
+| **`PreferenciaNotificacao`** | `PreferenciasNotificacao` | Configurações personalizadas por canal (Email, Push, SMS) e janela de antecedência entre 1h e 168h (RN011). |
+| **`AlertaEnviado`** | `AlertasEnviados` | Registro de disparos efetuados para evitar notificações duplicadas ou fora da janela válida (RN017). |
 
 ---
 
@@ -548,7 +557,9 @@ classDiagram
 
 O diagrama de objetos abaixo ilustra um **cenário real de execução** no Cortex Backend:
 - Uma **Tarefa Atribuída** (`tarefa101`), criada por um usuário administrador (`usuarioCriador`) e atribuída a um desenvolvedor (`usuarioExecutor`) através do objeto associativo `respTarefa50`.
-- Um **Ticket de Reporte** (`ticketReporte7`), aberto pelo executor para alertar a liderança sobre um impedimento técnico impeditivo (**RF008**).
+- Um **Ticket de Reporte** (`ticketReporte7`), aberto pelo executor para alertar a liderança sobre um impedimento técnico impeditivo (**RF005**, **RN016**).
+- Uma **Meta Corporativa** (`metaQ4`), criada pela administradora e associada à tarefa através de `metaTarefaLink` (**RN007**). O estado atual reflete a **RN008**: como a tarefa associada ainda está com `Status = Pendente`, o atributo `Concluida` da meta permanece `false`.
+- Uma vinculação de **Meta com Equipe** (`metaEquipeLink`), demonstrando a regra **RN019** com `XpRecompensa = 250` atribuída à equipe DevOps.
 - Uma **Meta Corporativa** (`metaQ4`), criada pela administradora e associada à tarefa através de `metaTarefaLink` (**RN07**). O estado atual reflete a **RN08**: como a tarefa associada ainda está com `Status = Pendente`, o atributo `Concluida` da meta permanece `false`.
 
 ```mermaid
@@ -606,7 +617,6 @@ classDiagram
         Nome = "Entrega da Infraestrutura Q4"
         DataFechamento = 2026-12-31
         Concluida = false
-        TarefaId = 101
         UsuarioId = 1
     }
 
@@ -724,9 +734,9 @@ flowchart LR
     Admin -- Especializacao --> Usuario
 
     subgraph ModuloIdentidade ["Módulo: Identidade, Acessibilidade e Equipes"]
-        UC01(["UC01: Gerenciar Conta e Autenticação<br/>(RF001, RF012 - RN01, RN02, RN05)"])
-        UC06(["UC06: Gerenciar Equipes<br/>(RF006 - RN03, RN04)"])
-        UC08(["UC08: Configurar Alertas e Acessibilidade<br/>(RF008, RF013 - RN11, RN12, RN18)"])
+        UC01(["UC01: Gerenciar Conta e Autenticação<br/>(RF001, RF012 - RN001, RN002, RN005)"])
+        UC06(["UC06: Gerenciar Equipes<br/>(RF006 - RN003, RN004)"])
+        UC08(["UC08: Configurar Alertas e Acessibilidade<br/>(RF008, RF013 - RN011, RN012, RN018)"])
         UC09(["UC09: Interagir com a Central de Notificações<br/>(RF009)"])
     end
 
@@ -746,7 +756,7 @@ flowchart LR
 
 ### 3.2 Módulo: Tarefas, Entregas, Sugestões e Impedimentos
 
-Atende aos requisitos **RF002**, **RF003**, **RF004**, **RF005** e **RF012**, cobrindo o gerenciamento completo de atividades, anexos binários, delegação individual e por equipe, entrega de respostas técnicas com avaliação por notas (**RN15**), aprovação de alterações (**RN13**) e mediação de impedimentos operacionais (**RN16**).
+Atende aos requisitos **RF002**, **RF003**, **RF004**, **RF005** e **RF012**, cobrindo o gerenciamento completo de atividades, anexos binários, delegação individual e por equipe, entrega de respostas técnicas com avaliação por notas (**RN015**), aprovação de alterações (**RN013**) e mediação de impedimentos operacionais (**RN016**).
 
 ```mermaid
 flowchart LR
@@ -755,10 +765,10 @@ flowchart LR
     Responsavel["👤 Responsável Atribuído"]
 
     subgraph ModuloTarefas ["Módulo: Tarefas, Entregas e Impedimentos"]
-        UC02(["UC02: Gerenciar Tarefas<br/>(RF002, RF012 - RN06)"])
-        UC03(["UC03: Submeter e Avaliar Entregas<br/>(RF003, RF012 - RN15)"])
-        UC04(["UC04: Propor e Julgar Alterações<br/>(RF004 - RN13)"])
-        UC05(["UC05: Gerenciar Tickets de Impedimento<br/>(RF005 - RN16)"])
+        UC02(["UC02: Gerenciar Tarefas<br/>(RF002, RF012 - RN006)"])
+        UC03(["UC03: Submeter e Avaliar Entregas<br/>(RF003, RF012 - RN015)"])
+        UC04(["UC04: Propor e Julgar Alterações<br/>(RF004 - RN013)"])
+        UC05(["UC05: Gerenciar Tickets de Impedimento<br/>(RF005 - RN016)"])
     end
 
     %% Vínculos do Criador
@@ -786,7 +796,7 @@ flowchart LR
 
 ### 3.3 Módulo: Metas, Relatórios Analíticos e Serviços Automáticos
 
-Atende aos requisitos **RF007**, **RF010** e **RF011**, detalhando o acompanhamento de metas vinculadas a tarefas e equipes (**RN07**, **RN08**, **RN14**), geração de relatórios com segregação de privacidade (**RN09**, **RN10**) e automações de segundo plano com idempotência de alertas (**RN06**, **RN17**).
+Atende aos requisitos **RF007**, **RF010** e **RF011**, detalhando o acompanhamento de metas vinculadas a tarefas e equipes (**RN007**, **RN008**, **RN014**, **RN019**), geração de relatórios com segregação de privacidade (**RN009**, **RN010**) e automações de segundo plano com idempotência de alertas (**RN006**, **RN017**).
 
 ```mermaid
 flowchart LR
@@ -796,9 +806,9 @@ flowchart LR
     Sistema["⚙️ Agendador em Background (Sistema)"]
 
     subgraph ModuloMetasRelatorios ["Módulo: Metas, Relatórios e Automação"]
-        UC07(["UC07: Gerenciar Metas<br/>(RF007 - RN07, RN08, RN14)"])
-        UC11(["UC11: Gerar Relatórios<br/>(RF010, RF011 - RN09, RN10)"])
-        UC10(["UC10: Atualizar Status e Disparar Alertas (Automático)<br/>(RF010 - RN06, RN17, RNF10)"])
+        UC07(["UC07: Gerenciar Metas<br/>(RF007 - RN007, RN008, RN014, RN019)"])
+        UC11(["UC11: Gerar Relatórios<br/>(RF010, RF011 - RN009, RN010)"])
+        UC10(["UC10: Atualizar Status e Disparar Alertas (Automático)<br/>(RF010 - RN006, RN017, RNF010)"])
     end
 
     %% Vínculos de Atores
@@ -819,21 +829,24 @@ flowchart LR
 
 ### Mapeamento Canônico: Requisitos Funcionais x Casos de Uso
 
-| ID Requisito | Descrição do Requisito Funcional | Casos de Uso Vinculados |
-| :--- | :--- | :--- |
-| **RF001** | Cadastrar, consultar, atualizar e excluir usuários; autenticar por e-mail e senha; verificar e-mail por código de 6 dígitos; solicitar/redefinir senha por código enviado ao e-mail. Dados: nome, e-mail, telefone e foto de perfil. | **UC01: Gerenciar Conta e Autenticação** |
-| **RF002** | Criar, consultar, editar, excluir, concluir e reabrir tarefas; atribuir e remover responsáveis individualmente ou por todos os membros de uma equipe. Dados: título, descrição, vencimento, pontuação, status, prioridade, criador, responsáveis e anexos. | **UC02: Gerenciar Tarefas** |
-| **RF003** | Enviar entregas de uma tarefa com arquivos anexos pelo responsável; avaliação de cada entrega com nota pelo criador. Dados: tarefa, responsável, data de envio, nota e anexos. | **UC03: Submeter e Avaliar Entregas** |
-| **RF004** | Submeter sugestões de alteração de tarefa por responsáveis; aprovação ou rejeição exclusiva pelo criador. Dados: tarefa, solicitante, descrição, data de criação e status. | **UC04: Propor e Julgar Alterações** |
-| **RF005** | Abrir tickets de impedimento em tarefas não concluídas por responsáveis; notificar criador; encerramento exclusivo por criador, dono ou admin autorizado. Dados: tarefa, autor, descrição, data e situação ativa/fechada. | **UC05: Gerenciar Tickets de Impedimento** |
-| **RF006** | Criar, consultar, alterar e excluir equipes; incluir, remover e listar membros. O criador torna-se dono; somente dono altera cargos; dono e admin administram membros. | **UC06: Gerenciar Equipes** |
-| **RF007** | Criar, consultar, alterar e excluir metas associadas a uma ou mais tarefas e a um usuário proprietário ou pertencente a uma equipe, calculando a conclusão conforme o término das tarefas. | **UC07: Gerenciar Metas** |
-| **RF008** | Configurar por canal (e-mail, push, SMS) a antecedência de alertas (1h a 7 dias) e a ativação de notificações para nova atribuição, vencimento, conclusão de meta e ticket. | **UC08: Configurar Alertas e Acessibilidade** |
-| **RF009** | Central de notificações no cabeçalho: listar alertas do usuário, badge de não lidas, marcar uma/todas como lidas e remover notificações ou histórico. | **UC09: Interagir com a Central de Notificações** |
-| **RF010** | Rotina em background para transicionar tarefas vencidas para "Atrasada", disparar notificações e bloquear alertas duplicados na mesma janela. | **UC10: Atualizar Status e Disparar Alertas (Automático)** |
-| **RF011** | Gerar relatórios de tarefas com filtros por status, prioridade, período, responsável, criador e equipe. Restrição de privacidade (comum só vê o seu; liderança vê da equipe). | **UC11: Gerar Relatórios** |
-| **RF012** | Anexar, consultar e excluir arquivos relacionados a tarefas, entregas e perfis de usuário, disponibilizando visualização ou download quando suportado. | **UC01: Gerenciar Conta e Autenticação**<br/>**UC02: Gerenciar Tarefas**<br/>**UC03: Submeter e Avaliar Entregas** |
-| **RF013** | Configurar e persistir tema claro/escuro, modo de alto contraste e tamanho de fonte acessível entre 12 e 24 pixels em valores pares. | **UC08: Configurar Alertas e Acessibilidade** |
+#### Quadro 3 — Requisitos Funcionais
+| Código | Descrição | Implementado? | Casos de Uso Vinculados |
+| :--- | :--- | :---: | :--- |
+| **RF001** | O sistema deve permitir cadastrar, consultar, atualizar e excluir usuários, autenticar por e-mail e senha, verificar o e-mail por código de seis dígitos e solicitar/redefinir senha por código enviado ao e-mail. Dados: nome, e-mail, telefone e foto de perfil; a senha e os códigos não devem ser expostos em consultas. | Sim | **UC01: Gerenciar Conta e Autenticação** |
+| **RF002** | O sistema deve permitir criar, consultar, editar, excluir, concluir e reabrir tarefas, bem como atribuir e remover responsáveis individualmente ou por todos os membros de uma equipe. Dados: título, descrição, vencimento, pontuação, status, prioridade, criador, responsáveis e anexos. | Sim | **UC02: Gerenciar Tarefas** |
+| **RF003** | O sistema deve permitir que um responsável envie entregas de uma tarefa, com arquivos anexos, e que o criador avalie cada entrega com uma nota. Dados: tarefa, responsável, data de envio, nota e anexos. | Sim | **UC03: Submeter e Avaliar Entregas** |
+| **RF004** | O sistema deve permitir que responsáveis submetam sugestões de alteração de uma tarefa e que seu criador as aprove ou rejeite. Dados: tarefa, solicitante, descrição, data de criação e status. | Sim | **UC04: Propor e Julgar Alterações** |
+| **RF005** | O sistema deve permitir que responsáveis abram tickets de impedimento em tarefas não concluídas, que o criador seja notificado e que o criador encerre o ticket. Dados: tarefa, autor, descrição, data de abertura e situação ativa/fechada. | Sim | **UC05: Gerenciar Tickets de Impedimento** |
+| **RF006** | O sistema deve permitir criar, consultar, alterar e excluir equipes, bem como incluir, remover e listar membros. O criador torna-se dono; somente o dono pode alterar cargos, e dono/admin podem administrar membros. Dados: nome da equipe, data de criação, membro, cargo e dados de contato do usuário. | Sim | **UC06: Gerenciar Equipes** |
+| **RF007** | O sistema deve permitir criar, consultar, alterar e excluir metas associadas a uma ou mais tarefas e a um usuário proprietário ou pertencente a uma equipe, calculando a conclusão conforme o status das tarefas vinculadas. O sistema deve atribuir pontos de experiência (XP) para evolução do nível da conta dos usuários exclusivamente quando a meta concluída estiver vinculada a uma equipe. Dados: nome, prazo de fechamento, proprietário, conclusão, tarefas vinculadas e XP de recompensa (apenas para equipes). | Sim | **UC07: Gerenciar Metas** |
+| **RF008** | O sistema deve permitir configurar, por canal (e-mail, push e SMS), a antecedência de alertas e a ativação de notificações para nova atribuição, vencimento, conclusão de meta e ticket. Dados: canal, antecedência e indicadores de ativação por evento. | Parcialmente (somente e-mail) | **UC08: Configurar Alertas e Acessibilidade** |
+| **RF009** | O sistema deve disponibilizar uma central de notificações no cabeçalho para listar notificações do usuário, indicar a quantidade de não lidas, marcar uma ou todas como lidas e remover notificações individuais ou o histórico. Dados: tipo, título, mensagem, link, data, leitura e destaque. | Sim | **UC09: Interagir com a Central de Notificações** |
+| **RF010** | O sistema deve identificar tarefas pendentes vencidas e atualizá-las para “Atrasada”, além de alertar responsáveis quando uma tarefa estiver dentro da antecedência configurada. O registro de alertas deve impedir reenvio para o mesmo usuário, tarefa e canal dentro da janela aplicável. | Sim | **UC10: Atualizar Status e Disparar Alertas (Automático)** |
+| **RF011** | O sistema deve gerar relatórios de tarefas com filtros por status, prioridade, período, responsável, criador e equipe. Usuários comuns devem acessar apenas seus próprios dados; donos/admins devem acessar relatórios das equipes autorizadas. Métricas: total, contagens por status, taxa de conclusão, distribuição por prioridade, média de notas e desempenho por responsável. | Sim | **UC11: Gerar Relatórios** |
+| **RF012** | O sistema deve permitir anexar, consultar e excluir arquivos relacionados a tarefas, entregas e perfis de usuário, disponibilizando visualização ou download quando suportado. Dados: nome original, tipo MIME, caminho/URL, data de envio e entidade relacionada. | Sim | **UC01: Gerenciar Conta e Autenticação**<br/>**UC02: Gerenciar Tarefas**<br/>**UC03: Submeter e Avaliar Entregas** |
+| **RF013** | O sistema deve permitir ao usuário configurar e persistir tema claro/escuro, alto contraste e tamanho de fonte entre 12 e 24 pixels, em valores pares. | Sim | **UC08: Configurar Alertas e Acessibilidade** |
+
+*Fonte: Os autores.*
 
 ---
 
@@ -841,17 +854,17 @@ flowchart LR
 
 | Código | Caso de Uso | Requisitos Atendidos | Atores Principais | Regras de Negócio Associadas |
 | :--- | :--- | :--- | :--- | :--- |
-| **UC01** | Gerenciar Conta e Autenticação | RF001, RF012 | Usuário / Visitante | **RN01** (e-mail único), **RN02** (senha complexa $\ge 8$ carac.), **RN05** (bloqueio de exclusão com tarefas ativas), **RN12** (verificação de e-mail). |
-| **UC02** | Gerenciar Tarefas | RF002, RF012 | Criador / Responsável | **RF002** (CRUD, prazos futuros UTC, conclusão e reabertura com recálculo de status), anexos validados. |
-| **UC03** | Submeter e Avaliar Entregas | RF003, RF012 | Responsável / Criador | **RN15** (entregas só podem ser avaliadas com nota pelo criador da tarefa), anexos de comprovação. |
-| **UC04** | Propor e Julgar Alterações | RF004 | Responsável / Criador | **RN13** (sugestões de alteração devem ser aprovadas ou recusadas pelo criador antes de serem aplicadas). |
-| **UC05** | Gerenciar Tickets de Impedimento | RF005 | Responsável / Líder | **RN16** (tickets só em tarefas não concluídas; encerramento por criador, dono ou admin). |
-| **UC06** | Gerenciar Equipes | RF006 | Dono / Admin / Membro | **RN03** (somente o Dono altera cargos), **RN04** (somente Dono e Admin adicionam/removem membros). |
-| **UC07** | Gerenciar Metas | RF007 | Gestor / Integrante | **RN07** (mínimo 1 tarefa associada), **RN08** (conclusão em 100% das tarefas), **RN14** (validade máxima de 12 meses), vínculo com equipes via `MetaEquipe`. |
-| **UC08** | Configurar Alertas e Acessibilidade | RF008, RF013 | Usuário | **RN11** (janela de antecedência de 1h a 7 dias), **RN12** (e-mail verificado para envio), **RN18** (fonte acessível par entre 12 e 24px). |
-| **UC09** | Interagir com a Central de Notificações | RF009 | Usuário | **RF009** (listagem em tempo real, contador de não lidas, marcar individual/todas como lidas e expurgo do histórico). |
-| **UC10** | Atualizar Status e Disparar Alertas (Automático) | RF010 | Agendador (Sistema) | **RN06** (transição automática para "Atrasada"), **RN17** (bloqueio de alertas repetidos na mesma janela), **RNF10** (despacho assíncrono multi-gateway). |
-| **UC11** | Gerar Relatórios | RF011 | Usuário / Dono / Admin | **RN09** (usuário comum só acessa tarefas próprias), **RN10** (donos e admins geram relatórios consolidados por equipe e métricas de desempenho). |
+| **UC01** | Gerenciar Conta e Autenticação | RF001, RF012 | Usuário / Visitante | **RN001** (e-mail único), **RN002** (senha complexa $\ge 8$ caracteres), **RN005** (bloqueio de exclusão com tarefas 'Pendente' ou 'Atrasada'), **RN012** (verificação prévia de e-mail). |
+| **UC02** | Gerenciar Tarefas | RF002, RF012 | Criador / Responsável | **RF002** (CRUD, prazos futuros UTC, atribuição individual/por equipe, conclusão e reabertura com recálculo de status), anexos validados. |
+| **UC03** | Submeter e Avaliar Entregas | RF003, RF012 | Responsável / Criador | **RN015** (entregas só podem ser avaliadas com nota pelo criador da tarefa), anexos de comprovação. |
+| **UC04** | Propor e Julgar Alterações | RF004 | Responsável / Criador | **RN013** (sugestões de alteração devem ser aprovadas ou recusadas pelo criador antes de serem aplicadas). |
+| **UC05** | Gerenciar Tickets de Impedimento | RF005 | Responsável / Criador | **RN016** (tickets só em tarefas não concluídas e encerrados exclusivamente pelo criador da tarefa). |
+| **UC06** | Gerenciar Equipes | RF006 | Dono / Admin / Membro | **RN003** (somente donos de equipes alteram cargos), **RN004** (somente donos e administradores adicionam/removem membros). |
+| **UC07** | Gerenciar Metas | RF007 | Gestor / Integrante | **RN007** (mínimo 1 tarefa vinculada), **RN008** (conclusão em 100% das tarefas concluídas), **RN014** (prazo máximo de 12 meses), **RN019** (concessão de XP e aumento de nível exclusivamente para metas concluídas vinculadas a equipes; metas individuais não geram XP). |
+| **UC08** | Configurar Alertas e Acessibilidade | RF008, RF013 | Usuário | **RN011** (janela de antecedência de 1h a 7 dias / 168h), **RN012** (e-mail confirmado antes do envio), **RN018** (tamanho de fonte acessível exclusivamente números pares entre 12 e 24px). |
+| **UC09** | Interagir com a Central de Notificações | RF009 | Usuário | **RF009** (listagem em tempo real no cabeçalho, badge de não lidas, marcar individual/todas como lidas e remoção de notificações ou do histórico). |
+| **UC10** | Atualizar Status e Disparar Alertas (Automático) | RF010 | Agendador (Sistema) | **RN006** (tarefas vencidas mudam automaticamente para 'Atrasada'), **RN017** (bloqueio de reenvio de alertas de vencimento para mesmo usuário, tarefa e canal na janela), **RNF010** (processamento assíncrono multi-canal). |
+| **UC11** | Gerar Relatórios | RF011 | Usuário / Dono / Admin | **RN009** (usuário comum só acessa tarefas próprias), **RN010** (donos e administradores geram relatórios por equipe com métricas de desempenho). |
 
 ---
 
@@ -865,45 +878,45 @@ flowchart LR
 2. **Operações de Tarefas e Entregas (UC02, UC03, UC04, UC05 / RF002, RF003, RF004, RF005, RF012)**:
    - 2.1 O colaborador visualiza suas tarefas com filtros por status, prioridade e prazos.
    - 2.2 O colaborador submete resposta de entrega com arquivos anexos comprovando o trabalho (**UC03**).
-   - 2.3 O criador analisa a entrega submetida e atribui nota numérica válida (**RN15**).
+   - 2.3 O criador analisa a entrega submetida e atribui nota numérica válida (**RN015**).
    - 2.4 Caso necessário, o responsável submete sugestão de ajuste de prazo/descrição (**UC04**) ou abre ticket de bloqueio (**UC05**).
 3. **Metas, Produtividade e Relatórios (UC07, UC11 / RF007, RF011)**:
-   - 3.1 O colaborador acompanha suas metas individuais e as metas atribuídas à sua equipe via `MetaEquipe` (**UC07**).
+   - 3.1 O colaborador acompanha suas metas individuais e as metas atribuídas à sua equipe via `MetaEquipe` (**UC07**). Ao atingir 100% de conclusão de uma meta de equipe, o sistema credita pontos de experiência (XP) e eleva o nível da conta com persistência de excedente (**RN019**).
    - 3.2 O colaborador emite seu relatório pessoal consolidando contagem de entregas, notas e pontuação acumulada (**UC11**).
 4. **Configurações de Alertas e Acessibilidade (UC08, UC09 / RF008, RF009, RF013)**:
-   - 4.1 O colaborador seleciona canais ativos (Push, E-mail, SMS), define a antecedência de 1h a 7 dias (**RN11**) e ajusta o tema claro/escuro e fonte entre 12 e 24px pares (**RN18**).
+   - 4.1 O colaborador seleciona canais ativos (Push, E-mail, SMS), define a antecedência de 1h a 7 dias (**RN011**) e ajusta o tema claro/escuro e fonte entre 12 e 24px pares (**RN018**).
    - 4.2 O colaborador interage com o modal de notificações no cabeçalho, lendo e arquivando alertas (**UC09**).
 
 #### 3.4.2. Cenários Alternativos — Colaborador / Membro
-1. **Tentativa de cadastro com e-mail já existente (RN01)**: O sistema identifica duplicidade, bloqueia a criação e orienta para o fluxo de login ou recuperação de senha.
-2. **Senha fora do padrão de complexidade (RN02)**: O sistema rejeita senhas com menos de 8 caracteres ou sem mescla de maiúsculas, minúsculas, números e símbolos.
-3. **Exclusão de conta com tarefas ativas pendentes (RN05)**: O sistema barra a exclusão da conta exibindo aviso impeditivo para concluir ou reatribuir pendências.
-4. **Tentativa de abertura de ticket em tarefa já concluída (RN16)**: O sistema impede a emissão de chamados de impedimento caso a tarefa já esteja finalizada.
-5. **Configuração de tamanho de fonte ímpar ou fora da faixa (RN18)**: O sistema valida o range e rejeita valores ímpares (ex.: 15px) ou fora de 12px a 24px.
+1. **Tentativa de cadastro com e-mail já existente (RN001)**: O sistema identifica duplicidade, bloqueia a criação e orienta para o fluxo de login ou recuperação de senha.
+2. **Senha fora do padrão de complexidade (RN002)**: O sistema rejeita senhas com menos de 8 caracteres ou sem mescla de maiúsculas, minúsculas, números e símbolos.
+3. **Exclusão de conta com tarefas ativas pendentes ou atrasadas (RN005)**: O sistema barra a exclusão da conta exibindo aviso impeditivo para concluir ou reatribuir pendências.
+4. **Tentativa de abertura de ticket em tarefa já concluída (RN016)**: O sistema impede a emissão de chamados de impedimento caso a tarefa já esteja finalizada.
+5. **Configuração de tamanho de fonte ímpar ou fora da faixa (RN018)**: O sistema valida o range e rejeita valores ímpares (ex.: 15px) ou fora de 12px a 24px.
 
 #### 3.4.3. Cenários Ótimos — Administrador / Liderança
 1. **Gestão Organizacional de Equipes (UC06 / RF006)**:
-   - 1.1 O criador funda uma equipe, assumindo imediatamente o cargo de `Dono` (**RN03**).
-   - 1.2 O Dono ou Admin inclui membros na equipe e gerencia desvinculações (**RN04**).
-   - 1.3 O Dono altera os cargos administrativos de outros membros conforme a estrutura da organização (**RN03**).
+   - 1.1 O criador funda uma equipe, assumindo imediatamente o cargo de `Dono` (**RN003**).
+   - 1.2 O Dono ou Admin inclui membros na equipe e gerencia desvinculações (**RN004**).
+   - 1.3 O Dono altera os cargos administrativos de outros membros conforme a estrutura da organização (**RN003**).
 2. **Delegação e Avaliação de Tarefas (UC02, UC03, UC04, UC05 / RF002, RF003, RF004, RF005)**:
    - 2.1 O criador cadastra a tarefa com data futura UTC, prioridade e pontuação, anexando especificações.
    - 2.2 O criador atribui a atividade a um membro individual ou a toda uma equipe com um único comando.
-   - 2.3 O criador aprova ou rejeita propostas de sugestão (**RN13**) e encerra tickets de impedimento resolvidos (**RN16**).
-   - 2.4 O criador avalia respostas técnicas atribuindo notas compatíveis com a pontuação máxima (**RN15**).
+   - 2.3 O criador aprova ou rejeita propostas de sugestão (**RN013**) e encerra tickets de impedimento resolvidos (**RN016**).
+   - 2.4 O criador avalia respostas técnicas atribuindo notas compatíveis com a pontuação máxima (**RN015**).
 3. **Gestão de Metas e Relatórios Corporativos (UC07, UC11 / RF007, RF011)**:
-   - 3.1 A liderança define metas de até 12 meses (**RN14**) vinculando ao menos 1 tarefa (**RN07**) e as atribui a equipes via `MetaEquipe`.
-   - 3.2 Donos e Administradores emitem relatórios consolidados de desempenho por equipe (**RN10**).
+   - 3.1 A liderança define metas de até 12 meses (**RN014**) vinculando ao menos 1 tarefa (**RN007**), parametriza o XP de recompensa e as atribui a equipes via `MetaEquipe` (**RN019**).
+   - 3.2 Donos e Administradores emitem relatórios consolidados de desempenho por equipe (**RN010**).
 4. **Automação Contínua em Background (UC10 / RF010)**:
-   - 4.1 O sistema atualiza periodicamente tarefas vencidas para "Atrasada" (**RN06**).
-   - 4.2 O agendador dispara alertas dentro da janela de antecedência sem redundâncias (**RN17**) através de gateways assíncronos (**RNF10**).
+   - 4.1 O sistema atualiza periodicamente tarefas vencidas para "Atrasada" (**RN006**).
+   - 4.2 O agendador dispara alertas dentro da janela de antecedência sem redundâncias (**RN017**) através de gateways assíncronos (**RNF010**).
 
 #### 3.4.4. Cenários Alternativos — Administrador / Liderança
-1. **Tentativa de alteração de cargo por Admin comum (RN03)**: O sistema rejeita a operação com código 403 Forbidden, informando que a prerrogativa é privativa do Dono da equipe.
-2. **Tentativa de criação de meta sem tarefas associadas (RN07)**: O sistema bloqueia a gravação e exige ao menos uma tarefa vinculada.
-3. **Definição de prazo de meta superior a 12 meses (RN14)**: O sistema recusa datas de conclusão além de 1 ano a partir da criação.
-4. **Avaliação de nota por usuário que não seja o criador (RN15)**: O sistema impede a avaliação caso o solicitante não seja o criador original da tarefa.
-5. **Tentativa de encerramento de ticket por usuário sem privilégio (RN16)**: O sistema bloqueia o encerramento do chamado se o solicitante não for o criador da tarefa ou líder da equipe.
+1. **Tentativa de alteração de cargo por Admin comum (RN003)**: O sistema rejeita a operação com código 403 Forbidden, informando que a prerrogativa é privativa do Dono da equipe.
+2. **Tentativa de criação de meta sem tarefas associadas (RN007)**: O sistema bloqueia a gravação e exige ao menos uma tarefa vinculada.
+3. **Definição de prazo de meta superior a 12 meses (RN014)**: O sistema recusa datas de conclusão além de 1 ano a partir da criação.
+4. **Avaliação de nota por usuário que não seja o criador (RN015)**: O sistema impede a avaliação caso o solicitante não seja o criador original da tarefa.
+5. **Tentativa de encerramento de ticket por usuário sem privilégio (RN016)**: O sistema bloqueia o encerramento do chamado se o solicitante não for o criador da tarefa.
 
 ---
 
@@ -1056,7 +1069,7 @@ sequenceDiagram
     Gestor->>AppCortex: Preenche dados da meta e seleciona tarefas
     activate AppCortex
 
-    AppCortex->>Controller: POST /api/metas (CriarMetaDTO: Nome, DataFechamento, TarefaIds, EquipeId?)
+    AppCortex->>Controller: POST /api/metas (CriarMetaDTO: Nome, DataFechamento, TarefaIds, EquipeId?, XpRecompensa?)
     activate Controller
 
     Controller->>Service: CriarMetaAsync(dto, proprietarioId)
@@ -1089,10 +1102,15 @@ sequenceDiagram
     end
 
     opt Possui EquipeId
-        Service->>MetaRepo: AdicionarMetaEquipeAsync(meta.Id, equipeId)
+        Service->>MetaRepo: AdicionarMetaEquipeAsync(meta.Id, equipeId, xpRecompensa)
         activate MetaRepo
-        MetaRepo->>DB: INSERT INTO MetaEquipe (MetaId, EquipeId, DataVinculo) VALUES (...)
+        MetaRepo->>DB: INSERT INTO MetaEquipe (MetaId, EquipeId, XpRecompensa, DataVinculo) VALUES (...)
         deactivate MetaRepo
+    end
+
+    opt Meta criada com status Concluída e vinculada à Equipe
+        Service->>Service: IncrementarXpEAtualizarNivel(usuario, xpRecompensa)
+        Service->>DB: UPDATE Usuario SET Nivel = @novoNivel, Experiencia = @novoXp
     end
 
     Service->>Service: CalcularProgressoConclusao(meta.Id)
@@ -2408,7 +2426,7 @@ sequenceDiagram
     participant MetaRepo as IMetaRepository
     participant DB as PostgreSQL (Database)
 
-    Gestor->>Controller: POST /api/metas (CriarMetaDTO: Nome, DataFechamento, TarefaIds, EquipeId, UsuarioId)
+    Gestor->>Controller: POST /api/metas (CriarMetaDTO: Nome, DataFechamento, TarefaIds, EquipeId, UsuarioId, XpRecompensa)
     activate Controller
     Controller->>Controller: ObterUsuarioIdAutenticado()
     Controller->>Service: CriarMetaAsync(dto, solicitanteId)
@@ -2416,6 +2434,7 @@ sequenceDiagram
 
     Service->>Service: Validar: TarefaIds.Count >= 1 (Mínimo 1 tarefa - RN07)
     Service->>Service: Validar: DataFechamento <= UtcNow.AddYears(1) (Máximo 12 meses - RN15)
+    Service->>Service: Validar: XpRecompensa >= 0
 
     loop Para cada tarefaId vinculado
         Service->>TarefaRepo: ObterTarefaPorIdAsync(tarefaId)
@@ -2428,7 +2447,7 @@ sequenceDiagram
 
     Service->>MetaRepo: AdicionarMetaAsync(meta)
     activate MetaRepo
-    MetaRepo->>DB: INSERT INTO Meta (Nome, DataFechamento, Concluida, UsuarioId, TarefaId) VALUES (...)
+    MetaRepo->>DB: INSERT INTO Meta (Nome, DataFechamento, Concluida, UsuarioId) VALUES (...)
     DB-->>MetaRepo: Meta criada (Id)
     MetaRepo-->>Service: metaCriada
     deactivate MetaRepo
@@ -2443,15 +2462,19 @@ sequenceDiagram
     end
 
     opt Informou EquipeId para atribuição
-        Service->>MetaRepo: AdicionarMetaEquipeAsync(meta.Id, equipeId)
+        Service->>MetaRepo: AdicionarMetaEquipeAsync(meta.Id, equipeId, xpRecompensa)
         activate MetaRepo
-        MetaRepo->>DB: INSERT INTO MetaEquipe (MetaId, EquipeId, DataVinculo) VALUES (...)
+        MetaRepo->>DB: INSERT INTO MetaEquipe (MetaId, EquipeId, XpRecompensa, DataVinculo) VALUES (...)
         DB-->>MetaRepo: OK
         MetaRepo-->>Service: OK
         deactivate MetaRepo
     end
 
     Service->>Service: Avaliar conclusão inicial (100% tarefas concluídas? - RN08)
+    opt Concluída e vinculada à Equipe
+        Service->>Service: IncrementarXpEAtualizarNivel(usuario, xpRecompensa)
+        Service->>DB: UPDATE Usuario SET Nivel = @novoNivel, Experiencia = @novoXp
+    end
     Service-->>Controller: ConsultaMetaDTO
     deactivate Service
     Controller-->>Gestor: 201 Created (ConsultaMetaDTO)
@@ -2594,7 +2617,7 @@ sequenceDiagram
     participant Gateways as IPushGateway / IEmailGateway / ISmsGateway
     participant DB as PostgreSQL (Database)
 
-    Note over Worker: Varredura periódica de janelas de vencimento (RN11, RN12, RNF10)
+    Note over Worker: Varredura periódica de janelas de vencimento (RN011, RN012, RNF010)
     Worker->>Scope: CreateScope()
     activate Scope
 
@@ -2651,6 +2674,7 @@ sequenceDiagram
     participant Evento as TarefaService / BackgroundWorker
     participant MetaService as MetaService
     participant MetaRepo as IMetaRepository
+    participant UsuarioRepo as IUsuarioRepository
     participant NotifService as INotificacaoService
     participant DB as PostgreSQL (Database)
 
@@ -2680,6 +2704,31 @@ sequenceDiagram
             DB-->>MetaRepo: OK
             MetaRepo-->>MetaService: OK
             deactivate MetaRepo
+
+            alt Meta possui vínculo com Equipe (MetaEquipe)
+                Note over MetaService: Gamificação: Meta de equipe bonifica XP; metas puramente individuais não acumulam XP
+                MetaService->>UsuarioRepo: ObterUsuarioPorIdAsync(meta.UsuarioId)
+                activate UsuarioRepo
+                UsuarioRepo->>DB: SELECT * FROM Usuario WHERE Id = @usuarioId
+                DB-->>UsuarioRepo: usuario
+                UsuarioRepo-->>MetaService: usuario
+                deactivate UsuarioRepo
+
+                MetaService->>MetaService: ProcessarGanhoXp(usuario, xpRecompensa)
+                loop Enquanto usuario.Experiencia >= LimiteXp(usuario.Nivel)
+                    MetaService->>MetaService: usuario.Experiencia -= LimiteXp(usuario.Nivel)
+                    MetaService->>MetaService: usuario.Nivel += 1 (mantém excedente para próximo nível)
+                end
+
+                MetaService->>UsuarioRepo: AtualizarUsuarioAsync(usuario)
+                activate UsuarioRepo
+                UsuarioRepo->>DB: UPDATE Usuario SET Nivel = @novoNivel, Experiencia = @novoXp WHERE Id = @usuarioId
+                DB-->>UsuarioRepo: OK
+                UsuarioRepo-->>MetaService: usuarioAtualizado
+                deactivate UsuarioRepo
+            else Meta puramente individual
+                Note over MetaService: Nenhum acúmulo de XP é gerado para meta puramente individual
+            end
 
             MetaService->>NotifService: CriarNotificacaoAsync(meta.UsuarioId, "meta", "Meta Estratégica Concluída com Sucesso!", ...)
             activate NotifService
@@ -2712,10 +2761,10 @@ sequenceDiagram
     participant NotifService as INotificacaoService
     participant DB as PostgreSQL (Database)
 
-    Gestor->>Controller: POST /api/metas/{id}/equipe { equipeId: 5 }
+    Gestor->>Controller: POST /api/metas/{id}/equipe { equipeId: 5, xpRecompensa: 100 }
     activate Controller
     Controller->>Controller: ObterUsuarioIdAutenticado()
-    Controller->>Service: AtribuirEquipeAsync(metaId, equipeId, currentUserId)
+    Controller->>Service: AtribuirEquipeAsync(metaId, equipeId, currentUserId, xpRecompensa)
     activate Service
 
     Service->>MetaRepo: ObterMetaPorIdAsync(metaId)
@@ -2737,7 +2786,7 @@ sequenceDiagram
 
     Service->>MetaRepo: AdicionarMetaEquipeAsync(MetaEquipe)
     activate MetaRepo
-    MetaRepo->>DB: INSERT INTO MetaEquipe (MetaId, EquipeId, DataVinculo) VALUES (...)
+    MetaRepo->>DB: INSERT INTO MetaEquipe (MetaId, EquipeId, XpRecompensa, DataVinculo) VALUES (...)
     DB-->>MetaRepo: OK
     MetaRepo-->>Service: salvo
     deactivate MetaRepo
@@ -2924,7 +2973,7 @@ sequenceDiagram
 
 ### 4.23. Diagramas de Sequência — Gateways de Mensageria (Push, E-mail e SMS)
 
-Os diagramas a seguir representam o ciclo de envio assíncrono de notificações ([RNF10](file:///c:/Users/yuma2/Repositorios/Cortex-backend/AGENTS.md)) para os três canais suportados pelo Cortex Backend ([CanalNotificacao](file:///c:/Users/yuma2/Repositorios/Cortex-backend/Entities/ENUMS/CanalNotificacao.cs): `Push`, `Email` e `Sms`), seguindo a arquitetura de interação entre o **Colaborador**, o **App Cortex**, o **Servidor de Backend** e os **Gateways Externos** de comunicação.
+Os diagramas a seguir representam o ciclo de envio assíncrono de notificações (**RNF010**) para os três canais suportados pelo Cortex Backend ([CanalNotificacao](file:///c:/Users/yuma2/Repositorios/Cortex-backend/Entities/ENUMS/CanalNotificacao.cs): `Push`, `Email` e `Sms`), seguindo a arquitetura de interação entre o **Colaborador**, o **App Cortex**, o **Servidor de Backend** e os **Gateways Externos** de comunicação.
 
 ---
 
@@ -3163,35 +3212,80 @@ flowchart LR
 
 ## 7. Matriz de Rastreabilidade de Requisitos e Regras de Negócio
 
-A matriz a seguir mapeia a correspondência exaustiva entre os **Requisitos Funcionais (RF001 a RF013)**, **Requisitos Não Funcionais (RNF01 a RNF10)** e as **Regras de Negócio (RN01 a RN18)** formalizadas nos Quadros 1, 2 e 3 da especificação, evidenciando como cada item está refletido nos diagramas de arquitetura, entidades e código de implementação do Cortex:
+A matriz a seguir consolida os **Requisitos Funcionais (Quadro 3 — RF001 a RF013)**, os **Requisitos Não Funcionais (Quadro 4 — RNF001 a RNF010)** e as **Regras de Negócio (Seção 6.3 — RN001 a RN019)**, formalizados na especificação do sistema, apresentando tanto os quadros canônicos oficiais quanto a correspondência exaustiva de como cada item está refletido nos diagramas de arquitetura, entidades e código de implementação do **Cortex**:
 
-### 7.1. Rastreabilidade das Regras de Negócio (RN01 a RN18)
+### 7.1. Regras de Negócio (RN001 a RN019)
 
+#### 6.3 Regras de Negócio
+| Código | Descrição | Vinculada ao RF |
+| :--- | :--- | :---: |
+| **RN001** | Um e-mail só pode estar vinculado a uma única conta no sistema. | RF001 |
+| **RN002** | A senha deve conter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e símbolos. | RF001 |
+| **RN003** | Somente donos de equipes podem alterar o cargo de outro usuário. | RF006 |
+| **RN004** | Somente donos e administradores podem adicionar ou remover usuários. | RF006 |
+| **RN005** | Um usuário não pode excluir a própria conta se houver tarefas com status ‘Pendente’ ou ‘Atrasada’ atribuídas a ele. | RF001, RF002 |
+| **RN006** | Uma tarefa vencida e não concluída muda automaticamente para o status ‘Atrasada’ e notifica o responsável. | RF010 |
+| **RN007** | Cada meta deve estar vinculada a no mínimo uma tarefa para ser considerada válida. | RF007 |
+| **RN008** | O sistema só contabiliza uma meta como ‘Concluida’ se todas as tarefas relacionadas estiverem concluídas. | RF007 |
+| **RN009** | Usuários comuns só podem gerar relatórios de suas próprias tarefas. | RF011 |
+| **RN010** | Donos e administradores de equipe podem gerar relatórios por equipe. | RF011 |
+| **RN011** | O usuário deve configurar a antecedência mínima para receber notificações de expiração de tarefas (mínimo: 1 hora, máximo: 7 dias). | RF008 |
+| **RN012** | Para notificações por e-mail, o usuário deve confirmar o endereço antes de ativar o envio. | RF001, RF008 |
+| **RN013** | Sugestões de alteração de tarefa devem ser aprovadas ou recusadas pelo criador antes de serem aplicadas. | RF004 |
+| **RN014** | Metas devem ter validade definida pelo usuário com prazo máximo de 12 meses. | RF007 |
+| **RN015** | Entregas de tarefas só podem ser avaliadas com nota pelo criador da tarefa. | RF003 |
+| **RN016** | Tickets de reporte só podem ser abertos em tarefas não concluídas e encerrados pelo criador da tarefa. | RF005 |
+| **RN017** | O sistema deve bloquear o reenvio de alertas de vencimento para o mesmo usuário, tarefa e canal dentro da janela de antecedência configurada | RF010 |
+| **RN018** | A configuração de tamanho de fonte por acessibilidade deve aceitar exclusivamente valores pares entre 12 e 24 pixels | RF013 |
+| **RN019** | O sistema deve incrementar o saldo de experiência (XP) do usuário sempre que uma meta de equipe for marcada como concluída. Quando o limite de XP daquele nível for atingido, o sistema deve aumentar o nível da conta em +1 e manter o saldo de XP excedente para o próximo nível. Metas puramente individuais não devem gerar acúmulo de XP. | RF007 |
+
+#### Matriz de Rastreabilidade Arquitetural das Regras de Negócio
 | Código | Descrição da Regra de Negócio | Vinculada ao RF | Como está refletida nos Diagramas e no Código |
 | :--- | :--- | :---: | :--- |
-| **RN01** | Um e-mail só pode estar vinculado a uma única conta no sistema. | **RF001** | Constraint `UNIQUE` no diagrama de classes na entidade `Usuario`, índice único `IX_Usuario_Email` no modelo lógico relacional (DER), validação no `UsuarioService` e caso de uso **UC01**. |
-| **RN02** | A senha deve conter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e símbolos. | **RF001** | Criptografia com hash irreversível e salt dinâmico via `PasswordService` (`BCrypt.Net`), validação de regex e DTO de cadastro no caso de uso **UC01**. |
-| **RN03** | Somente donos de equipes podem alterar o cargo de outro usuário. | **RF006** | Modelagem do enum `Cargo` na entidade `MembroEquipe`, validação de autorização em `EquipeAuthorizationService` (`EhDonoDaEquipeAsync`) e caso de uso **UC06**. |
-| **RN04** | Somente donos e administradores podem adicionar ou remover usuários. | **RF006** | Verificação de privilégios em `EquipeAuthorizationService` (`EhAdminOuDonoDaEquipeAsync`), diagrama de componentes e caso de uso **UC06**. |
-| **RN05** | Um usuário não pode excluir a própria conta se houver tarefas atribuídas a ele em andamento. | **RF001, RF002** | Verificação de pendências em `UsuarioService` com bloqueio de exclusão (`PossuiTarefasPendentesOuAtivasAsync`) e caso de uso **UC01**. |
-| **RN06** | Uma tarefa vencida e não concluída muda automaticamente para o status "Atrasada" e notifica o responsável. | **RF010** | Valor enumerado `Status.Atrasada`, execução do serviço em background `TarefaStatusBackgroundService` e caso de uso **UC10**. |
-| **RN07** | Cada meta deve estar vinculada a no mínimo uma tarefa para ser considerada válida. | **RF007** | Instância associativa `MetaTarefa` no Diagrama de Objetos, validação de cardinalidade mínima no `MetaService` e caso de uso **UC07**. |
-| **RN08** | O sistema só contabiliza uma meta como "Atingida" se todas as tarefas relacionadas estiverem concluídas. | **RF007** | Atributo booleano `Meta.Concluida`, rotina reativa de verificação (`RecalcularMetasVinculadasAsync`) no `MetaService` e caso de uso **UC07 / UC10**. |
-| **RN09** | Usuários comuns só podem gerar relatórios de suas próprias tarefas. | **RF011** | Cláusula `WHERE ResponsavelTarefa.UsuarioId = @solicitanteId` no `RelatorioService` e caso de uso **UC11**. |
-| **RN10** | Donos e administradores de equipe podem gerar relatórios por equipe. | **RF011** | Consolidação de métricas por equipe com validação de liderança no `RelatorioService` e caso de uso **UC11**. |
-| **RN11** | O usuário deve configurar a antecedência mínima para receber notificações de expiração de tarefas (mínimo: 1 hora, máximo: 7 dias). | **RF008** | Atributo `AntecedenciaHoras` em `PreferenciaNotificacao` (range 1h a 168h), agendador `AlertaVencimentoBackgroundService` e caso de uso **UC08**. |
-| **RN12** | Para notificações por e-mail, o usuário deve confirmar o endereço antes de ativar o envio. | **RF001, RF008** | Atributo booleano `Usuario.EmailVerificado`, validação prévia em `NotificacaoService` e casos de uso **UC01 e UC08**. |
-| **RN13** | Sugestões de alteração de tarefa devem ser aprovadas ou recusadas pelo criador antes de serem aplicadas. | **RF004** | Entidade `Sugestao` com enum `StatusSugestao.Pendente`, validação de decisão privativa em `SugestaoService` e caso de uso **UC04**. |
-| **RN14** | Metas devem ter validade definida pelo usuário com prazo máximo de 12 meses. | **RF007** | Validação `DataFechamento <= UtcNow.AddYears(1)` no `MetaService`, anotações de validação e caso de uso **UC07**. |
-| **RN15** | Entregas de tarefas só podem ser avaliadas com nota pelo criador da tarefa. | **RF003** | Verificação `solicitanteId == tarefa.CriadorId` no `RespostaTarefaService`, atributo `Nota` em `RespostaTarefa` e caso de uso **UC03**. |
-| **RN16** | Tickets de reporte só podem ser abertos em tarefas não concluídas e devem ser encerrados exclusivamente pelo criador da tarefa. | **RF005** | Validação de status `tarefa.Status != Concluida` e encerramento com chave `Ativo = false` no `TicketReporteService` e caso de uso **UC05**. |
-| **RN17** | O sistema deve bloquear o reenvio de alertas de vencimento para o mesmo usuário, tarefa e canal dentro da janela de antecedência configurada. | **RF010** | Tabela física de idempotência `AlertaEnviado`, verificação prévia no worker de agendamento e caso de uso **UC10**. |
-| **RN18** | A configuração de tamanho de fonte por acessibilidade deve aceitar exclusivamente valores pares entre 12 e 24 pixels. | **RF013** | Constraint e validação em `PreferenciaNotificacao.TamanhoFonte` (`12, 14, 16, 18, 20, 22, 24`) e caso de uso **UC08**. |
+| **RN001** | Um e-mail só pode estar vinculado a uma única conta no sistema. | **RF001** | Constraint `UNIQUE` no diagrama de classes na entidade `Usuario`, índice único `IX_Usuario_Email` no modelo lógico relacional (DER), validação no `UsuarioService` e caso de uso **UC01**. |
+| **RN002** | A senha deve conter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e símbolos. | **RF001** | Criptografia com hash irreversível e salt dinâmico via `PasswordService` (`BCrypt.Net`), validação de regex e DTO de cadastro no caso de uso **UC01**. |
+| **RN003** | Somente donos de equipes podem alterar o cargo de outro usuário. | **RF006** | Modelagem do enum `Cargo` na entidade `MembroEquipe`, validação de autorização em `EquipeAuthorizationService` (`EhDonoDaEquipeAsync`) e caso de uso **UC06**. |
+| **RN004** | Somente donos e administradores podem adicionar ou remover usuários. | **RF006** | Verificação de privilégios em `EquipeAuthorizationService` (`EhAdminOuDonoDaEquipeAsync`), diagrama de componentes e caso de uso **UC06**. |
+| **RN005** | Um usuário não pode excluir a própria conta se houver tarefas com status ‘Pendente’ ou ‘Atrasada’ atribuídas a ele. | **RF001, RF002** | Verificação de pendências em `UsuarioService` com bloqueio de exclusão (`PossuiTarefasPendentesOuAtivasAsync`) e caso de uso **UC01**. |
+| **RN006** | Uma tarefa vencida e não concluída muda automaticamente para o status ‘Atrasada’ e notifica o responsável. | **RF010** | Valor enumerado `Status.Atrasada`, execução do serviço em background `TarefaStatusBackgroundService` e caso de uso **UC10**. |
+| **RN007** | Cada meta deve estar vinculada a no mínimo uma tarefa para ser considerada válida. | **RF007** | Instância associativa `MetaTarefa` no Diagrama de Objetos, validação de cardinalidade mínima no `MetaService` e caso de uso **UC07**. |
+| **RN008** | O sistema só contabiliza uma meta como ‘Concluida’ se todas as tarefas relacionadas estiverem concluídas. | **RF007** | Atributo booleano `Meta.Concluida`, rotina reativa de verificação (`RecalcularMetasVinculadasAsync`) no `MetaService` e caso de uso **UC07 / UC10**. |
+| **RN009** | Usuários comuns só podem gerar relatórios de suas próprias tarefas. | **RF011** | Cláusula `WHERE ResponsavelTarefa.UsuarioId = @solicitanteId` no `RelatorioService` e caso de uso **UC11**. |
+| **RN010** | Donos e administradores de equipe podem gerar relatórios por equipe. | **RF011** | Consolidação de métricas por equipe com validação de liderança no `RelatorioService` e caso de uso **UC11**. |
+| **RN011** | O usuário deve configurar a antecedência mínima para receber notificações de expiração de tarefas (mínimo: 1 hora, máximo: 7 dias). | **RF008** | Atributo `AntecedenciaHoras` em `PreferenciaNotificacao` (range 1h a 168h), agendador `AlertaVencimentoBackgroundService` e caso de uso **UC08**. |
+| **RN012** | Para notificações por e-mail, o usuário deve confirmar o endereço antes de ativar o envio. | **RF001, RF008** | Atributo booleano `Usuario.EmailVerificado`, validação prévia em `NotificacaoService` e casos de uso **UC01 e UC08**. |
+| **RN013** | Sugestões de alteração de tarefa devem ser aprovadas ou recusadas pelo criador antes de serem aplicadas. | **RF004** | Entidade `Sugestao` com enum `StatusSugestao.Pendente`, validação de decisão privativa em `SugestaoService` e caso de uso **UC04**. |
+| **RN014** | Metas devem ter validade definida pelo usuário com prazo máximo de 12 meses. | **RF007** | Validação `DataFechamento <= UtcNow.AddYears(1)` no `MetaService`, anotações de validação e caso de uso **UC07**. |
+| **RN015** | Entregas de tarefas só podem ser avaliadas com nota pelo criador da tarefa. | **RF003** | Verificação `solicitanteId == tarefa.CriadorId` no `RespostaTarefaService`, atributo `Nota` em `RespostaTarefa` e caso de uso **UC03**. |
+| **RN016** | Tickets de reporte só podem ser abertos em tarefas não concluídas e encerrados pelo criador da tarefa. | **RF005** | Validação de status `tarefa.Status != Concluida` e encerramento com chave `Ativo = false` no `TicketReporteService` e caso de uso **UC05**. |
+| **RN017** | O sistema deve bloquear o reenvio de alertas de vencimento para o mesmo usuário, tarefa e canal dentro da janela de antecedência configurada | **RF010** | Tabela física de idempotência `AlertaEnviado`, verificação prévia no worker de agendamento e caso de uso **UC10**. |
+| **RN018** | A configuração de tamanho de fonte por acessibilidade deve aceitar exclusivamente valores pares entre 12 e 24 pixels | **RF013** | Constraint e validação em `PreferenciaNotificacao.TamanhoFonte` (`12, 14, 16, 18, 20, 22, 24`) e caso de uso **UC08**. |
+| **RN019** | O sistema deve incrementar o saldo de experiência (XP) do usuário sempre que uma meta de equipe for marcada como concluída. Quando o limite de XP daquele nível for atingido, o sistema deve aumentar o nível da conta em +1 e manter o saldo de XP excedente para o próximo nível. Metas puramente individuais não devem gerar acúmulo de XP. | **RF007** | Atributos `Nivel` e `Experiencia` na entidade `Usuario`, coluna `XpRecompensa` em `MetaEquipe`, métodos `Usuario.IncrementarXp(xp)` e `UsuarioService.AdicionarExperienciaAsync(usuarioId, xp)` acionados no recálculo/conclusão de metas pelo `MetaService`, e caso de uso **UC07**. |
 
 ---
 
-### 7.2. Rastreabilidade dos Requisitos Funcionais (RF001 a RF013)
+### 7.2. Requisitos Funcionais (RF001 a RF013)
 
+#### Quadro 3 — Requisitos Funcionais
+| Código | Descrição | Implementado? |
+| :--- | :--- | :---: |
+| **RF001** | O sistema deve permitir cadastrar, consultar, atualizar e excluir usuários, autenticar por e-mail e senha, verificar o e-mail por código de seis dígitos e solicitar/redefinir senha por código enviado ao e-mail. Dados: nome, e-mail, telefone e foto de perfil; a senha e os códigos não devem ser expostos em consultas. | Sim |
+| **RF002** | O sistema deve permitir criar, consultar, editar, excluir, concluir e reabrir tarefas, bem como atribuir e remover responsáveis individualmente ou por todos os membros de uma equipe. Dados: título, descrição, vencimento, pontuação, status, prioridade, criador, responsáveis e anexos. | Sim |
+| **RF003** | O sistema deve permitir que um responsável envie entregas de uma tarefa, com arquivos anexos, e que o criador avalie cada entrega com uma nota. Dados: tarefa, responsável, data de envio, nota e anexos. | Sim |
+| **RF004** | O sistema deve permitir que responsáveis submetam sugestões de alteração de uma tarefa e que seu criador as aprove ou rejeite. Dados: tarefa, solicitante, descrição, data de criação e status. | Sim |
+| **RF005** | O sistema deve permitir que responsáveis abram tickets de impedimento em tarefas não concluídas, que o criador seja notificado e que o criador encerre o ticket. Dados: tarefa, autor, descrição, data de abertura e situação ativa/fechada. | Sim |
+| **RF006** | O sistema deve permitir criar, consultar, alterar e excluir equipes, bem como incluir, remover e listar membros. O criador torna-se dono; somente o dono pode alterar cargos, e dono/admin podem administrar membros. Dados: nome da equipe, data de criação, membro, cargo e dados de contato do usuário. | Sim |
+| **RF007** | O sistema deve permitir criar, consultar, alterar e excluir metas associadas a uma ou mais tarefas e a um usuário proprietário ou pertencente a uma equipe, calculando a conclusão conforme o status das tarefas vinculadas. O sistema deve atribuir pontos de experiência (XP) para evolução do nível da conta dos usuários exclusivamente quando a meta concluída estiver vinculada a uma equipe. Dados: nome, prazo de fechamento, proprietário, conclusão, tarefas vinculadas e XP de recompensa (apenas para equipes). | Sim |
+| **RF008** | O sistema deve permitir configurar, por canal (e-mail, push e SMS), a antecedência de alertas e a ativação de notificações para nova atribuição, vencimento, conclusão de meta e ticket. Dados: canal, antecedência e indicadores de ativação por evento. | Parcialmente, somente o canal de notificação de e-mail foi implementado. |
+| **RF009** | O sistema deve disponibilizar uma central de notificações no cabeçalho para listar notificações do usuário, indicar a quantidade de não lidas, marcar uma ou todas como lidas e remover notificações individuais ou o histórico. Dados: tipo, título, mensagem, link, data, leitura e destaque. | Sim |
+| **RF010** | O sistema deve identificar tarefas pendentes vencidas e atualizá-las para “Atrasada”, além de alertar responsáveis quando uma tarefa estiver dentro da antecedência configurada. O registro de alertas deve impedir reenvio para o mesmo usuário, tarefa e canal dentro da janela aplicável. | Sim |
+| **RF011** | O sistema deve gerar relatórios de tarefas com filtros por status, prioridade, período, responsável, criador e equipe. Usuários comuns devem acessar apenas seus próprios dados; donos/admins devem acessar relatórios das equipes autorizadas. Métricas: total, contagens por status, taxa de conclusão, distribuição por prioridade, média de notas e desempenho por responsável. | Sim |
+| **RF012** | O sistema deve permitir anexar, consultar e excluir arquivos relacionados a tarefas, entregas e perfis de usuário, disponibilizando visualização ou download quando suportado. Dados: nome original, tipo MIME, caminho/URL, data de envio e entidade relacionada. | Sim |
+| **RF013** | O sistema deve permitir ao usuário configurar e persistir tema claro/escuro, alto contraste e tamanho de fonte entre 12 e 24 pixels, em valores pares. | Sim |
+
+*Fonte: Os autores.*
+
+#### Matriz de Rastreabilidade Arquitetural dos Requisitos Funcionais
 | Requisito | Título / Escopo | Casos de Uso Vinculados | Camada de Implementação no Backend |
 | :--- | :--- | :---: | :--- |
 | **RF001** | Gestão de Usuários, Credenciais e Confirmação de E-mail | **UC01** | `AuthController`, `UsuarioController`, `UsuarioService`, `VerificacaoEmailService`. |
@@ -3200,7 +3294,7 @@ A matriz a seguir mapeia a correspondência exaustiva entre os **Requisitos Func
 | **RF004** | Submissão e Julgamento de Sugestões de Alteração | **UC04** | `SugestaoController`, `SugestaoService`. |
 | **RF005** | Abertura e Encerramento de Tickets de Impedimento | **UC05** | `TicketReporteController`, `TicketReporteService`. |
 | **RF006** | Gestão Organizacional de Equipes e Governança RBAC | **UC06** | `EquipeController`, `EquipeService`, `EquipeAuthorizationService`. |
-| **RF007** | Gestão e Conclusão Automática de Metas Vinculadas a Tarefas e Equipes | **UC07** | `MetaController`, `MetaService`, relacionamento associativo `MetaEquipe`. |
+| **RF007** | Gestão e Conclusão de Metas Vinculadas a Tarefas e Equipes com Gamificação (XP/Nível) | **UC07** | `MetaController`, `MetaService`, `UsuarioService`, tabelas `Meta`, `MetaTarefa`, `MetaEquipe`. |
 | **RF008** | Parametrização de Alertas e Canais de Mensageria | **UC08** | `NotificacaoController`, `NotificacaoService`, tabela `PreferenciaNotificacao`. |
 | **RF009** | Central e Histórico de Notificações In-App | **UC09** | `NotificacaoController`, tabela `Notificacao`, rotas de leitura e expurgo. |
 | **RF010** | Automação em Segundo Plano (Transição de Atrasadas e Alertas Anti-Duplicação) | **UC10** | `TarefaStatusBackgroundService`, `AlertaVencimentoBackgroundService`, `AlertaEnviado`. |
@@ -3210,20 +3304,37 @@ A matriz a seguir mapeia a correspondência exaustiva entre os **Requisitos Func
 
 ---
 
-### 7.3. Rastreabilidade dos Requisitos Não Funcionais (RNF01 a RNF10)
+### 7.3. Requisitos Não Funcionais (RNF001 a RNF010)
 
+#### Quadro 4 — Requisitos Não Funcionais
+| Código | Descrição |
+| :--- | :--- |
+| **RNF001** | O sistema deve garantir a segurança e proteção dos dados dos usuários, incluindo criptografia de senhas e controle de acesso por níveis de permissão. |
+| **RNF002** | O sistema deve apresentar uma interface amigável, responsiva e acessível a usuários com diferentes níveis de familiaridade tecnológica. |
+| **RNF003** | O sistema deve ser compatível com os principais navegadores e dispositivos móveis. |
+| **RNF004** | O sistema deve suportar múltiplos acessos simultâneos sem comprometer a performance. |
+| **RNF005** | O sistema deve manter logs de atividades relevantes para auditoria e rastreabilidade de ações críticas (como login, alterações de tarefas e exclusão de dados). |
+| **RNF006** | O sistema deve realizar backups periódicos para garantir a integridade e disponibilidade dos dados. |
+| **RNF007** | O sistema deve utilizar um banco de dados relacional (PostgreSQL) para armazenar informações estruturadas de forma segura e eficiente. |
+| **RNF008** | O sistema deve seguir boas práticas de desenvolvimento seguro, incluindo validação de dados de entrada, controle de erros e prevenção de vulnerabilidades conhecidas. |
+| **RNF009** | O tempo de resposta para ações críticas (como salvar, editar ou excluir tarefas) não deve ultrapassar 2 segundos. |
+| **RNF010** | O sistema deve processar notificações de forma assíncrona e encaminhá-las ao provedor configurado conforme o canal selecionado. Para aplicações web, o envio push poderá utilizar Web Push; para dispositivos Android, Firebase Cloud Messaging (FCM); e, para dispositivos Apple, Apple Push Notification service (APNs). |
+
+*Fonte: Os autores.*
+
+#### Matriz de Rastreabilidade Arquitetural dos Requisitos Não Funcionais
 | Requisito | Título / Especificação | Como está refletido na Arquitetura e Código |
 | :--- | :--- | :--- |
-| **RNF01** | Segurança, Criptografia e Níveis de Permissão | Tokens JWT com validação de claims, cookies `HttpOnly`, hashing irreversible via BCrypt e políticas RBAC no ASP.NET Core. |
-| **RNF02** | Interface Amigável, Responsiva e Acessível | Suporte a alto contraste, ajuste de fontes (12 a 24px) e contratos estruturados para consumo pela SPA Next.js/React. |
-| **RNF03** | Compatibilidade Multi-Plataforma | Endpoints REST padronizados em JSON (RFC 8259) compatíveis com navegadores desktop e clientes móveis (Android/iOS). |
-| **RNF04** | Alta Concorrência e Performance Transacional | Métodos assíncronos não bloqueantes (`async/await`) ponta a ponta e connection pooling otimizado do driver Npgsql. |
-| **RNF05** | Logs de Atividades, Auditoria e Rastreabilidade | Framework `Serilog` configurado no `Program.cs` gravando trilhas estruturadas com rotação diária de arquivos JSON em `logs/cortex-.json`. |
-| **RNF06** | Backups Periódicos e Integridade dos Dados | Estratégia de backup transacional do PostgreSQL e persistência de arquivos anexos com caminhos seguros em disco. |
-| **RNF07** | Banco de Dados Relacional PostgreSQL 16 | Mapeamento relacional com constraints estritas, integridade referencial `CASCADE` / `NO ACTION` e enums nativos via EF Core 10. |
-| **RNF08** | Boas Práticas de Desenvolvimento Seguro e RFC 7807 | Middleware global de exceções formatando respostas em `ProblemDetails`, validações estritas de DTOs e prevenção contra injeção SQL. |
-| **RNF09** | Tempo de Resposta para Ações Críticas $\le$ 2s | Consultas LINQ indexadas com `AsNoTracking` para leituras, otimização de índices compostos e limites de paginação. |
-| **RNF10** | Processamento Assíncrono de Mensageria Multi-Canal | Workers desacoplados em segundo plano (`IHostedService`) e abstrações `IPushGateway` (FCM/APNs), `IEmailGateway` (SMTP) e `ISmsGateway` (Twilio). |
+| **RNF001** | Segurança, Proteção de Dados e Controle de Acesso | Tokens JWT com validação de claims, cookies `HttpOnly`, hashing irreversível via BCrypt e políticas RBAC no ASP.NET Core. |
+| **RNF002** | Interface Amigável, Responsiva e Acessível | Suporte a alto contraste, ajuste de fontes (12 a 24px) e contratos estruturados para consumo pela SPA Next.js/React. |
+| **RNF003** | Compatibilidade Multi-Plataforma e Dispositivos Móveis | Endpoints REST padronizados em JSON (RFC 8259) compatíveis com navegadores desktop e clientes móveis (Android/iOS). |
+| **RNF004** | Alta Concorrência e Performance Transacional | Métodos assíncronos não bloqueantes (`async/await`) ponta a ponta e connection pooling otimizado do driver Npgsql. |
+| **RNF005** | Logs de Atividades, Auditoria e Rastreabilidade | Framework `Serilog` configurado no `Program.cs` gravando trilhas estruturadas com rotação diária de arquivos JSON em `logs/cortex-.json`. |
+| **RNF006** | Backups Periódicos e Integridade dos Dados | Estratégia de backup transacional do PostgreSQL e persistência de arquivos anexos com caminhos seguros em disco. |
+| **RNF007** | Banco de Dados Relacional PostgreSQL 16 | Mapeamento relacional com constraints estritas, integridade referencial `CASCADE` / `NO ACTION` e enums nativos via EF Core 10. |
+| **RNF008** | Desenvolvimento Seguro e RFC 7807 | Middleware global de exceções formatando respostas em `ProblemDetails`, validações estritas de DTOs e prevenção contra injeção SQL. |
+| **RNF009** | Tempo de Resposta para Ações Críticas $\le$ 2s | Consultas LINQ indexadas com `AsNoTracking` para leituras, otimização de índices compostos e limites de paginação. |
+| **RNF010** | Processamento Assíncrono de Mensageria Multi-Canal | Workers desacoplados em segundo plano (`IHostedService`) e abstrações `IPushGateway` (Web Push / FCM / APNs), `IEmailGateway` (SMTP) e `ISmsGateway` (Twilio). |
 
 ---
 
@@ -3328,16 +3439,16 @@ erDiagram
 
 | Entidade Origem | Cardinalidade | Relacionamento | Cardinalidade | Entidade Destino | Regra de Negócio Associada |
 | :--- | :---: | :---: | :---: | :--- | :--- |
-| **USUARIO** | $1,1$ | *cria* | $0,N$ | **TAREFA** | Toda tarefa possui obrigatoriamente um único usuário criador (**RF003**). |
-| **USUARIO** | $0,N$ | *integra* | $1,N$ | **EQUIPE** | Relacionamento N:N: usuário pode estar em várias equipes com cargos distintos (`Dono`, `Admin`, `Membro` — **RN03**, **RN04**). |
-| **USUARIO** | $0,N$ | *atua como* | $1,N$ | **TAREFA** | Relacionamento N:N resolvido via `ResponsavelTarefa` para suporte à delegação individual ou coletiva. |
-| **USUARIO** | $1,1$ | *submete* | $0,N$ | **SUGESTAO** | Apenas usuários atribuídos à tarefa podem emitir propostas de alteração (**RF004**, **RN14**). |
-| **TAREFA** | $1,1$ | *origina* | $0,N$ | **TICKET_REPORTE** | Canal de reporte de impedimentos vinculado à tarefa específica e roteado aos donos/administradores (**RF008**). |
-| **META** | $0,N$ | *vincula* | $1,N$ | **TAREFA** | Toda meta deve conter no mínimo uma tarefa válida (**RN07**) e é concluída quando 100% das tarefas finalizarem (**RN08**). |
-| **EQUIPE** | $0,N$ | *vincula* | $0,N$ | **META** | Donos e administradores vinculam metas às equipes via tabela associativa `MetaEquipe`. |
-| **USUARIO** | $1,1$ | *configura* | $0,N$ | **PREFERENCIA_NOTIFICACAO** | Configuração de canal (Push, E-mail, SMS) e antecedência de 1h a 168h (**RN11**). |
-| **TAREFA** | $1,1$ | *gera* | $0,N$ | **ALERTA_ENVIADO** | Registro de alertas disparados para evitar repetições retroativas (**RN12**). |
-| **USUARIO** | $1,1$ | *possui foto* | $0,1$ | **ANEXO** | Vínculo opcional de anexo para foto de perfil do usuário. |
+| **USUARIO** | $1,1$ | *cria* | $0,N$ | **TAREFA** | Toda tarefa possui obrigatoriamente um único usuário criador (**RF002**). |
+| **USUARIO** | $0,N$ | *integra* | $1,N$ | **EQUIPE** | Relacionamento N:N: usuário pode estar em várias equipes com cargos distintos (`Dono`, `Admin`, `Membro` — **RN003**, **RN004**, **RF006**). |
+| **USUARIO** | $0,N$ | *atua como* | $1,N$ | **TAREFA** | Relacionamento N:N resolvido via `ResponsavelTarefa` para suporte à delegação individual ou por equipe (**RF002**). |
+| **USUARIO** | $1,1$ | *submete* | $0,N$ | **SUGESTAO** | Apenas usuários atribuídos à tarefa podem emitir propostas de alteração (**RF004**, **RN013**). |
+| **TAREFA** | $1,1$ | *origina* | $0,N$ | **TICKET_REPORTE** | Canal de reporte de impedimentos vinculado à tarefa específica e roteado ao criador da tarefa (**RF005**, **RN016**). |
+| **META** | $0,N$ | *vincula* | $1,N$ | **TAREFA** | Toda meta deve conter no mínimo uma tarefa válida (**RN007**), validade de até 12 meses (**RN014**) e conclusão automática quando 100% das tarefas finalizarem (**RN008**). |
+| **EQUIPE** | $0,N$ | *vincula* | $0,N$ | **META** | Donos e administradores vinculam metas às equipes via tabela associativa `MetaEquipe`, gerando XP de recompensa e progressão de nível exclusivamente na conclusão destas (**RF007**, **RN019**). |
+| **USUARIO** | $1,1$ | *configura* | $0,N$ | **PREFERENCIA_NOTIFICACAO** | Configuração de canal (Push, E-mail, SMS), antecedência de 1h a 168h (**RN011**) e fonte acessível par de 12 a 24px (**RN018**). |
+| **TAREFA** | $1,1$ | *gera* | $0,N$ | **ALERTA_ENVIADO** | Registro de alertas disparados para garantia de idempotência e bloqueio de reenvios duplicados na mesma janela (**RN006**, **RN017**). |
+| **USUARIO** | $1,1$ | *possui foto* | $0,1$ | **ANEXO** | Vínculo opcional de anexo para foto de perfil do usuário (**RF001**, **RF012**). |
 
 ---
 
@@ -3372,7 +3483,6 @@ erDiagram
     Tarefa ||--o{ TicketReporte : "TarefaId -> Id [NO ACTION]"
     
     Usuario ||--o{ Meta : "UsuarioId -> Id [CASCADE]"
-    Tarefa ||--o{ Meta : "TarefaId -> Id [CASCADE]"
     
     Meta ||--o{ MetaTarefa : "MetaId -> Id [CASCADE]"
     Tarefa ||--o{ MetaTarefa : "TarefaId -> Id [CASCADE]"
@@ -3399,6 +3509,8 @@ erDiagram
         boolean EmailVerificado "NOT NULL DEFAULT false"
         varchar(255) CodigoVerificacaoHash "NULL"
         timestamptz CodigoVerificacaoExpiracao "NULL"
+        int Nivel "NOT NULL DEFAULT 1"
+        int Experiencia "NOT NULL DEFAULT 0"
         timestamptz DataCriacao "NOT NULL DEFAULT CURRENT_TIMESTAMP"
     }
 
@@ -3463,7 +3575,6 @@ erDiagram
         varchar(255) Nome "NOT NULL"
         timestamptz DataFechamento "NULL"
         boolean Concluida "NOT NULL DEFAULT false"
-        int TarefaId FK "NOT NULL"
         int UsuarioId FK "NOT NULL"
     }
 
@@ -3477,6 +3588,7 @@ erDiagram
         int Id PK
         int MetaId FK "NOT NULL"
         int EquipeId FK "NOT NULL"
+        int XpRecompensa "NOT NULL DEFAULT 0"
         timestamptz DataVinculo "NOT NULL DEFAULT CURRENT_TIMESTAMP"
     }
 
@@ -3537,8 +3649,8 @@ erDiagram
 | `ResponsavelTarefa`| `UsuarioId`, `TarefaId` | `Usuario(Id)`, `Tarefa(Id)` | `CASCADE` | Limpeza automática da fila de execução quando uma tarefa é removida. |
 | `RespostaTarefa` | `UsuarioId`, `TarefaId` | `Usuario(Id)`, `Tarefa(Id)` | `CASCADE` | Histórico e mensagens da tarefa são purgados com a exclusão da mesma. |
 | `Sugestao` | `UsuarioId`, `TarefaId` | `Usuario(Id)`, `Tarefa(Id)` | `CASCADE` | Propostas de alteração expiram junto com a tarefa de origem. |
-| `TicketReporte` | `UsuarioId`, `TarefaId` | `Usuario(Id)`, `Tarefa(Id)` | **`NO ACTION`** | **RNF05 (Auditoria)**: Tickets de reporte a superiores são registros formais de auditoria e não podem ser apagados silenciosamente em cascata. |
-| `Meta` | `UsuarioId`, `TarefaId` | `Usuario(Id)`, `Tarefa(Id)` | `CASCADE` | Metas vinculadas acompanham a integridade do seu proprietário e tarefa base. |
+| `TicketReporte` | `UsuarioId`, `TarefaId` | `Usuario(Id)`, `Tarefa(Id)` | **`NO ACTION`** | **RNF005 (Auditoria)**: Tickets de reporte a superiores são registros formais de auditoria e não podem ser apagados silenciosamente em cascata. |
+| `Meta` | `UsuarioId` | `Usuario(Id)` | `CASCADE` | Metas acompanham a integridade do seu usuário criador/proprietário. |
 | `MetaTarefa` | `MetaId`, `TarefaId` | `Meta(Id)`, `Tarefa(Id)` | `CASCADE` | Vínculos N:N mantidos em sincronia automática. |
 | `MetaEquipe` | `MetaId`, `EquipeId` | `Meta(Id)`, `Equipe(Id)` | `CASCADE` | Vínculos associativos N:N com equipes mantidos em sincronia automática. |
 | `Anexo` | `UsuarioId`, `TarefaId`, `RespostaTarefaId` | Tabelas de vínculo | `CASCADE` | Quando a entidade de origem é excluída, os metadados do anexo são deletados (com limpeza do arquivo físico em `wwwroot/uploads`). |
@@ -3661,7 +3773,6 @@ Mapeia o relacionamento $N:N$ entre Metas e múltiplas Tarefas via tabela associ
 ```mermaid
 erDiagram
     Usuario ||--o{ Meta : "proprietario (UsuarioId)"
-    Tarefa ||--o{ Meta : "tarefa_base (TarefaId)"
     Meta ||--o{ MetaTarefa : "contem (MetaId)"
     Tarefa ||--o{ MetaTarefa : "vinculada (TarefaId)"
     Meta ||--o{ MetaEquipe : "atribuida_a (MetaId)"
@@ -3671,6 +3782,8 @@ erDiagram
         int Id PK "Identificador único"
         varchar(255) Nome "NOT NULL"
         varchar(255) Email UK "NOT NULL"
+        int Nivel "NOT NULL DEFAULT 1"
+        int Experiencia "NOT NULL DEFAULT 0"
     }
 
     Equipe {
@@ -3690,7 +3803,6 @@ erDiagram
         varchar(255) Nome "NOT NULL (RF007)"
         timestamptz DataFechamento "NULL (máx 12 meses - RN15)"
         boolean Concluida "NOT NULL DEFAULT false (RN08)"
-        int TarefaId FK "NOT NULL (Tarefa.Id - RN07)"
         int UsuarioId FK "NOT NULL (Usuario.Id)"
     }
 
@@ -3704,6 +3816,7 @@ erDiagram
         int Id PK "Identificador associativo N:N"
         int MetaId FK "NOT NULL (Meta.Id)"
         int EquipeId FK "NOT NULL (Equipe.Id)"
+        int XpRecompensa "NOT NULL DEFAULT 0 (Gamificação)"
         timestamptz DataVinculo "NOT NULL DEFAULT CURRENT_TIMESTAMP"
     }
 ```
@@ -3769,12 +3882,14 @@ Armazena as informações cadastrais, de autenticação e credenciais dos usuár
 | :--- | :--- | :---: | :---: | :---: | :--- |
 | `Id` | `INTEGER` | **PK** | NÃO | `IDENTITY` | Identificador único primário do usuário. |
 | `Nome` | `VARCHAR(255)` | - | NÃO | - | Nome completo do usuário. |
-| `Telefone` | `VARCHAR(20)` | - | SIM | `NULL` | Número de telefone com DDD para envio de SMS (**RN11**). |
-| `Email` | `VARCHAR(255)` | **UK** | NÃO | - | Endereço de e-mail corporativo único. Índice exclusivo (**RN01**). |
-| `SenhaHash` | `VARCHAR(255)` | - | NÃO | - | Hash criptográfico gerado via `BCrypt.Net` com Salt (**RN02**, **RNF01**). |
-| `EmailVerificado` | `BOOLEAN` | - | NÃO | `false` | Indica se o e-mail foi validado para ativação de alertas (**RN13**). |
+| `Telefone` | `VARCHAR(20)` | - | SIM | `NULL` | Número de telefone com DDD para envio de SMS (**RN011**). |
+| `Email` | `VARCHAR(255)` | **UK** | NÃO | - | Endereço de e-mail corporativo único. Índice exclusivo (**RN001**). |
+| `SenhaHash` | `VARCHAR(255)` | - | NÃO | - | Hash criptográfico gerado via `BCrypt.Net` com Salt (**RN002**, **RNF001**). |
+| `EmailVerificado` | `BOOLEAN` | - | NÃO | `false` | Indica se o e-mail foi validado para ativação de alertas (**RN012**). |
 | `CodigoVerificacaoHash` | `VARCHAR(255)` | - | SIM | `NULL` | Hash do código de segurança de 6 dígitos enviado por e-mail. |
 | `CodigoVerificacaoExpiracao` | `TIMESTAMPTZ` | - | SIM | `NULL` | Data e hora limite de expiração do código de verificação (janela de 15 min). |
+| `Nivel` | `INTEGER` | - | NÃO | `1` | Nível de progressão e gamificação da conta do usuário. |
+| `Experiencia` | `INTEGER` | - | NÃO | `0` | Saldo atual de experiência (XP) acumulado pelo usuário. |
 | `DataCriacao` | `TIMESTAMPTZ` | - | NÃO | `CURRENT_TIMESTAMP` | Data e hora UTC em que o cadastro foi efetuado. |
 
 ---
@@ -3879,7 +3994,6 @@ Armazena metas de produtividade e gamificação individuais ou de equipe.
 | `Nome` | `VARCHAR(255)` | - | NÃO | - | Nome descritivo da meta estratégica (**RF007**). |
 | `DataFechamento` | `TIMESTAMPTZ` | - | SIM | `NULL` | Data limite para conclusão (máximo de 12 meses — **RN15**). |
 | `Concluida` | `BOOLEAN` | - | NÃO | `false` | Conclusão calculada automaticamente via tarefas vinculadas (**RN08**). |
-| `TarefaId` | `INTEGER` | **FK** | NÃO | - | Tarefa primária de referência da meta (**RN07**). |
 | `UsuarioId` | `INTEGER` | **FK** | NÃO | - | Proprietário gestor da meta (`Usuario(Id)`). |
 
 ---
@@ -3974,6 +4088,7 @@ Tabela associativa que gerencia a vinculação e atribuição de metas a equipes
 | `Id` | `INTEGER` | **PK** | NÃO | `IDENTITY` | Identificador único primário do vínculo da meta com a equipe. |
 | `MetaId` | `INTEGER` | **FK** | NÃO | - | Referência à tabela `Meta(Id)`. Exclusão em cascata (**CASCADE**). |
 | `EquipeId` | `INTEGER` | **FK** | NÃO | - | Referência à tabela `Equipe(Id)`. Exclusão em cascata (**CASCADE**). |
+| `XpRecompensa` | `INTEGER` | - | NÃO | `0` | Quantidade de pontos de experiência (XP) concedida na conclusão da meta de equipe. |
 | `DataVinculo` | `TIMESTAMPTZ` | - | NÃO | `CURRENT_TIMESTAMP` | Timestamp UTC do momento da vinculação da meta à equipe. |
 
 > **Índices de Performance:**
@@ -4011,7 +4126,7 @@ O Cortex utiliza tipos `ENUM` nativos registrados no banco de dados via driver `
 | **Banco de Dados (SGBD)** | `PostgreSQL` | 16.x | Persistência relacional transacional ACID, índices compostos e tipos enumerados (`ENUM`) nativos. |
 | **Mapeador Relacional (ORM)**| `EF Core` / `Npgsql` | 10.0.9 / 10.0.2 | Mapeamento objeto-relacional fluente, consultas LINQ tipadas e controle de migrações automáticas. |
 | **Autenticação & Segurança** | `JWT Bearer` + `BCrypt.Net` | 10.0 / 4.0.3 | Gestão de credenciais com hash criptográfico e emissão de tokens de sessão sem estado (*stateless*). |
-| **Logging & Auditoria** | `Serilog` | 10.0.0 | Registro estruturado em JSON com rotação diária para monitoramento e auditoria de ações críticas (**RNF05**). |
+| **Logging & Auditoria** | `Serilog` | 10.0.0 | Registro estruturado em JSON com rotação diária para monitoramento e auditoria de ações críticas (**RNF005**). |
 
 ---
 

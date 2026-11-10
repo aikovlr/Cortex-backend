@@ -111,16 +111,15 @@ namespace Cortex.Services.Implementations
                 Nome = dto.Nome,
                 DataFechamento = dataFechamentoUtc,
                 Concluida = todasConcluidas,
-                TarefaId = tarefaIds.First(),
-                UsuarioId = targetUsuarioId,
-                Tarefa = tarefas.First()
+                UsuarioId = targetUsuarioId
             };
 
             foreach (var tId in tarefaIds)
             {
                 meta.MetasTarefas.Add(new MetaTarefa
                 {
-                    TarefaId = tId
+                    TarefaId = tId,
+                    Tarefa = tarefas.First(t => t.Id == tId)
                 });
             }
 
@@ -128,7 +127,8 @@ namespace Cortex.Services.Implementations
             {
                 meta.MetasEquipes.Add(new MetaEquipe
                 {
-                    EquipeId = dto.EquipeId.Value
+                    EquipeId = dto.EquipeId.Value,
+                    XpRecompensa = dto.XpRecompensa ?? 0
                 });
             }
 
@@ -177,21 +177,26 @@ namespace Cortex.Services.Implementations
                 }
             }
 
-            if (meta.Concluida == true && _notificacaoService != null && targetUsuarioId > 0)
+            if (meta.Concluida == true)
             {
-                try
+                await ProcessarXpConclusaoMetaEquipeAsync(meta);
+
+                if (_notificacaoService != null && targetUsuarioId > 0)
                 {
-                    await _notificacaoService.CriarNotificacaoAsync(
-                        targetUsuarioId,
-                        "meta",
-                        "Meta Concluída",
-                        $"Parabéns! A meta \"{meta.Nome}\" foi concluída com sucesso.",
-                        "/metas",
-                        destaque: false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Erro ao criar notificação de meta concluída para o usuário {UsuarioId}", targetUsuarioId);
+                    try
+                    {
+                        await _notificacaoService.CriarNotificacaoAsync(
+                            targetUsuarioId,
+                            "meta",
+                            "Meta Concluída",
+                            $"Parabéns! A meta \"{meta.Nome}\" foi concluída com sucesso.",
+                            "/metas",
+                            destaque: false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Erro ao criar notificação de meta concluída para o usuário {UsuarioId}", targetUsuarioId);
+                    }
                 }
             }
 
@@ -209,8 +214,19 @@ namespace Cortex.Services.Implementations
                 return null;
 
             // RN09: Usuários comuns só podem visualizar suas próprias metas ou metas atribuídas à sua equipe
-            var tarefa = meta.Tarefa ?? await _tarefaRepository.ObterTarefaPorIdAsync(meta.TarefaId);
-            var ehAdminOuDono = tarefa != null && await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, tarefa);
+            var tarefasDaMeta = (meta.MetasTarefas != null && meta.MetasTarefas.Any())
+                ? meta.MetasTarefas.Where(mt => mt.Tarefa != null).Select(mt => mt.Tarefa).ToList()
+                : (await _metaRepository.ObterTarefasDaMetaAsync(meta.Id)) ?? new List<Tarefa>();
+
+            var ehAdminOuDono = false;
+            foreach (var t in tarefasDaMeta)
+            {
+                if (t != null && await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, t))
+                {
+                    ehAdminOuDono = true;
+                    break;
+                }
+            }
 
             var ehMembroDaEquipe = meta.MetasEquipes != null && meta.MetasEquipes.Any(me =>
                 me.Equipe != null && me.Equipe.Membros != null && me.Equipe.Membros.Any(m => m.UsuarioId == solicitanteId));
@@ -278,7 +294,7 @@ namespace Cortex.Services.Implementations
             return metas.Select(MapToConsultaDTO);
         }
 
-        public async Task<ConsultaMetaDTO> AtribuirEquipeAsync(int metaId, int equipeId, int solicitanteId)
+        public async Task<ConsultaMetaDTO> AtribuirEquipeAsync(int metaId, int equipeId, int solicitanteId, int? xpRecompensa = null)
         {
             var meta = await _metaRepository.ObterMetaPorIdAsync(metaId);
             if (meta == null)
@@ -299,7 +315,8 @@ namespace Cortex.Services.Implementations
                 await _metaRepository.AdicionarMetaEquipeAsync(new MetaEquipe
                 {
                     MetaId = metaId,
-                    EquipeId = equipeId
+                    EquipeId = equipeId,
+                    XpRecompensa = xpRecompensa ?? 0
                 });
             }
 
@@ -351,8 +368,19 @@ namespace Cortex.Services.Implementations
 
             var eraConcluida = meta.Concluida == true;
 
-            var tarefa = meta.Tarefa ?? await _tarefaRepository.ObterTarefaPorIdAsync(meta.TarefaId);
-            var ehAdminOuDono = tarefa != null && await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, tarefa);
+            var tarefasDaMeta = (meta.MetasTarefas != null && meta.MetasTarefas.Any())
+                ? meta.MetasTarefas.Where(mt => mt.Tarefa != null).Select(mt => mt.Tarefa).ToList()
+                : (await _metaRepository.ObterTarefasDaMetaAsync(meta.Id)) ?? new List<Tarefa>();
+
+            var ehAdminOuDono = false;
+            foreach (var t in tarefasDaMeta)
+            {
+                if (t != null && await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, t))
+                {
+                    ehAdminOuDono = true;
+                    break;
+                }
+            }
 
             if (meta.UsuarioId != solicitanteId && !ehAdminOuDono)
             {
@@ -362,9 +390,12 @@ namespace Cortex.Services.Implementations
             if (!string.IsNullOrWhiteSpace(dto.Nome))
                 meta.Nome = dto.Nome.Trim();
 
-            if (dto.TarefaIds != null)
+            var novasTarefasIds = (dto.TarefaIds != null)
+                ? dto.TarefaIds.Distinct().Where(tId => tId > 0).ToList()
+                : (dto.TarefaId > 0 ? new List<int> { dto.TarefaId } : null);
+
+            if (novasTarefasIds != null)
             {
-                var novasTarefasIds = dto.TarefaIds.Distinct().Where(tId => tId > 0).ToList();
                 if (!novasTarefasIds.Any())
                 {
                     throw new ArgumentException("A meta deve estar vinculada a no mínimo uma tarefa válida.");
@@ -381,9 +412,7 @@ namespace Cortex.Services.Implementations
                     tarefas.Add(tarefaExistente);
                 }
 
-                meta.TarefaId = novasTarefasIds.First();
-                meta.Tarefa = tarefas.First();
-
+                meta.MetasTarefas ??= new List<MetaTarefa>();
                 var paraRemover = meta.MetasTarefas.Where(mt => !novasTarefasIds.Contains(mt.TarefaId)).ToList();
                 foreach (var item in paraRemover)
                 {
@@ -405,36 +434,6 @@ namespace Cortex.Services.Implementations
                 }
 
                 meta.Concluida = tarefas.All(t => t.Status == Status.Concluida);
-            }
-            else if (dto.TarefaId > 0 && dto.TarefaId != meta.TarefaId)
-            {
-                // RN07: Validar se a nova tarefa existe
-                var novaTarefa = await _tarefaRepository.ObterTarefaPorIdAsync(dto.TarefaId);
-                if (novaTarefa == null)
-                    throw new ArgumentException("A nova tarefa vinculada não foi encontrada.");
-
-                meta.TarefaId = dto.TarefaId;
-                meta.Tarefa = novaTarefa;
-
-                var paraRemover = meta.MetasTarefas.Where(mt => mt.TarefaId != dto.TarefaId).ToList();
-                foreach (var item in paraRemover)
-                {
-                    meta.MetasTarefas.Remove(item);
-                }
-
-                if (!meta.MetasTarefas.Any(mt => mt.TarefaId == dto.TarefaId))
-                {
-                    meta.MetasTarefas.Add(new MetaTarefa
-                    {
-                        MetaId = meta.Id,
-                        TarefaId = dto.TarefaId,
-                        Tarefa = novaTarefa
-                    });
-                }
-
-                // RN08: Checar conclusão
-                if (novaTarefa.Status == Status.Concluida)
-                    meta.Concluida = true;
             }
 
             if (dto.LimparDataFechamento)
@@ -462,21 +461,26 @@ namespace Cortex.Services.Implementations
 
             await _metaRepository.AtualizarMetaAsync(meta);
 
-            if (!eraConcluida && meta.Concluida == true && _notificacaoService != null && meta.UsuarioId > 0)
+            if (!eraConcluida && meta.Concluida == true)
             {
-                try
+                await ProcessarXpConclusaoMetaEquipeAsync(meta);
+
+                if (_notificacaoService != null && meta.UsuarioId > 0)
                 {
-                    await _notificacaoService.CriarNotificacaoAsync(
-                        meta.UsuarioId,
-                        "meta",
-                        "Meta Concluída",
-                        $"Parabéns! A meta \"{meta.Nome}\" foi concluída com sucesso.",
-                        "/metas",
-                        destaque: false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Erro ao criar notificação de meta concluída para o usuário {UsuarioId}", meta.UsuarioId);
+                    try
+                    {
+                        await _notificacaoService.CriarNotificacaoAsync(
+                            meta.UsuarioId,
+                            "meta",
+                            "Meta Concluída",
+                            $"Parabéns! A meta \"{meta.Nome}\" foi concluída com sucesso.",
+                            "/metas",
+                            destaque: false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Erro ao criar notificação de meta concluída para o usuário {UsuarioId}", meta.UsuarioId);
+                    }
                 }
             }
 
@@ -493,8 +497,19 @@ namespace Cortex.Services.Implementations
             if (meta == null)
                 return false;
 
-            var tarefa = meta.Tarefa ?? await _tarefaRepository.ObterTarefaPorIdAsync(meta.TarefaId);
-            var ehAdminOuDono = tarefa != null && await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, tarefa);
+            var tarefasDaMeta = (meta.MetasTarefas != null && meta.MetasTarefas.Any())
+                ? meta.MetasTarefas.Where(mt => mt.Tarefa != null).Select(mt => mt.Tarefa).ToList()
+                : (await _metaRepository.ObterTarefasDaMetaAsync(meta.Id)) ?? new List<Tarefa>();
+
+            var ehAdminOuDono = false;
+            foreach (var t in tarefasDaMeta)
+            {
+                if (t != null && await _authService.EhAdminOuDonoDaTarefaAsync(solicitanteId, t))
+                {
+                    ehAdminOuDono = true;
+                    break;
+                }
+            }
 
             if (meta.UsuarioId != solicitanteId && !ehAdminOuDono)
             {
@@ -536,6 +551,8 @@ namespace Cortex.Services.Implementations
                         "Meta {MetaId} ('{Nome}') concluída automaticamente — todas as tarefas vinculadas estão concluídas.",
                         meta.Id, meta.Nome);
 
+                    await ProcessarXpConclusaoMetaEquipeAsync(meta);
+
                     if (_notificacaoService != null && meta.UsuarioId > 0)
                     {
                         try
@@ -559,6 +576,75 @@ namespace Cortex.Services.Implementations
             return metasConcluidas;
         }
 
+        public static int ObterLimiteXpDoNivel(int nivel)
+        {
+            var nivelEfetivo = Math.Max(1, nivel);
+            return nivelEfetivo * 100;
+        }
+
+        public static void IncrementarXpEAtualizarNivel(Usuario usuario, int xpGanho)
+        {
+            if (xpGanho <= 0)
+                return;
+
+            if (usuario.Nivel <= 0)
+                usuario.Nivel = 1;
+
+            if (usuario.Experiencia < 0)
+                usuario.Experiencia = 0;
+
+            usuario.Experiencia += xpGanho;
+
+            while (usuario.Experiencia >= ObterLimiteXpDoNivel(usuario.Nivel))
+            {
+                usuario.Experiencia -= ObterLimiteXpDoNivel(usuario.Nivel);
+                usuario.Nivel += 1;
+            }
+        }
+
+        private async Task ProcessarXpConclusaoMetaEquipeAsync(Meta meta)
+        {
+            // Metas puramente individuais não devem gerar acúmulo de XP.
+            if (meta.MetasEquipes == null || !meta.MetasEquipes.Any())
+            {
+                _logger.LogInformation("Meta {MetaId} é puramente individual. Nenhum XP concedido.", meta.Id);
+                return;
+            }
+
+            var xpGanho = meta.MetasEquipes.Sum(me => me.XpRecompensa);
+            if (xpGanho <= 0)
+            {
+                _logger.LogInformation("Meta de equipe {MetaId} concluída, mas com XpRecompensa zerado.", meta.Id);
+                return;
+            }
+
+            var usuario = meta.Usuario;
+            if (usuario == null && _usuarioRepository != null && meta.UsuarioId > 0)
+            {
+                usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(meta.UsuarioId);
+            }
+
+            if (usuario == null)
+            {
+                _logger.LogWarning("Não foi possível localizar o usuário {UsuarioId} para conceder XP da meta {MetaId}.", meta.UsuarioId, meta.Id);
+                return;
+            }
+
+            var nivelAnterior = usuario.Nivel;
+            var xpAnterior = usuario.Experiencia;
+
+            IncrementarXpEAtualizarNivel(usuario, xpGanho);
+
+            if (_usuarioRepository != null)
+            {
+                await _usuarioRepository.AtualizarUsuarioAsync(usuario);
+            }
+
+            _logger.LogInformation(
+                "XP concedido ao usuário {UsuarioId} pela meta de equipe {MetaId}: +{XpGanho} XP. Nível: {NivelAnterior} -> {NovoNivel}. Saldo XP: {XpAnterior} -> {NovoXp}",
+                usuario.Id, meta.Id, xpGanho, nivelAnterior, usuario.Nivel, xpAnterior, usuario.Experiencia);
+        }
+
         private static int ObterNivelCargo(Cargo cargo)
         {
             return cargo switch
@@ -572,13 +658,32 @@ namespace Cortex.Services.Implementations
 
         private static ConsultaMetaDTO MapToConsultaDTO(Meta meta)
         {
+            var tarefasLista = (meta.MetasTarefas != null && meta.MetasTarefas.Any())
+                ? meta.MetasTarefas
+                    .Where(mt => mt.Tarefa != null)
+                    .Select(mt => new ConsultaTarefaDTO
+                    {
+                        Id = mt.Tarefa.Id,
+                        Titulo = mt.Tarefa.Titulo,
+                        Descricao = mt.Tarefa.Descricao,
+                        DataVencimento = mt.Tarefa.DataVencimento,
+                        Pontuacao = mt.Tarefa.Pontuacao,
+                        Status = mt.Tarefa.Status,
+                        Prioridade = mt.Tarefa.Prioridade,
+                        CriadorId = mt.Tarefa.CriadorId,
+                        DataCriacao = mt.Tarefa.DataCriacao
+                    }).ToList()
+                : new List<ConsultaTarefaDTO>();
+
+            var primeiraTarefa = tarefasLista.FirstOrDefault();
+
             return new ConsultaMetaDTO
             {
                 Id = meta.Id,
                 Nome = meta.Nome,
                 DataFechamento = meta.DataFechamento,
                 Concluida = meta.Concluida ?? false,
-                TarefaId = meta.TarefaId,
+                TarefaId = primeiraTarefa?.Id ?? 0,
                 UsuarioId = meta.UsuarioId,
                 Usuario = meta.Usuario != null ? new ConsultaUsuarioDTO
                 {
@@ -586,6 +691,9 @@ namespace Cortex.Services.Implementations
                     Nome = meta.Usuario.Nome,
                     Email = meta.Usuario.Email,
                     Telefone = meta.Usuario.Telefone,
+                    EmailVerificado = meta.Usuario.EmailVerificado,
+                    Nivel = meta.Usuario.Nivel,
+                    Experiencia = meta.Usuario.Experiencia,
                     FotoPerfil = meta.Usuario.FotoPerfil != null ? new ConsultaAnexoDTO
                     {
                         Id = meta.Usuario.FotoPerfil.Id,
@@ -595,48 +703,8 @@ namespace Cortex.Services.Implementations
                         DataEnvio = meta.Usuario.FotoPerfil.DataEnvio
                     } : null
                 } : null,
-                Tarefa = meta.Tarefa != null ? new ConsultaTarefaDTO
-                {
-                    Id = meta.Tarefa.Id,
-                    Titulo = meta.Tarefa.Titulo,
-                    Descricao = meta.Tarefa.Descricao,
-                    DataVencimento = meta.Tarefa.DataVencimento,
-                    Pontuacao = meta.Tarefa.Pontuacao,
-                    Status = meta.Tarefa.Status,
-                    Prioridade = meta.Tarefa.Prioridade,
-                    CriadorId = meta.Tarefa.CriadorId,
-                    DataCriacao = meta.Tarefa.DataCriacao
-                } : null,
-                Tarefas = (meta.MetasTarefas != null && meta.MetasTarefas.Any())
-                    ? meta.MetasTarefas
-                        .Where(mt => mt.Tarefa != null)
-                        .Select(mt => new ConsultaTarefaDTO
-                        {
-                            Id = mt.Tarefa.Id,
-                            Titulo = mt.Tarefa.Titulo,
-                            Descricao = mt.Tarefa.Descricao,
-                            DataVencimento = mt.Tarefa.DataVencimento,
-                            Pontuacao = mt.Tarefa.Pontuacao,
-                            Status = mt.Tarefa.Status,
-                            Prioridade = mt.Tarefa.Prioridade,
-                            CriadorId = mt.Tarefa.CriadorId,
-                            DataCriacao = mt.Tarefa.DataCriacao
-                        }).ToList()
-                    : (meta.Tarefa != null ? new List<ConsultaTarefaDTO>
-                    {
-                        new ConsultaTarefaDTO
-                        {
-                            Id = meta.Tarefa.Id,
-                            Titulo = meta.Tarefa.Titulo,
-                            Descricao = meta.Tarefa.Descricao,
-                            DataVencimento = meta.Tarefa.DataVencimento,
-                            Pontuacao = meta.Tarefa.Pontuacao,
-                            Status = meta.Tarefa.Status,
-                            Prioridade = meta.Tarefa.Prioridade,
-                            CriadorId = meta.Tarefa.CriadorId,
-                            DataCriacao = meta.Tarefa.DataCriacao
-                        }
-                    } : new List<ConsultaTarefaDTO>()),
+                Tarefa = primeiraTarefa,
+                Tarefas = tarefasLista,
                 Equipes = meta.MetasEquipes?
                     .Where(me => me.Equipe != null)
                     .Select(me => new ConsultaEquipeDTO
@@ -644,7 +712,8 @@ namespace Cortex.Services.Implementations
                         Id = me.Equipe.Id,
                         Nome = me.Equipe.Nome,
                         DataCriacao = me.Equipe.DataCriacao
-                    }).ToList() ?? new List<ConsultaEquipeDTO>()
+                    }).ToList() ?? new List<ConsultaEquipeDTO>(),
+                XpRecompensa = meta.MetasEquipes?.Sum(me => me.XpRecompensa)
             };
         }
     }
