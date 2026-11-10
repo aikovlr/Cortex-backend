@@ -61,6 +61,7 @@ namespace Cortex.Controllers
                 _logger.LogWarning("Auditoria: Login falhado. Email: {Email}, IP: {IP}", dto.Email, clientIp);
                 return Unauthorized(new ProblemDetails
                 {
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.2",
                     Status = StatusCodes.Status401Unauthorized,
                     Title = "Não autorizado",
                     Detail = mensagemErroGenerico,
@@ -74,6 +75,7 @@ namespace Cortex.Controllers
                 _logger.LogError("Inconsistência: ValidarSenhaAsync retornou true mas usuário não encontrado. Email: {Email}", dto.Email);
                 return Unauthorized(new ProblemDetails
                 {
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.2",
                     Status = StatusCodes.Status401Unauthorized,
                     Title = "Não autorizado",
                     Detail = mensagemErroGenerico,
@@ -93,6 +95,7 @@ namespace Cortex.Controllers
 
                 var problem = new ProblemDetails
                 {
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.4",
                     Status = StatusCodes.Status403Forbidden,
                     Title = "E-mail não verificado",
                     Detail = "O seu e-mail ainda não foi verificado. Por favor, confirme o código de 6 dígitos enviado para seu e-mail.",

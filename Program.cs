@@ -35,6 +35,15 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
+// Suporte padronizado a ProblemDetails (RFC 9457)
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = context =>
+    {
+        context.ProblemDetails.Instance ??= context.HttpContext.Request.Path;
+    };
+});
+
 // Adiciona suporte a Controllers com serialização amigável de Enums
 builder.Services.AddControllers()
     .AddJsonOptions(options =>

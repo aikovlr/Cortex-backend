@@ -177,9 +177,11 @@ namespace Cortex.Controllers
             {
                 return BadRequest(new ProblemDetails
                 {
+                    Type = "https://tools.ietf.org/html/rfc9110#section-15.5.1",
                     Status = StatusCodes.Status400BadRequest,
                     Title = "E-mail já verificado",
-                    Detail = "O seu e-mail já se encontra verificado."
+                    Detail = "O seu e-mail já se encontra verificado.",
+                    Instance = HttpContext.Request.Path
                 });
             }
 

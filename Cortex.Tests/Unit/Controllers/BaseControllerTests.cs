@@ -95,6 +95,7 @@ namespace Cortex.Tests.Unit.Controllers
             // Assert
             var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
             var problemDetails = Assert.IsType<ProblemDetails>(notFoundResult.Value);
+            Assert.Equal("https://tools.ietf.org/html/rfc9110#section-15.5.5", problemDetails.Type);
             Assert.Equal(StatusCodes.Status404NotFound, problemDetails.Status);
             Assert.Equal("Teste Não Encontrado", problemDetails.Title);
             Assert.Equal("Item não encontrado.", problemDetails.Detail);
