@@ -7,6 +7,7 @@ namespace Cortex.Entities
         public DateTime? DataFechamento { get; set; }
         public bool? Concluida { get; set; }
         public int UsuarioId { get; set; }
+        public bool PenalidadeAplicada { get; set; } = false;
         // navegacao
         public Usuario Usuario { get; set; } = null!;
         public ICollection<MetaTarefa> MetasTarefas { get; set; } = new List<MetaTarefa>();

@@ -55,6 +55,9 @@ namespace Cortex.Controllers
             var currentUserId = ObterUsuarioIdAutenticado();
             var targetUsuarioId = usuarioId ?? currentUserId;
 
+            // Garante que metas expiradas sejam verificadas e tenham penalidade de XP aplicada
+            await _metaService.VerificarMetasExpiradasAsync();
+
             var metas = await _metaService.ListarMetasPorUsuarioAsync(targetUsuarioId, currentUserId);
             return Ok(metas);
         }
@@ -116,6 +119,14 @@ namespace Cortex.Controllers
                 dto.EquipeId, id, currentUserId);
 
             return Ok(metaAtualizada);
+        }
+
+        [HttpPost("api/metas/verificar-expiradas")]
+        public async Task<IActionResult> VerificarMetasExpiradas()
+        {
+            var total = await _metaService.VerificarMetasExpiradasAsync();
+            _logger.LogInformation("Verificação manual de metas expiradas executada. Total penalizadas: {Total}", total);
+            return Ok(new { metasPenalizadas = total });
         }
 
         [HttpGet("api/equipes/{id:int}/metas")]

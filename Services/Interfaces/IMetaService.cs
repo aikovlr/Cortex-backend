@@ -14,5 +14,6 @@ namespace Cortex.Services.Interfaces
         Task<ConsultaMetaDTO> AtualizarMetaAsync(int id, AtualizarMetaDTO dto, int solicitanteId);
         Task<bool> DeletarMetaAsync(int id, int solicitanteId);
         Task<int> VerificarConclusaoMetaAsync(int tarefaId);
+        Task<int> VerificarMetasExpiradasAsync();
     }
 }
