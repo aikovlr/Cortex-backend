@@ -22,6 +22,10 @@ namespace Cortex.Infra.Persistence.Configuration
             builder.Property(m => m.Concluida)
                 .IsRequired(false);
 
+            builder.Property(m => m.PenalidadeAplicada)
+                .IsRequired()
+                .HasDefaultValue(false);
+
             // Índices de Performance (RNF09 / Fase 13)
             builder.HasIndex(m => m.UsuarioId);
             builder.HasIndex(m => new { m.UsuarioId, m.Concluida });

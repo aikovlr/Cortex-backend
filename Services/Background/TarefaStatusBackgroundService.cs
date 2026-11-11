@@ -61,12 +61,22 @@ namespace Cortex.Services.Background
             {
                 using var scope = _scopeFactory.CreateScope();
                 var tarefaService = scope.ServiceProvider.GetRequiredService<ITarefaService>();
+                var metaService = scope.ServiceProvider.GetService<IMetaService>();
 
                 var totalAtrasadas = await tarefaService.VerificarTarefasAtrasadasAsync();
 
                 if (totalAtrasadas > 0)
                 {
                     _logger.LogInformation("Verificação automática: {Total} tarefa(s) transicionada(s) para status Atrasada.", totalAtrasadas);
+                }
+
+                if (metaService != null)
+                {
+                    var totalMetasPenalizadas = await metaService.VerificarMetasExpiradasAsync();
+                    if (totalMetasPenalizadas > 0)
+                    {
+                        _logger.LogInformation("Verificação automática de metas: {Total} meta(s) expirada(s) penalizada(s) em XP.", totalMetasPenalizadas);
+                    }
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

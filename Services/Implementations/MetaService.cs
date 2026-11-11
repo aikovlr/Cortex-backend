@@ -125,10 +125,14 @@ namespace Cortex.Services.Implementations
 
             if (dto.EquipeId.HasValue && dto.EquipeId.Value > 0)
             {
+                // RN: O XP de meta de equipe deve iniciar em 0 e a cada tarefa vinculada, a recompensa de XP deve ser aumentada em 5
+                var xpCalculado = tarefaIds.Count * 5;
+                var xpFinal = (dto.XpRecompensa.HasValue && dto.XpRecompensa.Value > 0) ? dto.XpRecompensa.Value : xpCalculado;
+
                 meta.MetasEquipes.Add(new MetaEquipe
                 {
                     EquipeId = dto.EquipeId.Value,
-                    XpRecompensa = dto.XpRecompensa ?? 0
+                    XpRecompensa = xpFinal
                 });
             }
 
@@ -312,11 +316,18 @@ namespace Cortex.Services.Implementations
             var jaVinculada = await _metaRepository.MetaEquipeExisteAsync(metaId, equipeId);
             if (!jaVinculada)
             {
+                var tarefasDaMeta = (meta.MetasTarefas != null && meta.MetasTarefas.Any())
+                    ? meta.MetasTarefas.Count
+                    : (await _metaRepository.ObterTarefasDaMetaAsync(metaId))?.Count ?? 0;
+
+                var xpCalculado = tarefasDaMeta * 5;
+                var xpFinal = (xpRecompensa.HasValue && xpRecompensa.Value > 0) ? xpRecompensa.Value : xpCalculado;
+
                 await _metaRepository.AdicionarMetaEquipeAsync(new MetaEquipe
                 {
                     MetaId = metaId,
                     EquipeId = equipeId,
-                    XpRecompensa = xpRecompensa ?? 0
+                    XpRecompensa = xpFinal
                 });
             }
 
@@ -434,6 +445,16 @@ namespace Cortex.Services.Implementations
                 }
 
                 meta.Concluida = tarefas.All(t => t.Status == Status.Concluida);
+
+                // Atualiza XpRecompensa das equipes vinculadas com base na quantidade de tarefas (inicia em 0, +5 por tarefa)
+                if (meta.MetasEquipes != null && meta.MetasEquipes.Any())
+                {
+                    var novoXp = novasTarefasIds.Count * 5;
+                    foreach (var me in meta.MetasEquipes)
+                    {
+                        me.XpRecompensa = novoXp;
+                    }
+                }
             }
 
             if (dto.LimparDataFechamento)
@@ -602,6 +623,112 @@ namespace Cortex.Services.Implementations
             }
         }
 
+        public static void DecrementarXp(Usuario usuario, int xpPerdido)
+        {
+            if (xpPerdido <= 0)
+                return;
+
+            if (usuario.Experiencia < 0)
+                usuario.Experiencia = 0;
+
+            usuario.Experiencia = Math.Max(0, usuario.Experiencia - xpPerdido);
+        }
+
+        public async Task<int> VerificarMetasExpiradasAsync()
+        {
+            var agoraUtc = DateTime.UtcNow;
+
+            var metas = await _metaRepository.ObterTodasMetasAsync();
+            var metasExpiradasNaoConcluidas = metas
+                .Where(m => m.DataFechamento.HasValue &&
+                            m.DataFechamento.Value < agoraUtc &&
+                            m.Concluida != true &&
+                            !m.PenalidadeAplicada)
+                .ToList();
+
+            if (!metasExpiradasNaoConcluidas.Any())
+            {
+                return 0;
+            }
+
+            var totalPenalizadas = 0;
+            var metasPorUsuario = metasExpiradasNaoConcluidas.GroupBy(m => m.UsuarioId);
+
+            foreach (var grupo in metasPorUsuario)
+            {
+                var usuarioId = grupo.Key;
+                if (usuarioId <= 0) continue;
+
+                var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(usuarioId);
+                if (usuario == null) continue;
+
+                var metasDoUsuario = new List<Meta>();
+
+                foreach (var meta in grupo)
+                {
+                    var tarefasDaMeta = (meta.MetasTarefas != null && meta.MetasTarefas.Any())
+                        ? meta.MetasTarefas.Where(mt => mt.Tarefa != null).Select(mt => mt.Tarefa).ToList()
+                        : (await _metaRepository.ObterTarefasDaMetaAsync(meta.Id)) ?? new List<Tarefa>();
+
+                    var todasConcluidas = tarefasDaMeta.Count > 0 && tarefasDaMeta.All(t => t.Status == Status.Concluida);
+
+                    if (todasConcluidas)
+                    {
+                        meta.Concluida = true;
+                        await _metaRepository.AtualizarMetaAsync(meta);
+                        await ProcessarXpConclusaoMetaEquipeAsync(meta);
+                    }
+                    else
+                    {
+                        // Meta não concluída com prazo expirado:
+                        // As demais tarefas com status de concluída não devem alterar o saldo de XP.
+                        metasDoUsuario.Add(meta);
+                    }
+                }
+
+                if (metasDoUsuario.Any())
+                {
+                    var quantidadeNaoConcluidas = metasDoUsuario.Count;
+                    var xpRemovido = quantidadeNaoConcluidas * 5;
+
+                    var xpAnterior = usuario.Experiencia;
+                    DecrementarXp(usuario, xpRemovido);
+                    await _usuarioRepository.AtualizarUsuarioAsync(usuario);
+
+                    foreach (var meta in metasDoUsuario)
+                    {
+                        meta.PenalidadeAplicada = true;
+                        await _metaRepository.AtualizarMetaAsync(meta);
+                        totalPenalizadas++;
+                    }
+
+                    _logger.LogWarning(
+                        "Penalidade de XP aplicada ao UsuarioId {UsuarioId}: -{XpRemovido} XP ({TotalMetas} meta(s) não concluída(s) com prazo expirado). Saldo: {XpAnterior} -> {NovoXp} XP",
+                        usuario.Id, xpRemovido, quantidadeNaoConcluidas, xpAnterior, usuario.Experiencia);
+
+                    if (_notificacaoService != null)
+                    {
+                        try
+                        {
+                            await _notificacaoService.CriarNotificacaoAsync(
+                                usuario.Id,
+                                "meta_expirada",
+                                "Penalidade de XP: Meta Expirada",
+                                $"Você teve {quantidadeNaoConcluidas} meta(s) não concluída(s) com prazo expirado. Foram deduzidos {xpRemovido} XP do seu saldo.",
+                                "/metas",
+                                destaque: false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Erro ao criar notificação de penalidade de XP para o usuário {UsuarioId}", usuario.Id);
+                        }
+                    }
+                }
+            }
+
+            return totalPenalizadas;
+        }
+
         private async Task ProcessarXpConclusaoMetaEquipeAsync(Meta meta)
         {
             // Metas puramente individuais não devem gerar acúmulo de XP.
@@ -713,7 +840,8 @@ namespace Cortex.Services.Implementations
                         Nome = me.Equipe.Nome,
                         DataCriacao = me.Equipe.DataCriacao
                     }).ToList() ?? new List<ConsultaEquipeDTO>(),
-                XpRecompensa = meta.MetasEquipes?.Sum(me => me.XpRecompensa)
+                XpRecompensa = meta.MetasEquipes?.Sum(me => me.XpRecompensa),
+                PenalidadeAplicada = meta.PenalidadeAplicada
             };
         }
     }

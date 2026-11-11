@@ -13,5 +13,6 @@ namespace Cortex.DTOs.Response
         public ConsultaUsuarioDTO? Usuario { get; set; }
         public List<ConsultaEquipeDTO> Equipes { get; set; } = new();
         public int? XpRecompensa { get; set; }
+        public bool PenalidadeAplicada { get; set; }
     }
 }
