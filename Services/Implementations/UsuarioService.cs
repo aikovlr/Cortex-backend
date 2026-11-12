@@ -60,7 +60,9 @@ namespace Cortex.Services.Implementations
                 Email = dto.Email,
                 SenhaHash = _passwordService.HashPassword(dto.Senha),
                 Telefone = dto.Telefone,
-                DataCriacao = DateTime.UtcNow
+                DataCriacao = DateTime.UtcNow,
+                AceitouTermosPrivacidade = dto.AceitouTermosPrivacidade,
+                DataAceiteTermos = dto.AceitouTermosPrivacidade ? DateTime.UtcNow : default
             };
 
             if (dto.FotoPerfil != null)

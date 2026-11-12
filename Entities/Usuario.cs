@@ -21,6 +21,10 @@ namespace Cortex.Entities
         public Anexo? FotoPerfil { get; set; }
         public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
 
+        // Consentimento LGPD (Art. 7º, I e Art. 8º da Lei 13.709/2018)
+        public bool AceitouTermosPrivacidade { get; set; } = false;
+        public DateTime DataAceiteTermos { get; set; }
+
         // Gamificação / Sistema de Nível
         public int Nivel { get; set; } = 1;
         public int Experiencia { get; set; } = 0;
