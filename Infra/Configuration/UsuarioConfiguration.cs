@@ -37,6 +37,13 @@ namespace Cortex.Infra.Persistence.Configuration
                 .IsRequired()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+            builder.Property(u => u.AceitouTermosPrivacidade)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            builder.Property(u => u.DataAceiteTermos)
+                .IsRequired();
+
             builder.Property(u => u.Nivel)
                 .IsRequired()
                 .HasDefaultValue(1);

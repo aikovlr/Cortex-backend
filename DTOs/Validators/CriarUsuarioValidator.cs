@@ -20,6 +20,10 @@ namespace Cortex.DTOs.Validators
             RuleFor(x => x.Telefone)
                 .ValidarTelefoneOpcional()
                 .When(x => !string.IsNullOrEmpty(x.Telefone));
+
+            RuleFor(x => x.AceitouTermosPrivacidade)
+                .Equal(true)
+                .WithMessage("O aceite dos Termos de Uso e Política de Privacidade é obrigatório.");
         }
     }
 }

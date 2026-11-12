@@ -7,6 +7,7 @@ namespace Cortex.DTOs.Request
         public string Senha { get; set; } = null!;
         public string? Telefone { get; set; }
         public IFormFile? FotoPerfil { get; set; }
+        public bool AceitouTermosPrivacidade { get; set; }
     }
 }
 
