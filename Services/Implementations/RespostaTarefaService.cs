@@ -139,8 +139,8 @@ namespace Cortex.Services.Implementations
                 throw new KeyNotFoundException("Tarefa não encontrada.");
             }
 
-            // Todo usuário com tarefa finalizada (contendo arquivo ou não) deve aparecer na lista de respostas
-            if (tarefa.Status == Status.Concluida)
+            // Todo usuário com tarefa finalizada (contendo arquivo ou não) deve aparecer na lista de respostas (exceto quando finalizada pelo criador)
+            if (tarefa.Status == Status.Concluida && !tarefa.FinalizadaPeloCriador)
             {
                 var usuariosAlvo = new HashSet<int>();
                 if (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Any())

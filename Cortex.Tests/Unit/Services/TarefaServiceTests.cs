@@ -388,6 +388,52 @@ namespace Cortex.Tests.Unit.Services
         }
 
         [Fact]
+        public async Task ConcluirTarefa_CriadorFinaliza_NaoDeveCriarRespostaEMarcarComoFinalizadaPeloCriador()
+        {
+            // Arrange
+            var tarefaId = 99;
+            var criadorId = 1;
+            var responsavelId = 10;
+
+            var criador = new Usuario { Id = criadorId, Nome = "Criador Teste", Email = "criador@test.com", SenhaHash = "h" };
+            var responsavel = new Usuario { Id = responsavelId, Nome = "Resp Teste", Email = "resp@test.com", SenhaHash = "h" };
+
+            var tarefa = new Tarefa
+            {
+                Id = tarefaId,
+                Titulo = "Tarefa Finalizada pelo Criador",
+                DataVencimento = DateTime.UtcNow.AddDays(2),
+                Status = Status.Pendente,
+                Prioridade = Prioridade.Media,
+                CriadorId = criadorId,
+                Criador = criador,
+                ResponsaveisTarefas = new List<ResponsavelTarefa>
+                {
+                    new ResponsavelTarefa { Id = 1, TarefaId = tarefaId, UsuarioId = responsavelId, Usuario = responsavel }
+                },
+                Respostas = new List<RespostaTarefa>()
+            };
+
+            _tarefaRepoMock.Setup(r => r.ObterTarefaPorIdAsync(tarefaId)).ReturnsAsync(tarefa);
+
+            // Act
+            var resultado = await _tarefaService.ConcluirTarefaAsync(tarefaId, criadorId);
+
+            // Assert
+            Assert.Equal(Status.Concluida, resultado.Status);
+            Assert.True(resultado.FinalizadaPeloCriador);
+            _respostaRepoMock.Verify(r => r.AdicionarRespostaTarefaAsync(It.IsAny<RespostaTarefa>()), Times.Never);
+            _notificacaoServiceMock.Verify(n => n.CriarNotificacaoAsync(
+                responsavelId,
+                "tarefa",
+                "Tarefa Concluída pelo Criador",
+                It.Is<string>(msg => msg.Contains("finalizou a tarefa")),
+                $"/minhas-tarefas/{tarefaId}",
+                false,
+                tarefaId), Times.Once);
+        }
+
+        [Fact]
         public async Task AtualizarTarefa_DeveNotificarResponsaveis()
         {
             // Arrange

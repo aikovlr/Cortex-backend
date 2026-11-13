@@ -87,8 +87,8 @@ namespace Cortex.Services.Implementations
             if (tarefa == null)
                 return null;
 
-            // Garante que o responsável único possua uma RespostaTarefa quando a tarefa estiver concluída
-            if (tarefa.Status == Status.Concluida && _respostaRepository != null)
+            // Garante que o responsável único possua uma RespostaTarefa quando a tarefa estiver concluída (somente se não finalizada pelo criador)
+            if (tarefa.Status == Status.Concluida && !tarefa.FinalizadaPeloCriador && _respostaRepository != null)
             {
                 var respostasExistentes = tarefa.Respostas ?? new List<RespostaTarefa>();
 
@@ -295,147 +295,208 @@ namespace Cortex.Services.Implementations
                 throw new ForbiddenException("Você não possui permissão para concluir esta tarefa.");
             }
 
-            // Garante que o solicitante que concluiu a tarefa possua uma RespostaTarefa para aparecer na lista de respostas
-            if (_respostaRepository != null && solicitanteId > 0)
+            var deveFinalizarPeloCriador = ehCriador || (!ehResponsavel && ehAdminOuDono);
+
+            if (deveFinalizarPeloCriador)
             {
-                var jaPossuiResposta = tarefa.Respostas != null && tarefa.Respostas.Any(r => r.UsuarioId == solicitanteId);
-                if (!jaPossuiResposta)
+                // Finalização realizada pelo criador:
+                // Conclui a tarefa para todos os envolvidos SEM gerar resposta forçada
+                tarefa.FinalizadaPeloCriador = true;
+                tarefa.Status = Status.Concluida;
+
+                // Remove eventuais respostas vazias associadas ao criador (sem nota e sem anexo)
+                if (_respostaRepository != null && tarefa.Respostas != null)
                 {
-                    var novaResposta = new RespostaTarefa
+                    var respostasVaziasCriador = tarefa.Respostas
+                        .Where(r => r.UsuarioId == solicitanteId && !r.Nota.HasValue && (r.Anexos == null || !r.Anexos.Any()))
+                        .ToList();
+
+                    foreach (var r in respostasVaziasCriador)
                     {
-                        TarefaId = id,
-                        UsuarioId = solicitanteId,
-                        DataResposta = DateTime.UtcNow
-                    };
-                    await _respostaRepository.AdicionarRespostaTarefaAsync(novaResposta);
-                    tarefa.Respostas?.Add(novaResposta);
+                        await _respostaRepository.RemoverRespostaTarefaAsync(r.Id);
+                        tarefa.Respostas.Remove(r);
+                    }
+                }
+
+                await _tarefaRepository.AtualizarTarefaAsync(tarefa);
+            }
+            else
+            {
+                // Conclusão realizada por um responsável
+                // Garante que o responsável que concluiu a tarefa possua uma RespostaTarefa para aparecer na lista de respostas
+                if (_respostaRepository != null && solicitanteId > 0)
+                {
+                    var jaPossuiResposta = tarefa.Respostas != null && tarefa.Respostas.Any(r => r.UsuarioId == solicitanteId);
+                    if (!jaPossuiResposta)
+                    {
+                        var novaResposta = new RespostaTarefa
+                        {
+                            TarefaId = id,
+                            UsuarioId = solicitanteId,
+                            DataResposta = DateTime.UtcNow
+                        };
+                        await _respostaRepository.AdicionarRespostaTarefaAsync(novaResposta);
+                        tarefa.Respostas?.Add(novaResposta);
+                    }
+                }
+
+                // Se a tarefa tiver múltiplos responsáveis, apenas marca a tarefa como concluída se todos tiverem concluído
+                var todosConcluiram = true;
+                if (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Count > 1 && _respostaRepository != null)
+                {
+                    var respostasAtualizadas = await _respostaRepository.ObterRespostasTarefaPorTarefaIdAsync(id);
+                    var idsQueResponderam = respostasAtualizadas != null
+                        ? respostasAtualizadas.Select(r => r.UsuarioId).ToHashSet()
+                        : new HashSet<int>();
+                    todosConcluiram = tarefa.ResponsaveisTarefas.All(r => idsQueResponderam.Contains(r.UsuarioId));
+                }
+
+                if (todosConcluiram)
+                {
+                    tarefa.Status = Status.Concluida;
+                    await _tarefaRepository.AtualizarTarefaAsync(tarefa);
                 }
             }
 
-            // Se a tarefa tiver múltiplos responsáveis, apenas marca a tarefa como concluída se todos tiverem concluído
-            var todosConcluiram = true;
-            if (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Count > 1 && _respostaRepository != null)
+            _logger.LogInformation("Auditoria: Tarefa concluída. TarefaId: {TarefaId}, ConcluidaPor: {ConcluidaPor}, FinalizadaPeloCriador: {FinalizadaPeloCriador}, Timestamp: {Timestamp}",
+                id, solicitanteId, tarefa.FinalizadaPeloCriador, DateTime.UtcNow);
+
+            // Notifica os envolvidos sobre a conclusão
+            if (_notificacaoService != null)
             {
-                var respostasAtualizadas = await _respostaRepository.ObterRespostasTarefaPorTarefaIdAsync(id);
-                var idsQueResponderam = respostasAtualizadas != null
-                    ? respostasAtualizadas.Select(r => r.UsuarioId).ToHashSet()
-                    : new HashSet<int>();
-                todosConcluiram = tarefa.ResponsaveisTarefas.All(r => idsQueResponderam.Contains(r.UsuarioId));
-            }
-
-            var deveMarcarConcluida = todosConcluiram || (!ehResponsavel && (ehCriador || ehAdminOuDono));
-
-            if (deveMarcarConcluida)
-            {
-                tarefa.Status = Status.Concluida;
-                await _tarefaRepository.AtualizarTarefaAsync(tarefa);
-            }
-
-            _logger.LogInformation("Auditoria: Tarefa concluída. TarefaId: {TarefaId}, ConcluidaPor: {ConcluidaPor}, Timestamp: {Timestamp}",
-                id, solicitanteId, DateTime.UtcNow);
-
-            // Notifica o criador da tarefa sobre a conclusão (com stacking para não poluir a aba do criador)
-            if (_notificacaoService != null && tarefa.CriadorId > 0 && tarefa.CriadorId != solicitanteId)
-            {
-                try
+                if (deveFinalizarPeloCriador)
                 {
-                    // Identifica os responsáveis que já concluíram a tarefa
-                    var idsConcluidos = new HashSet<int> { solicitanteId };
-                    if (_respostaRepository != null)
+                    // Notifica os responsáveis informando que o criador finalizou a tarefa
+                    if (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Any())
                     {
-                        var respostasDb = await _respostaRepository.ObterRespostasTarefaPorTarefaIdAsync(id);
-                        if (respostasDb != null)
+                        var criador = tarefa.Criador ?? await _usuarioRepository.ObterUsuarioPorIdAsync(tarefa.CriadorId);
+                        var nomeCriador = criador?.Nome ?? "O criador";
+
+                        foreach (var resp in tarefa.ResponsaveisTarefas)
                         {
-                            foreach (var r in respostasDb)
+                            try
+                            {
+                                await _notificacaoService.CriarNotificacaoAsync(
+                                    resp.UsuarioId,
+                                    "tarefa",
+                                    "Tarefa Concluída pelo Criador",
+                                    $"{nomeCriador} finalizou a tarefa \"{tarefa.Titulo}\".",
+                                    $"/minhas-tarefas/{tarefa.Id}",
+                                    false,
+                                    tarefa.Id);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Erro ao criar notificação de conclusão para o responsável {UsuarioId}", resp.UsuarioId);
+                            }
+                        }
+                    }
+                }
+                else if (tarefa.CriadorId > 0 && tarefa.CriadorId != solicitanteId)
+                {
+                    try
+                    {
+                        // Identifica os responsáveis que já concluíram a tarefa
+                        var idsConcluidos = new HashSet<int> { solicitanteId };
+                        if (_respostaRepository != null)
+                        {
+                            var respostasDb = await _respostaRepository.ObterRespostasTarefaPorTarefaIdAsync(id);
+                            if (respostasDb != null)
+                            {
+                                foreach (var r in respostasDb)
+                                {
+                                    idsConcluidos.Add(r.UsuarioId);
+                                }
+                            }
+                        }
+                        else if (tarefa.Respostas != null)
+                        {
+                            foreach (var r in tarefa.Respostas)
                             {
                                 idsConcluidos.Add(r.UsuarioId);
                             }
                         }
-                    }
-                    else if (tarefa.Respostas != null)
-                    {
-                        foreach (var r in tarefa.Respostas)
-                        {
-                            idsConcluidos.Add(r.UsuarioId);
-                        }
-                    }
 
-                    var nomesResponsaveisConcluidos = new List<string>();
-                    if (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Count > 0)
-                    {
-                        foreach (var resp in tarefa.ResponsaveisTarefas)
+                        var nomesResponsaveisConcluidos = new List<string>();
+                        if (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Count > 0)
                         {
-                            if (idsConcluidos.Contains(resp.UsuarioId))
+                            foreach (var resp in tarefa.ResponsaveisTarefas)
                             {
-                                var nome = resp.Usuario?.Nome;
-                                if (string.IsNullOrWhiteSpace(nome))
+                                if (idsConcluidos.Contains(resp.UsuarioId))
                                 {
-                                    var u = await _usuarioRepository.ObterUsuarioPorIdAsync(resp.UsuarioId);
-                                    nome = u?.Nome;
-                                }
+                                    var nome = resp.Usuario?.Nome;
+                                    if (string.IsNullOrWhiteSpace(nome))
+                                    {
+                                        var u = await _usuarioRepository.ObterUsuarioPorIdAsync(resp.UsuarioId);
+                                        nome = u?.Nome;
+                                    }
 
-                                if (!string.IsNullOrWhiteSpace(nome) && !nomesResponsaveisConcluidos.Contains(nome))
-                                {
-                                    nomesResponsaveisConcluidos.Add(nome);
+                                    if (!string.IsNullOrWhiteSpace(nome) && !nomesResponsaveisConcluidos.Contains(nome))
+                                    {
+                                        nomesResponsaveisConcluidos.Add(nome);
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    if (nomesResponsaveisConcluidos.Count == 0)
-                    {
-                        var u = await _usuarioRepository.ObterUsuarioPorIdAsync(solicitanteId);
-                        if (u != null && !string.IsNullOrWhiteSpace(u.Nome))
+                        if (nomesResponsaveisConcluidos.Count == 0)
                         {
-                            nomesResponsaveisConcluidos.Add(u.Nome);
+                            var u = await _usuarioRepository.ObterUsuarioPorIdAsync(solicitanteId);
+                            if (u != null && !string.IsNullOrWhiteSpace(u.Nome))
+                            {
+                                nomesResponsaveisConcluidos.Add(u.Nome);
+                            }
                         }
-                    }
 
-                    string titulo;
-                    string mensagem;
-                    var totalConcluidos = nomesResponsaveisConcluidos.Count;
+                        string titulo;
+                        string mensagem;
+                        var totalConcluidos = nomesResponsaveisConcluidos.Count;
+                        var todosConcluiramNotificacao = tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Count > 1
+                            ? tarefa.ResponsaveisTarefas.All(r => idsConcluidos.Contains(r.UsuarioId))
+                            : true;
 
-                    if (totalConcluidos <= 1)
-                    {
-                        var autor = nomesResponsaveisConcluidos.FirstOrDefault();
-                        titulo = "Tarefa Concluída";
-                        mensagem = !string.IsNullOrWhiteSpace(autor)
-                            ? $"O responsável {autor} concluiu a tarefa \"{tarefa.Titulo}\"."
-                            : $"A tarefa \"{tarefa.Titulo}\" foi concluída/entregue.";
-                    }
-                    else if (todosConcluiram)
-                    {
-                        titulo = $"Tarefa Concluída ({totalConcluidos})";
-                        mensagem = $"Todos os responsáveis ({string.Join(", ", nomesResponsaveisConcluidos)}) concluíram a tarefa \"{tarefa.Titulo}\".";
-                    }
-                    else if (totalConcluidos == 2)
-                    {
-                        titulo = "Tarefa Concluída (2)";
-                        mensagem = $"Os responsáveis {nomesResponsaveisConcluidos[0]} e {nomesResponsaveisConcluidos[1]} concluíram a tarefa \"{tarefa.Titulo}\".";
-                    }
-                    else if (totalConcluidos == 3)
-                    {
-                        titulo = "Tarefa Concluída (3)";
-                        mensagem = $"Os responsáveis {nomesResponsaveisConcluidos[0]}, {nomesResponsaveisConcluidos[1]} e {nomesResponsaveisConcluidos[2]} concluíram a tarefa \"{tarefa.Titulo}\".";
-                    }
-                    else
-                    {
-                        titulo = $"Tarefa Concluída ({totalConcluidos})";
-                        mensagem = $"{nomesResponsaveisConcluidos[0]}, {nomesResponsaveisConcluidos[1]} e mais {totalConcluidos - 2} responsáveis concluíram a tarefa \"{tarefa.Titulo}\".";
-                    }
+                        if (totalConcluidos <= 1)
+                        {
+                            var autor = nomesResponsaveisConcluidos.FirstOrDefault();
+                            titulo = "Tarefa Concluída";
+                            mensagem = !string.IsNullOrWhiteSpace(autor)
+                                ? $"O responsável {autor} concluiu a tarefa \"{tarefa.Titulo}\"."
+                                : $"A tarefa \"{tarefa.Titulo}\" foi concluída/entregue.";
+                        }
+                        else if (todosConcluiramNotificacao)
+                        {
+                            titulo = $"Tarefa Concluída ({totalConcluidos})";
+                            mensagem = $"Todos os responsáveis ({string.Join(", ", nomesResponsaveisConcluidos)}) concluíram a tarefa \"{tarefa.Titulo}\".";
+                        }
+                        else if (totalConcluidos == 2)
+                        {
+                            titulo = "Tarefa Concluída (2)";
+                            mensagem = $"Os responsáveis {nomesResponsaveisConcluidos[0]} e {nomesResponsaveisConcluidos[1]} concluíram a tarefa \"{tarefa.Titulo}\".";
+                        }
+                        else if (totalConcluidos == 3)
+                        {
+                            titulo = "Tarefa Concluída (3)";
+                            mensagem = $"Os responsáveis {nomesResponsaveisConcluidos[0]}, {nomesResponsaveisConcluidos[1]} e {nomesResponsaveisConcluidos[2]} concluíram a tarefa \"{tarefa.Titulo}\".";
+                        }
+                        else
+                        {
+                            titulo = $"Tarefa Concluída ({totalConcluidos})";
+                            mensagem = $"{nomesResponsaveisConcluidos[0]}, {nomesResponsaveisConcluidos[1]} e mais {totalConcluidos - 2} responsáveis concluíram a tarefa \"{tarefa.Titulo}\".";
+                        }
 
-                    await _notificacaoService.CriarNotificacaoAsync(
-                        tarefa.CriadorId,
-                        "tarefa",
-                        titulo,
-                        mensagem,
-                        $"/tarefas-atribuidas/{tarefa.Id}?aba=respostas",
-                        false,
-                        tarefa.Id);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Erro ao criar notificação de conclusão para o criador {CriadorId}", tarefa.CriadorId);
+                        await _notificacaoService.CriarNotificacaoAsync(
+                            tarefa.CriadorId,
+                            "tarefa",
+                            titulo,
+                            mensagem,
+                            $"/tarefas-atribuidas/{tarefa.Id}?aba=respostas",
+                            false,
+                            tarefa.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Erro ao criar notificação de conclusão para o criador {CriadorId}", tarefa.CriadorId);
+                    }
                 }
             }
 
@@ -476,6 +537,7 @@ namespace Cortex.Services.Implementations
             }
 
             // Retorna para Atrasada se já passou do vencimento, caso contrário para Pendente
+            tarefa.FinalizadaPeloCriador = false;
             tarefa.Status = tarefa.DataVencimento < DateTime.UtcNow ? Status.Atrasada : Status.Pendente;
             await _tarefaRepository.AtualizarTarefaAsync(tarefa);
 
@@ -585,6 +647,11 @@ namespace Cortex.Services.Implementations
 
         private static Status ObterStatusEfetivo(Tarefa tarefa, int? solicitanteId)
         {
+            if (tarefa.Status == Status.Concluida)
+            {
+                return Status.Concluida;
+            }
+
             var statusEfetivo = tarefa.Status;
 
             if (solicitanteId.HasValue && tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Count > 1)
@@ -619,7 +686,8 @@ namespace Cortex.Services.Implementations
                 Status = ObterStatusEfetivo(tarefa, solicitanteId),
                 Prioridade = tarefa.Prioridade,
                 CriadorId = tarefa.CriadorId,
-                DataCriacao = tarefa.DataCriacao
+                DataCriacao = tarefa.DataCriacao,
+                FinalizadaPeloCriador = tarefa.FinalizadaPeloCriador
             };
         }
 
@@ -636,6 +704,7 @@ namespace Cortex.Services.Implementations
                 Prioridade = tarefa.Prioridade,
                 CriadorId = tarefa.CriadorId,
                 DataCriacao = tarefa.DataCriacao,
+                FinalizadaPeloCriador = tarefa.FinalizadaPeloCriador,
                 Criador = tarefa.Criador != null ? new ConsultaUsuarioDTO
                 {
                     Id = tarefa.Criador.Id,
