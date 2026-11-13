@@ -17,7 +17,7 @@ namespace Cortex.Infra.Persistence.Configuration
                 .HasMaxLength(255);
 
             builder.Property(t => t.Descricao)
-                .HasMaxLength(1000);
+                .HasMaxLength(2000);
 
             builder.Property(t => t.DataVencimento)
                 .IsRequired();
