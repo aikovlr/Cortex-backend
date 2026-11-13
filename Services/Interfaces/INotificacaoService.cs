@@ -15,7 +15,8 @@ namespace Cortex.Services.Interfaces
             string mensagem,
             string? link = null,
             bool destaque = false,
-            int? tarefaId = null);
+            int? tarefaId = null,
+            string? tipoInApp = null);
 
         Task<bool> EnviarNotificacaoAsync(int usuarioId, CanalNotificacao canal, string assunto, string mensagem);
         Task<PreferenciaNotificacaoDTO> ConfigurarPreferenciasAsync(int usuarioId, ConfigurarPreferenciaDTO dto);
