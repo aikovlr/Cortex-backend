@@ -62,9 +62,10 @@ namespace Cortex.Services.Implementations
             string mensagem,
             string? link = null,
             bool destaque = false,
-            int? tarefaId = null)
+            int? tarefaId = null,
+            string? tipoInApp = null)
         {
-            var tipoString = ConverterEventoParaTipoString(evento);
+            var tipoString = !string.IsNullOrWhiteSpace(tipoInApp) ? tipoInApp : ConverterEventoParaTipoString(evento);
 
             // 1. Sempre persiste a notificação in-app (RF009)
             var notificacaoDto = await SalvarNotificacaoInAppAsync(usuarioId, tipoString, titulo, mensagem, link ?? string.Empty, destaque, tarefaId);
@@ -459,7 +460,7 @@ namespace Cortex.Services.Implementations
             int? tarefaId = null)
         {
             var evento = ConverterTipoStringParaEvento(tipo);
-            return await NotificarAsync(evento, usuarioId, titulo, mensagem, link, destaque, tarefaId);
+            return await NotificarAsync(evento, usuarioId, titulo, mensagem, link, destaque, tarefaId, tipo);
         }
 
         private async Task<NotificacaoDTO> SalvarNotificacaoInAppAsync(
