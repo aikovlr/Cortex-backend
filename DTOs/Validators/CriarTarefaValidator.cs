@@ -11,6 +11,10 @@ namespace Cortex.DTOs.Validators
                 .NotEmpty().WithMessage("O título da tarefa é obrigatório.")
                 .MaximumLength(255).WithMessage("O título da tarefa não pode exceder 255 caracteres.");
 
+            RuleFor(x => x.Descricao)
+                .MaximumLength(2000).WithMessage("A descrição da tarefa não pode exceder 2000 caracteres.")
+                .When(x => !string.IsNullOrEmpty(x.Descricao));
+
             RuleFor(x => x.DataVencimento)
                 .NotEmpty().WithMessage("A data de vencimento da tarefa é obrigatória.")
                 .Must(data => data >= DateTime.UtcNow.AddMinutes(-5))
