@@ -514,6 +514,11 @@ namespace Cortex_backend.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<bool>("FinalizadaPeloCriador")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<int?>("Pontuacao")
                         .HasColumnType("integer");
 

@@ -10,6 +10,7 @@ namespace Cortex.Entities
         public Status Status {get; set;}
         public Prioridade Prioridade {get; set;}
         public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
+        public bool FinalizadaPeloCriador { get; set; } = false;
         // navegacao
         public required int CriadorId { get; set; } // fk
         public required Usuario Criador { get; set; } // navegacao

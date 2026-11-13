@@ -37,6 +37,10 @@ namespace Cortex.Infra.Persistence.Configuration
                 .IsRequired()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+            builder.Property(t => t.FinalizadaPeloCriador)
+                .IsRequired()
+                .HasDefaultValue(false);
+
             // Índices de Performance (RNF09 / Fase 13)
             builder.HasIndex(t => t.Status);
             builder.HasIndex(t => t.DataVencimento);
