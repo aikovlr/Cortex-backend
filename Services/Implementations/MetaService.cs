@@ -662,7 +662,8 @@ namespace Cortex.Services.Implementations
                 var usuario = await _usuarioRepository.ObterUsuarioPorIdAsync(usuarioId);
                 if (usuario == null) continue;
 
-                var metasDoUsuario = new List<Meta>();
+                var metasEquipeDoUsuario = new List<Meta>();
+                var metasIndividuaisDoUsuario = new List<Meta>();
 
                 foreach (var meta in grupo)
                 {
@@ -680,22 +681,38 @@ namespace Cortex.Services.Implementations
                     }
                     else
                     {
-                        // Meta não concluída com prazo expirado:
-                        // As demais tarefas com status de concluída não devem alterar o saldo de XP.
-                        metasDoUsuario.Add(meta);
+                        // RN: Somente metas de equipe devem possuir atribuição e remoção de XP.
+                        // Metas individuais não devem alterar o saldo de XP quando expiradas.
+                        var ehMetaDeEquipe = meta.MetasEquipes != null && meta.MetasEquipes.Any();
+                        if (ehMetaDeEquipe)
+                        {
+                            metasEquipeDoUsuario.Add(meta);
+                        }
+                        else
+                        {
+                            metasIndividuaisDoUsuario.Add(meta);
+                        }
                     }
                 }
 
-                if (metasDoUsuario.Any())
+                // Processa metas individuais expiradas (apenas marca flag de verificação sem aplicar penalidade de XP)
+                foreach (var meta in metasIndividuaisDoUsuario)
                 {
-                    var quantidadeNaoConcluidas = metasDoUsuario.Count;
+                    meta.PenalidadeAplicada = true;
+                    await _metaRepository.AtualizarMetaAsync(meta);
+                }
+
+                // Processa metas de equipe expiradas (aplica penalidade de XP e emite notificação com identidade de meta)
+                if (metasEquipeDoUsuario.Any())
+                {
+                    var quantidadeNaoConcluidas = metasEquipeDoUsuario.Count;
                     var xpRemovido = quantidadeNaoConcluidas * 5;
 
                     var xpAnterior = usuario.Experiencia;
                     DecrementarXp(usuario, xpRemovido);
                     await _usuarioRepository.AtualizarUsuarioAsync(usuario);
 
-                    foreach (var meta in metasDoUsuario)
+                    foreach (var meta in metasEquipeDoUsuario)
                     {
                         meta.PenalidadeAplicada = true;
                         await _metaRepository.AtualizarMetaAsync(meta);
@@ -703,7 +720,7 @@ namespace Cortex.Services.Implementations
                     }
 
                     _logger.LogWarning(
-                        "Penalidade de XP aplicada ao UsuarioId {UsuarioId}: -{XpRemovido} XP ({TotalMetas} meta(s) não concluída(s) com prazo expirado). Saldo: {XpAnterior} -> {NovoXp} XP",
+                        "Penalidade de XP aplicada ao UsuarioId {UsuarioId}: -{XpRemovido} XP ({TotalMetas} meta(s) de equipe não concluída(s) com prazo expirado). Saldo: {XpAnterior} -> {NovoXp} XP",
                         usuario.Id, xpRemovido, quantidadeNaoConcluidas, xpAnterior, usuario.Experiencia);
 
                     if (_notificacaoService != null)
@@ -712,9 +729,9 @@ namespace Cortex.Services.Implementations
                         {
                             await _notificacaoService.CriarNotificacaoAsync(
                                 usuario.Id,
-                                "meta_expirada",
+                                "meta",
                                 "Penalidade de XP: Meta Expirada",
-                                $"Você teve {quantidadeNaoConcluidas} meta(s) não concluída(s) com prazo expirado. Foram deduzidos {xpRemovido} XP do seu saldo.",
+                                $"Você teve {quantidadeNaoConcluidas} meta(s) de equipe não concluída(s) com prazo expirado. Foram deduzidos {xpRemovido} XP do seu saldo.",
                                 "/metas",
                                 destaque: false);
                         }

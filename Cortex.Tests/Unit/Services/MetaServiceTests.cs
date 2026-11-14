@@ -970,6 +970,10 @@ namespace Cortex.Tests.Unit.Services
                             Criador = usuario
                         }
                     }
+                },
+                MetasEquipes = new List<MetaEquipe>
+                {
+                    new MetaEquipe { EquipeId = 1, XpRecompensa = 5 }
                 }
             };
 
@@ -996,6 +1000,10 @@ namespace Cortex.Tests.Unit.Services
                             Criador = usuario
                         }
                     }
+                },
+                MetasEquipes = new List<MetaEquipe>
+                {
+                    new MetaEquipe { EquipeId = 1, XpRecompensa = 5 }
                 }
             };
 
@@ -1085,6 +1093,10 @@ namespace Cortex.Tests.Unit.Services
                             Criador = usuario
                         }
                     }
+                },
+                MetasEquipes = new List<MetaEquipe>
+                {
+                    new MetaEquipe { EquipeId = 1, XpRecompensa = 15 }
                 }
             };
 
@@ -1132,6 +1144,166 @@ namespace Cortex.Tests.Unit.Services
             // Assert - Não deve reprocessar nem penalizar novamente
             Assert.Equal(0, totalPenalizadas);
             _usuarioRepoMock.Verify(u => u.AtualizarUsuarioAsync(It.IsAny<Usuario>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task VerificarMetasExpiradas_MetaIndividualExpirada_NaoDeveRemoverXpNemEmitirPenalidade()
+        {
+            // Arrange
+            var usuarioId = 10;
+            var usuario = new Usuario
+            {
+                Id = usuarioId,
+                Nome = "Aluno",
+                Email = "aluno@test.com",
+                SenhaHash = "hash",
+                Nivel = 1,
+                Experiencia = 25
+            };
+
+            // Meta individual (sem equipes vinculadas)
+            var metaIndividualExpirada = new Meta
+            {
+                Id = 105,
+                Nome = "Meta Individual Expirada",
+                UsuarioId = usuarioId,
+                Concluida = false,
+                DataFechamento = DateTime.UtcNow.AddDays(-2),
+                PenalidadeAplicada = false,
+                MetasTarefas = new List<MetaTarefa>
+                {
+                    new MetaTarefa
+                    {
+                        TarefaId = 1,
+                        Tarefa = new Tarefa
+                        {
+                            Id = 1,
+                            Titulo = "T1",
+                            Status = Status.Pendente,
+                            DataVencimento = DateTime.UtcNow.AddDays(-3),
+                            CriadorId = usuarioId,
+                            Criador = usuario
+                        }
+                    }
+                },
+                MetasEquipes = new List<MetaEquipe>() // Meta individual
+            };
+
+            _metaRepoMock.Setup(r => r.ObterTodasMetasAsync())
+                .ReturnsAsync(new List<Meta> { metaIndividualExpirada });
+            _usuarioRepoMock.Setup(u => u.ObterUsuarioPorIdAsync(usuarioId))
+                .ReturnsAsync(usuario);
+            _metaRepoMock.Setup(r => r.AtualizarMetaAsync(It.IsAny<Meta>()))
+                .ReturnsAsync((Meta m) => m);
+
+            // Act
+            var totalPenalizadas = await _metaService.VerificarMetasExpiradasAsync();
+
+            // Assert - Meta individual NÃO deve sofrer dedução de XP
+            Assert.Equal(0, totalPenalizadas);
+            Assert.True(metaIndividualExpirada.PenalidadeAplicada);
+            Assert.Equal(25, usuario.Experiencia);
+            _usuarioRepoMock.Verify(u => u.AtualizarUsuarioAsync(It.IsAny<Usuario>()), Times.Never);
+            _notificacaoServiceMock.Verify(n => n.CriarNotificacaoAsync(
+                It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<int?>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task VerificarMetasExpiradas_MetasEquipeEIndividualMistas_DevePenalizarApenasMetasDeEquipe()
+        {
+            // Arrange
+            var usuarioId = 10;
+            var usuario = new Usuario
+            {
+                Id = usuarioId,
+                Nome = "Aluno",
+                Email = "aluno@test.com",
+                SenhaHash = "hash",
+                Nivel = 1,
+                Experiencia = 25
+            };
+
+            var metaEquipe = new Meta
+            {
+                Id = 101,
+                Nome = "Meta de Equipe Expirada",
+                UsuarioId = usuarioId,
+                Concluida = false,
+                DataFechamento = DateTime.UtcNow.AddDays(-2),
+                PenalidadeAplicada = false,
+                MetasEquipes = new List<MetaEquipe> { new MetaEquipe { EquipeId = 1, XpRecompensa = 5 } },
+                MetasTarefas = new List<MetaTarefa>
+                {
+                    new MetaTarefa
+                    {
+                        TarefaId = 1,
+                        Tarefa = new Tarefa
+                        {
+                            Id = 1,
+                            Titulo = "T1",
+                            Status = Status.Pendente,
+                            DataVencimento = DateTime.UtcNow.AddDays(-3),
+                            CriadorId = usuarioId,
+                            Criador = usuario
+                        }
+                    }
+                }
+            };
+
+            var metaIndividual = new Meta
+            {
+                Id = 102,
+                Nome = "Meta Individual Expirada",
+                UsuarioId = usuarioId,
+                Concluida = false,
+                DataFechamento = DateTime.UtcNow.AddDays(-1),
+                PenalidadeAplicada = false,
+                MetasEquipes = new List<MetaEquipe>(), // Individual
+                MetasTarefas = new List<MetaTarefa>
+                {
+                    new MetaTarefa
+                    {
+                        TarefaId = 2,
+                        Tarefa = new Tarefa
+                        {
+                            Id = 2,
+                            Titulo = "T2",
+                            Status = Status.Atrasada,
+                            DataVencimento = DateTime.UtcNow.AddDays(-2),
+                            CriadorId = usuarioId,
+                            Criador = usuario
+                        }
+                    }
+                }
+            };
+
+            _metaRepoMock.Setup(r => r.ObterTodasMetasAsync())
+                .ReturnsAsync(new List<Meta> { metaEquipe, metaIndividual });
+            _usuarioRepoMock.Setup(u => u.ObterUsuarioPorIdAsync(usuarioId))
+                .ReturnsAsync(usuario);
+            _usuarioRepoMock.Setup(u => u.AtualizarUsuarioAsync(It.IsAny<Usuario>()))
+                .ReturnsAsync((Usuario u) => u);
+            _metaRepoMock.Setup(r => r.AtualizarMetaAsync(It.IsAny<Meta>()))
+                .ReturnsAsync((Meta m) => m);
+
+            // Act - Apenas a meta de equipe deve descontar 5 XP (saldo: 25 - 5 = 20)
+            var totalPenalizadas = await _metaService.VerificarMetasExpiradasAsync();
+
+            // Assert
+            Assert.Equal(1, totalPenalizadas);
+            Assert.True(metaEquipe.PenalidadeAplicada);
+            Assert.True(metaIndividual.PenalidadeAplicada);
+            Assert.Equal(20, usuario.Experiencia);
+            _usuarioRepoMock.Verify(u => u.AtualizarUsuarioAsync(It.Is<Usuario>(u => u.Experiencia == 20)), Times.Once);
+            _notificacaoServiceMock.Verify(n => n.CriarNotificacaoAsync(
+                usuarioId,
+                "meta",
+                "Penalidade de XP: Meta Expirada",
+                It.Is<string>(msg => msg.Contains("1 meta(s) de equipe") && msg.Contains("5 XP")),
+                "/metas",
+                false,
+                null), Times.Once);
         }
     }
 }
