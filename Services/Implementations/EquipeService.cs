@@ -145,6 +145,8 @@ namespace Cortex.Services.Implementations
                         Nome = m.Usuario.Nome,
                         Email = m.Usuario.Email,
                         Telefone = m.Usuario.Telefone,
+                        Nivel = m.Usuario.Nivel,
+                        Experiencia = m.Usuario.Experiencia,
                         FotoPerfil = m.Usuario.FotoPerfil != null ? new ConsultaAnexoDTO
                         {
                             Id = m.Usuario.FotoPerfil.Id,
