@@ -88,7 +88,7 @@ namespace Cortex.Services.Implementations
                 return null;
 
             // Garante que o responsável único possua uma RespostaTarefa quando a tarefa estiver concluída (somente se não finalizada pelo criador)
-            if (tarefa.Status == Status.Concluida && !tarefa.FinalizadaPeloCriador && _respostaRepository != null)
+            if (tarefa.Status == Status.Concluida && !tarefa.Ativo && _respostaRepository != null)
             {
                 var respostasExistentes = tarefa.Respostas ?? new List<RespostaTarefa>();
 
@@ -295,13 +295,13 @@ namespace Cortex.Services.Implementations
                 throw new ForbiddenException("Você não possui permissão para concluir esta tarefa.");
             }
 
-            var deveFinalizarPeloCriador = ehCriador || (!ehResponsavel && ehAdminOuDono);
+            var deveFinalizarPeloCriador = !ehResponsavel && (ehCriador || ehAdminOuDono);
 
             if (deveFinalizarPeloCriador)
             {
                 // Finalização realizada pelo criador:
                 // Conclui a tarefa para todos os envolvidos SEM gerar resposta forçada
-                tarefa.FinalizadaPeloCriador = true;
+                tarefa.Ativo = true;
                 tarefa.Status = Status.Concluida;
 
                 // Remove eventuais respostas vazias associadas ao criador (sem nota e sem anexo)
@@ -358,8 +358,8 @@ namespace Cortex.Services.Implementations
                 }
             }
 
-            _logger.LogInformation("Auditoria: Tarefa concluída. TarefaId: {TarefaId}, ConcluidaPor: {ConcluidaPor}, FinalizadaPeloCriador: {FinalizadaPeloCriador}, Timestamp: {Timestamp}",
-                id, solicitanteId, tarefa.FinalizadaPeloCriador, DateTime.UtcNow);
+            _logger.LogInformation("Auditoria: Tarefa concluída. TarefaId: {TarefaId}, ConcluidaPor: {ConcluidaPor}, Ativo: {Ativo}, Timestamp: {Timestamp}",
+                id, solicitanteId, tarefa.Ativo, DateTime.UtcNow);
 
             // Notifica os envolvidos sobre a conclusão
             if (_notificacaoService != null)
@@ -537,7 +537,7 @@ namespace Cortex.Services.Implementations
             }
 
             // Retorna para Atrasada se já passou do vencimento, caso contrário para Pendente
-            tarefa.FinalizadaPeloCriador = false;
+            tarefa.Ativo = false;
             tarefa.Status = tarefa.DataVencimento < DateTime.UtcNow ? Status.Atrasada : Status.Pendente;
             await _tarefaRepository.AtualizarTarefaAsync(tarefa);
 
@@ -687,7 +687,7 @@ namespace Cortex.Services.Implementations
                 Prioridade = tarefa.Prioridade,
                 CriadorId = tarefa.CriadorId,
                 DataCriacao = tarefa.DataCriacao,
-                FinalizadaPeloCriador = tarefa.FinalizadaPeloCriador
+                Ativo = tarefa.Ativo
             };
         }
 
@@ -704,7 +704,7 @@ namespace Cortex.Services.Implementations
                 Prioridade = tarefa.Prioridade,
                 CriadorId = tarefa.CriadorId,
                 DataCriacao = tarefa.DataCriacao,
-                FinalizadaPeloCriador = tarefa.FinalizadaPeloCriador,
+                Ativo = tarefa.Ativo,
                 Criador = tarefa.Criador != null ? new ConsultaUsuarioDTO
                 {
                     Id = tarefa.Criador.Id,
