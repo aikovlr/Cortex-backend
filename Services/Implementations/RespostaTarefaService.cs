@@ -140,7 +140,7 @@ namespace Cortex.Services.Implementations
             }
 
             // Todo usuário com tarefa finalizada (contendo arquivo ou não) deve aparecer na lista de respostas (exceto quando finalizada pelo criador)
-            if (tarefa.Status == Status.Concluida && !tarefa.FinalizadaPeloCriador)
+            if (tarefa.Status == Status.Concluida && !tarefa.Ativo)
             {
                 var usuariosAlvo = new HashSet<int>();
                 if (tarefa.ResponsaveisTarefas != null && tarefa.ResponsaveisTarefas.Any())

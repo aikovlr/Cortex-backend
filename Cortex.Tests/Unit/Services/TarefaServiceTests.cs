@@ -388,7 +388,7 @@ namespace Cortex.Tests.Unit.Services
         }
 
         [Fact]
-        public async Task ConcluirTarefa_CriadorFinaliza_NaoDeveCriarRespostaEMarcarComoFinalizadaPeloCriador()
+        public async Task ConcluirTarefa_CriadorFinaliza_NaoDeveCriarRespostaEMarcarComoAtivo()
         {
             // Arrange
             var tarefaId = 99;
@@ -421,7 +421,7 @@ namespace Cortex.Tests.Unit.Services
 
             // Assert
             Assert.Equal(Status.Concluida, resultado.Status);
-            Assert.True(resultado.FinalizadaPeloCriador);
+            Assert.True(resultado.Ativo);
             _respostaRepoMock.Verify(r => r.AdicionarRespostaTarefaAsync(It.IsAny<RespostaTarefa>()), Times.Never);
             _notificacaoServiceMock.Verify(n => n.CriarNotificacaoAsync(
                 responsavelId,
@@ -431,6 +431,50 @@ namespace Cortex.Tests.Unit.Services
                 $"/minhas-tarefas/{tarefaId}",
                 false,
                 tarefaId), Times.Once);
+        }
+
+        [Fact]
+        public async Task ConcluirTarefa_CriadorAtribuidoASiMesmo_DeveConcluirComoResponsavelENaoAtivo()
+        {
+            // Arrange
+            var tarefaId = 100;
+            var usuarioId = 1;
+
+            var usuario = new Usuario { Id = usuarioId, Nome = "Criador e Resp", Email = "usuario@test.com", SenhaHash = "h" };
+
+            var tarefa = new Tarefa
+            {
+                Id = tarefaId,
+                Titulo = "Tarefa Autoatribuída",
+                DataVencimento = DateTime.UtcNow.AddDays(2),
+                Status = Status.Pendente,
+                Prioridade = Prioridade.Media,
+                CriadorId = usuarioId,
+                Criador = usuario,
+                ResponsaveisTarefas = new List<ResponsavelTarefa>
+                {
+                    new ResponsavelTarefa { Id = 1, TarefaId = tarefaId, UsuarioId = usuarioId, Usuario = usuario }
+                },
+                Respostas = new List<RespostaTarefa>()
+            };
+
+            _tarefaRepoMock.Setup(r => r.ObterTarefaPorIdAsync(tarefaId)).ReturnsAsync(tarefa);
+
+            // Act
+            var resultado = await _tarefaService.ConcluirTarefaAsync(tarefaId, usuarioId);
+
+            // Assert
+            Assert.Equal(Status.Concluida, resultado.Status);
+            Assert.False(resultado.Ativo);
+            _respostaRepoMock.Verify(r => r.AdicionarRespostaTarefaAsync(It.Is<RespostaTarefa>(r => r.UsuarioId == usuarioId)), Times.Once);
+            _notificacaoServiceMock.Verify(n => n.CriarNotificacaoAsync(
+                It.IsAny<int>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<bool>(),
+                It.IsAny<int?>()), Times.Never);
         }
 
         [Fact]

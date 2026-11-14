@@ -37,7 +37,7 @@ namespace Cortex.Infra.Persistence.Configuration
                 .IsRequired()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-            builder.Property(t => t.FinalizadaPeloCriador)
+            builder.Property(t => t.Ativo)
                 .IsRequired()
                 .HasDefaultValue(false);
 
