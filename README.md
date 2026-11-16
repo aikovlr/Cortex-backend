@@ -1,1075 +1,287 @@
-# Cortex Backend — Especificação de Endpoints e Contratos
+# 🧠 Cortex Backend — API & Arquitetura
 
-Documentação técnica de todos os endpoints REST da API **Cortex Backend**, contendo formato de requisição, autenticação, payload de entrada (*Request*), payload de saída (*Response*) e status codes esperados.
-
----
-
-## Sumário
-1. [Visão Geral & Autenticação](#visão-geral--autenticação)
-2. [Tipos Enumerados (Enums)](#tipos-enumerados-enums)
-3. [Autenticação & Acesso (`/api/auth`)](#1-autenticação--acesso-apiauth)
-4. [Usuários (`/api/usuario`)](#2-usuários-apiusuario)
-5. [Tarefas (`/api/tarefa`)](#3-tarefas-apitarefa)
-6. [Equipes & Membros (`/api/equipe`)](#4-equipes--membros-apiequipe)
-7. [Metas (`/api/metas` e `/api/tarefas/{id}/metas`)](#5-metas-apimetas)
-8. [Sugestões de Alteração (`/api/sugestoes`)](#6-sugestões-de-alteração-apisugestoes)
-9. [Tickets de Reporte (`/api/tickets`)](#7-tickets-de-reporte-apitickets)
-10. [Respostas de Tarefas (`/api/respostas`)](#8-respostas-de-tarefas-apirespostas)
-11. [Anexos (`/api/anexos`)](#9-anexos-apianexos)
-12. [Notificações & Preferências (`/api/notificacoes`)](#10-notificações--preferências-apinotificacoes)
-13. [Relatórios (`/api/relatorios`)](#11-relatórios-apirelatorios)
+API RESTful corporativa de alta performance do ecossistema **Cortex**, desenvolvida em **.NET 10 (C#)** e **Entity Framework Core**, com persistência em **PostgreSQL**. O sistema gerencia autenticação, controle de tarefas transacionais, governança de equipes, acompanhamento de metas com gamificação, notificações multicanal assíncronas e relatórios analíticos de produtividade.
 
 ---
 
-## Visão Geral & Autenticação
+## 📑 Sumário
 
-- **Base URL**: `http://localhost:5000` (ou porta configurada no ambiente)
-- **Content-Type**:
-  - `application/json` (padrão)
-  - `multipart/form-data` (para endpoints com envio de fotos ou arquivos)
-- **Autenticação**:
-  - Header: `Authorization: Bearer <seu_token_jwt>`
-- **Padronização de Erros**:
-  - Respostas de erro seguem o padrão RFC 7807 (`ProblemDetails`):
-  ```json
-  {
-    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
-    "title": "Bad Request",
-    "status": 400,
-    "detail": "Mensagem detalhada do erro.",
-    "instance": "/api/exemplo"
-  }
-  ```
+1. [Visão Geral & Tecnologias](#-visão-geral--tecnologias)
+2. [Arquitetura & Estrutura](#-arquitetura--estrutura)
+3. [Segurança & Proteção de Dados](#-segurança--proteção-de-dados)
+4. [Documentação Simplificada dos Endpoints](#-documentação-simplificada-dos-endpoints)
+5. [Serviços em Segundo Plano (Background Services)](#-serviços-em-segundo-plano-background-services)
+6. [Suíte de Testes Automatizados](#-suíte-de-testes-automatizados)
+7. [Configuração & Execução Local](#-configuração--execução-local)
+8. [Procedimentos de Backup (RNF006)](#-procedimentos-de-backup-rnf006)
 
 ---
 
-## Tipos Enumerados (Enums)
+## 🚀 Visão Geral & Tecnologias
 
-Podem ser informados como inteiros ou seus nomes como strings:
-
-- **Status** (Ciclo de Vida da Tarefa):
-  - `0` ou `"Pendente"`
-  - `1` ou `"Atrasada"`
-  - `2` ou `"Concluida"`
-
-- **Prioridade**:
-  - `0` ou `"Baixa"`
-  - `1` ou `"Media"`
-  - `2` ou `"Alta"`
-  - `3` ou `"Urgente"`
-
-- **Cargo** (Membros de Equipe):
-  - `0` ou `"Dono"`
-  - `1` ou `"Admin"`
-  - `2` ou `"Membro"`
-
-- **StatusSugestao**:
-  - `0` ou `"Pendente"`
-  - `1` ou `"Aprovada"`
-  - `2` ou `"Rejeitada"`
-
-- **CanalNotificacao**:
-  - `0` ou `"Email"`
-  - `1` ou `"Push"`
-  - `2` ou `"Sms"`
-
-- **TipoEntidade** (Anexos):
-  - `0` ou `"Tarefa"`
-  - `1` ou `"ResponsavelTarefa"`
-  - `2` ou `"Usuario"`
-
-- **TipoNotificacao** (Central de Notificações):
-  - `"tarefa"`: Nova atribuição de tarefa
-  - `"tarefa_vencida"`: Tarefa com prazo expirado (destaque vermelho)
-  - `"tarefa_urgente"`: Atribuição ou alerta de tarefa com prioridade urgente (destaque azul)
-  - `"sugestao"`: Nova sugestão de alteração enviada pelo executor (ícone de lâmpada)
-  - `"ticket_criador"`: Abertura de ticket de reporte notificando o criador
-  - `"resposta_ticket"`: Resposta ou encerramento de ticket pelo criador/responsável
+- **Framework**: .NET 10.0 (ASP.NET Core Web API)
+- **Linguagem**: C# 13
+- **ORM / Banco de Dados**: Entity Framework Core 10 com Npgsql (PostgreSQL)
+- **Autenticação**: JWT (JSON Web Token) com armazenamento prioritário em Cookie `HttpOnly; Secure; SameSite=None` e suporte a Header `Authorization: Bearer`
+- **Validação**: FluentValidation integrado ao pipeline de injeção de dependência
+- **Logs Estruturados**: Serilog com rotação diária de arquivos JSON
+- **Documentação Interativa**: OpenAPI / Swagger (`/openapi/v1.json`)
+- **Tratamento de Exceções**: Padronização RFC 9457 / RFC 7807 (`ProblemDetails`)
 
 ---
 
-## 1. Autenticação & Acesso (`/api/auth`)
+## 🏗 Arquitetura & Estrutura
 
-### 1.1 Login
-- **Método / Rota**: `POST /api/auth/login`
-- **Autenticação**: Pública (Anônimo)
-- **Content-Type**: `application/json`
-- **Rate Limit**: Ativo (`login-policy`)
-- **Corpo da Requisição (`DadosLoginDTO`)**:
-```json
-{
-  "email": "usuario@exemplo.com",
-  "senha": "SenhaForte@123"
-}
-```
-- **Retorno (`200 OK - LoginResponseDTO`)**:
-  - **Set-Cookie**: Grava automaticamente o cookie `cortex_token` com as flags `HttpOnly; Secure; SameSite=None`.
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "tipo": "Bearer",
-  "usuario": {
-    "id": 1,
-    "nome": "João Silva",
-    "email": "usuario@exemplo.com",
-    "telefone": "(11) 98765-4321",
-    "emailVerificado": true,
-    "fotoPerfil": {
-      "id": 10,
-      "urlCaminho": "/uploads/anexos/foto.jpg",
-      "nomeOriginal": "avatar.jpg",
-      "mimeType": "image/jpeg",
-      "dataEnvio": "2026-10-25T15:00:00Z"
-    }
-  }
-}
-```
+O projeto adota uma arquitetura em camadas orientada a serviços e domínio (*Service-Repository Pattern*):
 
-### 1.2 Logout
-- **Método / Rota**: `POST /api/auth/logout`
-- **Autenticação**: Pública (Anônimo)
-- **Descrição**: Remove/expira o cookie de autenticação `cortex_token`.
-- **Retorno**: `204 No Content`
-
-### 1.3 Alterar Senha
-- **Método / Rota**: `POST /api/auth/alterar-senha`
-- **Autenticação**: Bearer Token Obrigatório (via Cookie HttpOnly ou Header Authorization)
-- **Content-Type**: `application/json`
-- **Corpo da Requisição (`AlterarSenhaDTO`)**:
-```json
-{
-  "senhaAtual": "SenhaAntiga@123",
-  "novaSenha": "NovaSenhaForte@2026"
-}
 ```
-- **Retorno**: `204 No Content`
-
-### 1.4 Solicitar Verificação de E-mail (Anônimo)
-- **Método / Rota**: `POST /api/auth/solicitar-verificacao-email`
-- **Autenticação**: Pública (Anônimo)
-- **Rate Limit**: Ativo (`verificacao-email-policy`)
-- **Content-Type**: `application/json`
-- **Corpo da Requisição (`SolicitarCodigoVerificacaoDTO`)**:
-```json
-{
-  "email": "usuario@exemplo.com"
-}
-```
-- **Retorno (`200 OK`)**:
-```json
-{
-  "message": "Se o e-mail existir, um código foi enviado."
-}
-```
-
-### 1.4 Validar Código de E-mail (Anônimo)
-- **Método / Rota**: `POST /api/auth/verificar-email`
-- **Autenticação**: Pública (Anônimo)
-- **Content-Type**: `application/json`
-- **Corpo da Requisição (`VerificarEmailDTO`)**:
-```json
-{
-  "email": "usuario@exemplo.com",
-  "codigo": "123456"
-}
-```
-- **Retorno (`200 OK`)**:
-```json
-{
-  "message": "E-mail verificado com sucesso."
-}
+Cortex-backend/
+├── Controllers/            # Controladores REST com roteamento e controle de acesso
+├── DTOs/                   # Data Transfer Objects (Requests e Responses tipados)
+│   ├── Request/            # DTOs de criação, atualização e filtros
+│   └── Response/           # DTOs de retorno e consulta de dados
+├── Entities/               # Modelos de domínio do banco (Code-First)
+├── Infra/                  # Infraestrutura técnica da aplicação
+│   ├── Configuration/      # Mapeamento do EF Core (Fluent API) e opções tipadas
+│   ├── Gateways/           # Gateways de E-mail (SMTP/Log), Push e SMS
+│   ├── Middleware/         # ExceptionHandlingMiddleware (RFC 9457)
+│   └── Persistence/        # CortexDbContext e Migrations do banco
+├── Repositories/           # Interfaces e implementações de acesso a dados
+├── Services/               # Regras de negócio da aplicação
+│   ├── Background/         # HostedServices para tarefas em segundo plano
+│   ├── Implementations/    # Lógica de negócio e orquestração de serviços
+│   └── Interfaces/         # Contratos e abstrações dos serviços
+├── Validators/             # Regras de validação estrita com FluentValidation
+└── Cortex.Tests/           # Suíte de testes unitários e de integração (194 testes)
 ```
 
 ---
 
-## 2. Usuários (`/api/usuario`)
+## 🔒 Segurança & Proteção de Dados
 
-### 2.1 Criar Usuário (Cadastro)
-- **Método / Rota**: `POST /api/usuario`
-- **Autenticação**: Pública (Anônimo)
-- **Content-Type**: `multipart/form-data`
-- **Campos Form-Data (`CriarUsuarioDTO`)**:
-  - `Nome` (string, obrigatório)
-  - `Email` (string, obrigatório)
-  - `Senha` (string, obrigatório - mín. 8 caracteres, maiúscula, minúscula, número e símbolo)
-  - `Telefone` (string, opcional)
-  - `FotoPerfil` (file, opcional)
-- **Retorno (`201 Created - ConsultaUsuarioDTO`)**:
-```json
-{
-  "id": 1,
-  "nome": "João Silva",
-  "email": "usuario@exemplo.com",
-  "telefone": "(11) 98765-4321",
-  "emailVerificado": false,
-  "fotoPerfil": null
-}
-```
+A segurança foi implementada como um pilar central em todas as camadas da aplicação:
 
-### 2.2 Listar Usuários
-- **Método / Rota**: `GET /api/usuario`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - List<ConsultaUsuarioDTO>`)**
+### 1. Autenticação Segura via Cookie HttpOnly + JWT
+* **Mitigação de XSS**: Ao realizar o login (`POST /api/auth/login`), a API grava automaticamente o token JWT em um cookie de sessão com as diretivas `HttpOnly; Secure; SameSite=None; Path=/; Expires=60min`. Isso impede que scripts maliciosos injetados no navegador (XSS) tenham acesso ao token.
+* **Compatibilidade**: Chamadas via cliente HTTP ou Postman continuam recebendo o token no corpo da resposta para uso opcional via header `Authorization: Bearer <token>`.
 
-### 2.3 Obter Usuário por ID
-- **Método / Rota**: `GET /api/usuario/{id}`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - ConsultaUsuarioDTO`)**
+### 2. Invalidação Imediata de Sessões Anteriores (`pwd_at`)
+* Cada token emitido contém o *claim* `pwd_at` (timestamp da última alteração de senha).
+* No evento `OnTokenValidated` do middleware de autenticação, o timestamp do token é comparado com o campo `SenhaAlteradaEm` do usuário no banco. Caso a senha tenha sido alterada após a emissão do token, a sessão é **invalidada instantaneamente**, forçando o encerramento em todos os navegadores e dispositivos.
 
-### 2.4 Atualizar Usuário por ID
-- **Método / Rota**: `PUT /api/usuario/{id}`
-- **Autenticação**: Bearer Token Obrigatório (Próprio usuário ou Dono/Admin da mesma equipe)
-- **Content-Type**: `multipart/form-data`
-- **Campos Form-Data (`AtualizarUsuarioDTO`)**:
-  - `Nome` (string, opcional)
-  - `Email` (string, opcional)
-  - `Senha` (string, opcional)
-  - `Telefone` (string, opcional)
-  - `FotoPerfil` (file, opcional)
-- **Retorno (`200 OK - ConsultaUsuarioDTO`)**
+### 3. Criptografia e Armazenamento de Senhas
+* Senhas de usuário nunca são armazenadas em texto claro.
+* É utilizado **BCrypt** com fator de trabalho seguro (cost factor) e *salt* criptográfico individual gerado automaticamente.
+* O `PasswordService` impõe requisitos estritos de complexidade (mínimo de 8 caracteres, letras maiúsculas, minúsculas, dígitos numéricos e símbolos especiais).
 
-### 2.5 Obter Perfil Autenticado (`/me`)
-- **Método / Rota**: `GET /api/usuario/me`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - ConsultaUsuarioDTO`)**
+### 4. Rate Limiting Nativo (Proteção Contra Força Bruta)
+Configurado diretamente no pipeline do ASP.NET Core com janelas fixas:
+* `login-policy`: Máximo de 5 tentativas por minuto para `/api/auth/login`.
+* `verificacao-email-policy`: Máximo de 3 solicitações por minuto para `/api/auth/solicitar-verificacao-email`.
+* `esqueci-senha-policy`: Máximo de 3 solicitações por 5 minutos para solicitação de redefinição de senha.
+* `redefinir-senha-policy`: Máximo de 5 tentativas por 5 minutos para submissão de nova senha.
+* Requisições excedentes recebem automaticamente status **HTTP 429 Too Many Requests**.
 
-### 2.6 Atualizar Perfil Autenticado (`/me`)
-- **Método / Rota**: `PUT /api/usuario/me`
-- **Autenticação**: Bearer Token Obrigatório
-- **Content-Type**: `multipart/form-data`
-- **Campos Form-Data (`AtualizarUsuarioDTO`)**
-- **Retorno (`200 OK - ConsultaUsuarioDTO`)**
+### 5. Padronização RFC 9457 (`ProblemDetails`)
+* O middleware customizado `ExceptionHandlingMiddleware` captura qualquer falha interna e padroniza a resposta em conformidade com a RFC 9457 / RFC 7807.
+* **Segurança por Omissão**: Detalhes internos de infraestrutura, chamadas de sistema e *stack traces* nunca são vazados para o cliente em ambiente de produção ou desenvolvimento.
 
-### 2.7 Remover Foto de Perfil Autenticado (`/me/foto`)
-- **Método / Rota**: `DELETE /api/usuario/me/foto`
-- **Autenticação**: Bearer Token Obrigatório
-- **Descrição**: Desvincula e remove fisicamente a foto de perfil do usuário autenticado no servidor de arquivos.
-- **Retorno**: `204 No Content`
+### 6. Gestão Segura de Credenciais (Sem Segredos Versionados)
+* O arquivo `appsettings.json` versionado no Git contém apenas chaves vazias e estruturas de exemplo.
+* Em ambiente de desenvolvimento local, credenciais reais (como string de conexão e chave de assinatura JWT) são gerenciadas exclusivamente através do **.NET User Secrets** (`c5bfbcd1-827e-47f8-8df5-0b0006bc5501`).
+* Em produção, a injeção é realizada via variáveis de ambiente (`ASPNETCORE_ConnectionStrings__DefaultConnection` e `ASPNETCORE_Jwt__Secret`).
 
-### 2.8 Excluir Própria Conta
-- **Método / Rota**: `DELETE /api/usuario/minha-conta`
-- **Autenticação**: Bearer Token Obrigatório
-- **Regra**: Não permite exclusão se houver tarefas `Pendentes` atribuídas ao usuário.
-- **Retorno**: `204 No Content`
+### 7. Validação e Sanitização de Anexos
+* O `ArquivoValidacaoService` aplica verificação de extensão permitida (imagens JPEG, PNG, WebP e documentos PDF, DOC, DOCX, XLS, XLSX) e limite de tamanho (máximo de 10 MB por arquivo).
 
-### 2.9 Excluir Usuário por ID
-- **Método / Rota**: `DELETE /api/usuario/{id}`
-- **Autenticação**: Bearer Token Obrigatório (Próprio usuário ou Dono/Admin de equipe compartilhada)
-- **Retorno**: `204 No Content`
+---
 
-### 2.10 Solicitar Verificação de E-mail (Autenticado)
-- **Método / Rota**: `POST /api/usuario/solicitar-verificacao-email`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK`)**:
-```json
-{
-  "message": "Código de verificação enviado para o seu e-mail."
-}
-```
+## 📋 Documentação Simplificada dos Endpoints
 
-### 2.11 Confirmar Verificação de E-mail (Autenticado)
-- **Método / Rota**: `POST /api/usuario/verificar-email`
-- **Autenticação**: Bearer Token Obrigatório
-- **Content-Type**: `application/json`
-- **Corpo da Requisição (`ConfirmarCodigoDTO`)**:
-```json
-{
-  "codigo": "123456"
-}
-```
-- **Retorno (`200 OK`)**:
-```json
-{
-  "message": "E-mail verificado com sucesso."
-}
+> Todos os endpoints que exigem autenticação necessitam do cookie de sessão `cortex_token` ou do header `Authorization: Bearer <token>`.
+
+### 1. Autenticação & Acesso (`/api/auth`)
+| Método | Endpoint | Acesso | Descrição |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/login` | Público *(Rate Limit)* | Autentica o usuário, retorna perfil e grava cookie `cortex_token` |
+| `POST` | `/api/auth/logout` | Autenticado | Revoga/expira o cookie de autenticação `cortex_token` |
+| `POST` | `/api/auth/alterar-senha` | Autenticado | Altera a senha do usuário autenticado e invalida sessões antigas |
+| `POST` | `/api/auth/solicitar-verificacao-email` | Público *(Rate Limit)* | Gera e envia código de 6 dígitos para o e-mail cadastrado |
+| `POST` | `/api/auth/verificar-email` | Público | Valida o código recebido e confirma a conta de e-mail |
+| `POST` | `/api/auth/esqueci-senha` | Público *(Rate Limit)* | Envia código de recuperação de senha para a caixa postal |
+| `POST` | `/api/auth/redefinir-senha` | Público *(Rate Limit)* | Redefine a senha utilizando o código de segurança verificado |
+
+### 2. Usuários & Perfil (`/api/usuario`)
+| Método | Endpoint | Acesso | Descrição |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/usuario` | Público | Cadastro de novo usuário na plataforma com termos LGPD |
+| `GET` | `/api/usuario/me` | Autenticado | Retorna os dados cadastrais, cargo, nível e foto do usuário logado |
+| `PUT` | `/api/usuario/me` | Autenticado | Atualiza nome e telefone do usuário autenticado |
+| `POST` | `/api/usuario/foto-perfil` | Autenticado | Upload de imagem de perfil (`multipart/form-data`) |
+| `DELETE` | `/api/usuario/foto-perfil` | Autenticado | Remove a foto de perfil atual do usuário |
+| `DELETE` | `/api/usuario/minha-conta` | Autenticado | Exclui a conta do usuário (bloqueado se houver tarefas pendentes - RN05) |
+| `GET` | `/api/usuario/{id}` | Autenticado | Consulta dados públicos de um usuário por ID |
+
+### 3. Tarefas (`/api/tarefa` e `/api/tarefas`)
+| Método | Endpoint | Acesso | Descrição |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/tarefa` | Autenticado | Lista tarefas com filtros por status, prioridade, responsável ou criador |
+| `POST` | `/api/tarefa` | Autenticado | Cria uma nova tarefa com anexos opcionais (`multipart/form-data`) |
+| `GET` | `/api/tarefa/{id}` | Autenticado | Detalha uma tarefa, responsáveis, anexos e respostas |
+| `PUT` | `/api/tarefa/{id}` | Criador / Dono | Atualiza título, descrição, prazo, prioridade e pontuação |
+| `DELETE` | `/api/tarefa/{id}` | Criador / Dono | Exclui uma tarefa e seus relacionamentos vinculados |
+| `PATCH` | `/api/tarefa/{id}/concluir` | Responsável | Conclui a tarefa pelo responsável |
+| `PATCH` | `/api/tarefas/{id}/cancelar-conclusao` | Responsável | Reverte a conclusão da tarefa para o estado pendente |
+| `POST` | `/api/tarefa/{id}/responsaveis` | Criador / Dono | Adiciona responsáveis adicionais à tarefa |
+| `DELETE` | `/api/tarefa/{id}/responsaveis/{usuarioId}` | Criador / Dono | Remove um responsável da tarefa |
+
+### 4. Equipes & Membros (`/api/equipe`)
+| Método | Endpoint | Acesso | Descrição |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/equipe` | Autenticado | Lista equipes das quais o usuário autenticado participa |
+| `POST` | `/api/equipe` | Autenticado | Cria uma nova equipe (o criador torna-se `Dono`) |
+| `GET` | `/api/equipe/{id}` | Membro | Obtém detalhes da equipe |
+| `PUT` | `/api/equipe/{id}` | Dono / Admin | Atualiza o nome ou descrição da equipe |
+| `DELETE` | `/api/equipe/{id}` | Dono | Exclui permanentemente a equipe |
+| `GET` | `/api/equipe/{id}/membros` | Membro | Lista todos os membros, e-mails, níveis de XP e cargos |
+| `POST` | `/api/equipe/{id}/membros` | Dono / Admin | Adiciona um colaborador à equipe via e-mail |
+| `DELETE` | `/api/equipe/{id}/membros/{membroId}` | Dono / Admin | Remove um membro da equipe (respeita hierarquia) |
+| `PATCH` | `/api/equipe/{id}/membros/{membroId}/cargo`| Dono | Altera o cargo de um participante (`Admin` ou `Membro`) |
+
+### 5. Metas & Gamificação (`/api/metas`)
+| Método | Endpoint | Acesso | Descrição |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/metas` | Autenticado | Lista metas do usuário ou de equipes com percentual de progresso |
+| `POST` | `/api/metas` | Autenticado | Cria uma meta associada a tarefas obrigatórias e prazo (até 12 meses) |
+| `GET` | `/api/metas/{id}` | Autenticado | Obtém detalhes, tarefas vinculadas e progresso de uma meta |
+| `PUT` | `/api/metas/{id}` | Criador / Dono | Atualiza dados cadastrais e tarefas vinculadas da meta |
+| `DELETE` | `/api/metas/{id}` | Criador / Dono | Exclui uma meta existente |
+| `GET` | `/api/tarefas/{id}/metas` | Autenticado | Lista metas vinculadas a uma tarefa específica |
+
+### 6. Sugestões de Alteração (`/api/sugestoes`)
+| Método | Endpoint | Acesso | Descrição |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/tarefas/{id}/sugestoes` | Responsável | Envia proposta de alteração de prazo ou descrição ao criador |
+| `GET` | `/api/tarefas/{id}/sugestoes` | Autenticado | Lista sugestões enviadas para a tarefa |
+| `PATCH` | `/api/sugestoes/{id}/aprovar` | Criador da Tarefa | Aprova a sugestão e atualiza automaticamente os dados da tarefa |
+| `PATCH` | `/api/sugestoes/{id}/rejeitar` | Criador da Tarefa | Rejeita a proposta com justificativa opcional |
+
+### 7. Tickets de Reporte & Dúvidas (`/api/tickets`)
+| Método | Endpoint | Acesso | Descrição |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/tarefas/{id}/tickets` | Responsável | Abre um ticket de impedimento técnico vinculado a uma tarefa |
+| `GET` | `/api/tarefas/{id}/tickets` | Autenticado | Lista tickets abertos de uma tarefa |
+| `GET` | `/api/equipes/{id}/tickets` | Membro da Equipe | Lista todos os tickets de suporte abertos nas tarefas da equipe |
+| `PATCH` | `/api/tickets/{id}/fechar` | Criador / Dono | Encerra e conclui o ticket de suporte |
+
+### 8. Respostas de Tarefas & Avaliação (`/api/respostas`)
+| Método | Endpoint | Acesso | Descrição |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/tarefas/{id}/respostas` | Responsável | Envia resposta/entrega de tarefa com anexos (`multipart/form-data`) |
+| `GET` | `/api/tarefas/{id}/respostas` | Autenticado | Lista respostas submetidas para a tarefa |
+| `PATCH` | `/api/respostas/{id}/avaliar` | Criador da Tarefa | Atribui nota quantitativa à entrega respeitando a pontuação máxima |
+
+### 9. Notificações & Preferências (`/api/notificacoes`)
+| Método | Endpoint | Acesso | Descrição |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/notificacoes` | Autenticado | Central de notificações no banco com suporte a filtros e paginação |
+| `PATCH` | `/api/notificacoes/{id}/lida` | Autenticado | Marca notificação individual como visualizada |
+| `PATCH` | `/api/notificacoes/marcar-todas-lidas` | Autenticado | Marca todo o histórico de notificações do usuário como lido |
+| `GET` | `/api/notificacoes/preferencias` | Autenticado | Retorna configuração de canais e antecedência de alerta |
+| `PUT` | `/api/notificacoes/preferencias` | Autenticado | Atualiza canais ativos (`Email`, `Push`, `SMS`) e horas de antecedência |
+
+### 10. Acessibilidade (`/api/preferencias/acessibilidade`)
+| Método | Endpoint | Acesso | Descrição |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/preferencias/acessibilidade` | Autenticado | Carrega preferências visuais sincronizadas do usuário |
+| `PUT` | `/api/preferencias/acessibilidade` | Autenticado | Sincroniza tema (`light`, `dark`), alto contraste e tamanho de fonte |
+
+### 11. Relatórios Analíticos (`/api/relatorios`)
+| Método | Endpoint | Acesso | Descrição |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/relatorios/tarefas` | Autenticado | Retorna KPIs, percentual de conclusão e métricas por período e status |
+| `GET` | `/api/relatorios/equipes/{id}` | Dono / Admin | Relatório consolidado com matriz de desempenho individual por membro |
+
+---
+
+## ⚙️ Serviços em Segundo Plano (Background Services)
+
+A API executa 3 background workers nativos que garantem a integridade operacional e o atendimento às regras de negócio de forma assíncrona:
+
+1. **`TarefaStatusBackgroundService` (RN06)**:
+   - Monitora tarefas periodicamente.
+   - Atualiza automaticamente tarefas não concluídas que ultrapassaram a `DataVencimento` para o status `Atrasada`.
+2. **`AlertaVencimentoBackgroundService` (RN11)**:
+   - Cruza a data atual com as preferências de antecedência de cada usuário.
+   - Envia lembretes preventivos de proximidade de prazo via canais configurados (E-mail, Push ou SMS), evitando alertas duplicados com persistência de controle de envios.
+3. **`NotificacaoDispatcherBackgroundService` (RNF10)**:
+   - Despacha notificações enfileiradas na fila em memória assíncrona (`INotificacaoQueue`), liberando as requisições HTTP imediatamente sem bloqueio por latência de envio de e-mails/gateways.
+
+---
+
+## 🧪 Suíte de Testes Automatizados
+
+O repositório possui uma suíte rigorosa de **194 testes automatizados** com **100% de taxa de aprovação**:
+
+### Tecnologias de Teste
+- **xUnit**: Executor e framework principal de testes.
+- **Moq**: Criação de mocks para isolamento de dependências e gateways.
+- **FluentAssertions**: Asserções semânticas e expressivas.
+- **Microsoft.AspNetCore.Mvc.Testing (`WebApplicationFactory`)**: Testes de integração de ponta a ponta sem necessidade de servidor externo.
+- **EF Core InMemory Database**: Instância de banco em memória isolada e limpa a cada cenário de teste.
+
+### Escopo de Cobertura
+* **Testes Unitários de Serviços**: Validação de todas as regras de negócio (RN001 a RN020), incluindo transições de status, hierarquia de equipe, controle de XP/nível e pontuações.
+* **Testes de Validadores**: Testes unitários cobrindo validadores do FluentValidation contra payloads nulos, datas passadas, senhas fracas e limites de caracteres.
+* **Testes de Controladores & Middleware**: Validação de retorno HTTP correto e formatação RFC 9457 `ProblemDetails` para erros.
+* **Testes de Integração**: Testes de disparo de rotas, controle de rate limit, injeção de dependências e verificação de fluxo completo com `CustomWebApplicationFactory`.
+
+### Como Executar os Testes
+Para rodar toda a suíte de testes no terminal:
+
+```powershell
+# Execução padrão dos testes
+dotnet test Cortex.Tests/Cortex.Tests.csproj
+
+# Execução detalhada com saída no console
+dotnet test Cortex.Tests/Cortex.Tests.csproj --logger "console;verbosity=detailed"
 ```
 
 ---
 
-## 3. Tarefas (`/api/tarefa`)
+## 🛠 Configuração & Execução Local
 
-### 3.1 Criar Tarefa
-- **Método / Rota**: `POST /api/tarefa`
-- **Autenticação**: Bearer Token Obrigatório
-- **Content-Type**: `multipart/form-data`
-- **Campos Form-Data (`CriarTarefaDTO`)**:
-  - `Titulo` (string, obrigatório)
-  - `Descricao` (string, opcional)
-  - `DataVencimento` (DateTime UTC, ISO 8601, obrigatório)
-  - `Pontuacao` (int, opcional)
-  - `Status` (Status: `Pendente`, `Atrasada`, `Concluida`, obrigatório)
-  - `Prioridade` (Prioridade: `Baixa`, `Media`, `Alta`, `Urgente`, obrigatório)
-  - `Anexos` (arquivos, opcional)
-- **Retorno (`201 Created - DetalhesTarefaDTO`)**:
-```json
-{
-  "id": 1,
-  "titulo": "Implementar endpoints da API",
-  "descricao": "Criar documentação e testes",
-  "dataVencimento": "2026-11-01T18:00:00Z",
-  "dataCriacao": "2026-10-25T16:00:00Z",
-  "pontuacao": 100,
-  "status": "Pendente",
-  "prioridade": "Alta",
-  "criadorId": 1,
-  "criador": { "id": 1, "nome": "João Silva", "email": "usuario@exemplo.com" },
-  "anexos": [],
-  "responsaveis": [],
-  "respostas": []
-}
+### Pré-requisitos
+* [.NET 10.0 SDK](https://dotnet.microsoft.com/)
+* [PostgreSQL](https://www.postgresql.org/) (versão 15 ou superior)
+
+### 1. Clonar o repositório
+```bash
+git clone https://github.com/aikovlr/Cortex-backend.git
+cd Cortex-backend
 ```
 
-### 3.2 Listar Tarefas (com Filtros)
-- **Método / Rota**: `GET /api/tarefa`
-- **Autenticação**: Bearer Token Obrigatório
-- **Query Params (`FiltroTarefasDTO`)**:
-  - `status` (`Pendente`, `Atrasada`, `Concluida`)
-  - `prioridade` (`Baixa`, `Media`, `Alta`, `Urgente`)
-  - `responsavelId` (int)
-  - `criadorId` (int)
-  - `dataInicio` (DateTime UTC)
-  - `dataFim` (DateTime UTC)
-  - `termoBusca` (string)
-  - `aba` (string — `tarefas-pendentes` ou `tarefas-concluidas`)
-- **Retorno (`200 OK - List<ConsultaTarefaDTO>`)**:
-```json
-[
-  {
-    "id": 1,
-    "titulo": "Implementar endpoints da API",
-    "descricao": "Criar documentação e testes",
-    "dataVencimento": "2026-11-01T18:00:00Z",
-    "dataCriacao": "2026-10-25T16:00:00Z",
-    "pontuacao": 100,
-    "status": "Pendente",
-    "prioridade": "Alta",
-    "criadorId": 1
-  }
-]
+### 2. Configurar Segredos em Desenvolvimento
+Utilize o `dotnet user-secrets` para configurar as credenciais locais com segurança:
+
+```powershell
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=Cortex;Username=seu_postgres;Password=sua_senha"
+dotnet user-secrets set "Jwt:Secret" "ChaveSecretaDeDesenvolvimentoMuitoSeguraComMinimo32Caracteres!"
 ```
 
-### 3.3 Obter Detalhes da Tarefa por ID
-- **Método / Rota**: `GET /api/tarefa/{id}`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - DetalhesTarefaDTO`)**
-
-### 3.4 Atualizar Tarefa
-- **Método / Rota**: `PUT /api/tarefa/{id}`
-- **Autenticação**: Bearer Token Obrigatório (Criador ou Admin/Dono)
-- **Content-Type**: `multipart/form-data`
-- **Campos Form-Data (`AtualizarTarefaDTO`)**:
-  - `Titulo` (string, opcional)
-  - `Descricao` (string, opcional)
-  - `DataVencimento` (DateTime UTC, opcional)
-  - `Pontuacao` (int, opcional)
-  - `Prioridade` (Prioridade, opcional)
-  - `Anexos` (arquivos, opcional)
-- **Retorno (`200 OK - DetalhesTarefaDTO`)**
-
-### 3.5 Excluir Tarefa
-- **Método / Rota**: `DELETE /api/tarefa/{id}`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno**: `204 No Content`
-
-### 3.6 Marcar Tarefa como Concluída
-- **Método / Rota**: `PATCH /api/tarefa/{id}/concluir`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - DetalhesTarefaDTO`)**
-
-### 3.7 Cancelar Conclusão da Tarefa
-- **Método / Rota**: `PATCH /api/tarefa/{id}/cancelar-conclusao`
-- **Autenticação**: Bearer Token Obrigatório (Criador, Responsável ou Dono/Admin da equipe)
-- **Descrição**: Reverte o status de uma tarefa previamente marcada como concluída. Caso a data atual seja posterior à data de vencimento da tarefa, o status é recalculado para `Atrasada`; caso contrário, reverte para `Pendente`.
-- **Retorno (`200 OK - DetalhesTarefaDTO`)**
-
-### 3.8 Atribuir Responsável Individual
-- **Método / Rota**: `POST /api/tarefa/{id}/responsaveis`
-- **Autenticação**: Bearer Token Obrigatório
-- **Content-Type**: `application/json`
-- **Corpo da Requisição (`CriarResponsavelTarefaDTO`)**:
-```json
-{
-  "usuarioId": 2
-}
-```
-- **Retorno (`201 Created - ConsultaResponsavelTarefaDTO`)**:
-```json
-{
-  "id": 1,
-  "tarefaId": 1,
-  "usuarioId": 2,
-  "usuario": {
-    "id": 2,
-    "nome": "Maria Souza",
-    "email": "maria@exemplo.com"
-  }
-}
+### 3. Aplicar as Migrations do Banco de Dados
+```bash
+dotnet ef database update
 ```
 
-### 3.9 Atribuir Equipe Inteira à Tarefa
-- **Método / Rota**: `POST /api/tarefa/{id}/responsaveis/equipe`
-- **Autenticação**: Bearer Token Obrigatório
-- **Content-Type**: `application/json`
-- **Corpo da Requisição (`AtribuirEquipeTarefaDTO`)**:
-```json
-{
-  "equipeId": 3
-}
+### 4. Executar a Aplicação
+```bash
+dotnet run
 ```
-- **Retorno (`200 OK - List<ConsultaResponsavelTarefaDTO>`)**
-
-### 3.10 Remover Responsável da Tarefa
-- **Método / Rota**: `DELETE /api/tarefa/{id}/responsaveis/{respId}`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno**: `204 No Content`
-
-### 3.11 Listar Responsáveis da Tarefa
-- **Método / Rota**: `GET /api/tarefa/{id}/responsaveis`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - List<ConsultaResponsavelTarefaDTO>`)**
+* A API iniciará por padrão em `http://localhost:5220`.
+* A documentação OpenAPI estará acessível em `http://localhost:5220/openapi/v1.json`.
 
 ---
 
-## 4. Equipes & Membros (`/api/equipe`)
-
-### 4.1 Criar Equipe
-- **Método / Rota**: `POST /api/equipe`
-- **Autenticação**: Bearer Token Obrigatório (O criador se torna o `Dono`)
-- **Content-Type**: `application/json`
-- **Corpo da Requisição (`CriarEquipeDTO`)**:
-```json
-{
-  "nome": "Time de Engenharia"
-}
-```
-- **Retorno (`201 Created - ConsultaEquipeDTO`)**:
-```json
-{
-  "id": 1,
-  "nome": "Time de Engenharia",
-  "dataCriacao": "2026-10-25T15:00:00Z",
-  "membros": [
-    {
-      "id": 1,
-      "nota": 95,
-  "usuarioId": 1,
-      "equipeId": 1,
-      "cargo": "Dono",
-      "dataEntrada": "2026-10-25T15:00:00Z"
-    }
-  ]
-}
-```
-
-### 4.2 Listar Minhas Equipes
-- **Método / Rota**: `GET /api/equipe`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - List<ConsultaEquipeDTO>`)**
-
-### 4.3 Obter Equipe por ID
-- **Método / Rota**: `GET /api/equipe/{id}`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - ConsultaEquipeDTO`)**
-
-### 4.4 Atualizar Equipe
-- **Método / Rota**: `PUT /api/equipe/{id}`
-- **Autenticação**: Bearer Token Obrigatório (Dono ou Admin)
-- **Content-Type**: `application/json`
-- **Corpo da Requisição (`AtualizarEquipeDTO`)**:
-```json
-{
-  "nome": "Time de Engenharia & Produto"
-}
-```
-- **Retorno (`200 OK - ConsultaEquipeDTO`)**
-
-### 4.5 Deletar Equipe
-- **Método / Rota**: `DELETE /api/equipe/{id}`
-- **Autenticação**: Bearer Token Obrigatório (Apenas Dono)
-- **Retorno**: `204 No Content`
-
-### 4.6 Adicionar Membro à Equipe
-- **Método / Rota**: `POST /api/equipe/{id}/membros`
-- **Autenticação**: Bearer Token Obrigatório (Dono ou Admin)
-- **Content-Type**: `application/json`
-- **Corpo da Requisição (`CriarMembroEquipeDTO`)**:
-```json
-{
-  "usuarioId": 2,
-  "cargo": "Membro"
-}
-```
-- **Retorno (`201 Created - ConsultaMembroEquipeDTO`)**:
-```json
-{
-  "id": 2,
-  "usuarioId": 2,
-  "equipeId": 1,
-  "cargo": "Membro",
-  "dataEntrada": "2026-10-25T15:30:00Z",
-  "usuario": {
-    "id": 2,
-    "nome": "Maria Souza",
-    "email": "maria@exemplo.com"
-  }
-}
-```
-
-### 4.7 Remover Membro da Equipe
-- **Método / Rota**: `DELETE /api/equipe/{id}/membros/{membroId}`
-- **Autenticação**: Bearer Token Obrigatório (Dono ou Admin)
-- **Retorno**: `204 No Content`
-
-### 4.8 Alterar Cargo de Membro
-- **Método / Rota**: `PATCH /api/equipe/{id}/membros/{membroId}/cargo`
-- **Autenticação**: Bearer Token Obrigatório (Apenas Dono)
-- **Content-Type**: `application/json`
-- **Corpo da Requisição (`AtualizarMembroEquipeDTO`)**:
-```json
-{
-  "cargo": "Admin"
-}
-```
-- **Retorno (`200 OK - ConsultaMembroEquipeDTO`)**
-
-### 4.9 Listar Membros da Equipe
-- **Método / Rota**: `GET /api/equipe/{id}/membros`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - List<ConsultaMembroEquipeDTO>`)**
-
----
-
-## 5. Metas (`/api/metas`)
-
-### 5.1 Criar Meta Global
-- **Método / Rota**: `POST /api/metas`
-- **Autenticação**: Bearer Token Obrigatório
-- **Content-Type**: `application/json`
-- **Corpo da Requisição (`CriarMetaDTO`)**:
-```json
-{
-  "nome": "Lançamento da v1.0",
-  "dataFechamento": "2026-12-31T23:59:59Z",
-  "tarefaId": 1
-}
-```
-- **Retorno (`201 Created - ConsultaMetaDTO`)**:
-```json
-{
-  "id": 1,
-  "nome": "Lançamento da v1.0",
-  "dataFechamento": "2026-12-31T23:59:59Z",
-  "concluida": false,
-  "tarefaId": 1,
-  "nota": 95,
-  "usuarioId": 1,
-  "tarefa": { "id": 1, "titulo": "Implementar endpoints da API" },
-  "usuario": { "id": 1, "nome": "João Silva" }
-}
-```
-
-### 5.2 Criar Meta Vinculada à Tarefa
-- **Método / Rota**: `POST /api/tarefas/{id}/metas`
-- **Autenticação**: Bearer Token Obrigatório
-- **Content-Type**: `application/json`
-- **Corpo da Requisição (`CriarMetaDTO`)**:
-```json
-{
-  "nome": "Documentação Finalizada",
-  "dataFechamento": "2026-11-15T23:59:59Z"
-}
-```
-- **Retorno (`201 Created - ConsultaMetaDTO`)**
-
-### 5.3 Listar Metas por Usuário
-- **Método / Rota**: `GET /api/metas`
-- **Autenticação**: Bearer Token Obrigatório
-- **Query Params**:
-  - `usuarioId` (int, opcional — se omitido, retorna as metas do usuário logado)
-- **Retorno (`200 OK - List<ConsultaMetaDTO>`)**
-
-### 5.4 Listar Metas por Tarefa
-- **Método / Rota**: `GET /api/tarefas/{id}/metas`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - List<ConsultaMetaDTO>`)**
-
-### 5.5 Obter Meta por ID
-- **Método / Rota**: `GET /api/metas/{id}`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - ConsultaMetaDTO`)**
-
-### 5.6 Atualizar Meta
-- **Método / Rota**: `PUT /api/metas/{id}`
-- **Autenticação**: Bearer Token Obrigatório
-- **Content-Type**: `application/json`
-- **Corpo da Requisição (`AtualizarMetaDTO`)**:
-```json
-{
-  "nome": "Lançamento da v1.0 atualizado",
-  "dataFechamento": "2027-01-31T23:59:59Z",
-  "concluida": false,
-  "tarefaId": 1,
-  "usuarioId": 1
-}
-```
-- **Retorno (`200 OK - ConsultaMetaDTO`)**
-
-### 5.7 Deletar Meta
-- **Método / Rota**: `DELETE /api/metas/{id}`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno**: `204 No Content`
-
----
-
-## 6. Sugestões de Alteração (`/api/sugestoes`)
-
-### 6.1 Submeter Sugestão para uma Tarefa
-- **Método / Rota**: `POST /api/tarefas/{id}/sugestoes`
-- **Autenticação**: Bearer Token Obrigatório
-- **Content-Type**: `application/json`
-- **Corpo da Requisição (`CriarSugestaoDTO`)**:
-```json
-{
-  "descricao": "Sugiro prorrogar o prazo de vencimento em 3 dias."
-}
-```
-- **Retorno (`201 Created - ConsultaSugestaoDTO`)**:
-```json
-{
-  "id": 1,
-  "descricao": "Sugiro prorrogar o prazo de vencimento em 3 dias.",
-  "dataCriacao": "2026-10-25T16:00:00Z",
-  "status": "Pendente",
-  "tarefaId": 1,
-  "usuarioId": 2,
-  "usuario": { "id": 2, "nome": "Maria Souza" },
-  "tarefa": { "id": 1, "titulo": "Implementar endpoints da API" }
-}
-```
-
-### 6.2 Listar Sugestões de uma Tarefa
-- **Método / Rota**: `GET /api/tarefas/{id}/sugestoes`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - List<ConsultaSugestaoDTO>`)**
-
-### 6.3 Aprovar Sugestão
-- **Método / Rota**: `PATCH /api/sugestoes/{id}/aprovar`
-- **Autenticação**: Bearer Token Obrigatório (Apenas o Criador da tarefa)
-- **Retorno (`200 OK - ConsultaSugestaoDTO`)** (`status: "Aprovada"`)
-
-### 6.4 Rejeitar Sugestão
-- **Método / Rota**: `PATCH /api/sugestoes/{id}/rejeitar`
-- **Autenticação**: Bearer Token Obrigatório (Apenas o Criador da tarefa)
-- **Retorno (`200 OK - ConsultaSugestaoDTO`)** (`status: "Rejeitada"`)
-
----
-
-## 7. Tickets de Reporte (`/api/tickets`)
-
-### 7.1 Abrir Ticket de Problema em Tarefa
-- **Método / Rota**: `POST /api/tarefas/{id}/tickets`
-- **Autenticação**: Bearer Token Obrigatório
-- **Content-Type**: `application/json`
-- **Corpo da Requisição (`CriarTicketReporteDTO`)**:
-```json
-{
-  "descricao": "Servidor de banco de homologação está inacessível impedindo os testes."
-}
-```
-- **Retorno (`201 Created - ConsultaTicketReporteDTO`)**:
-```json
-{
-  "id": 1,
-  "descricao": "Servidor de banco de homologação está inacessível impedindo os testes.",
-  "ativo": true,
-  "dataCriacao": "2026-10-25T16:15:00Z",
-  "tarefaId": 1,
-  "usuarioId": 2,
-  "usuario": { "id": 2, "nome": "Maria Souza" },
-  "tarefa": { "id": 1, "titulo": "Implementar endpoints da API" }
-}
-```
-
-### 7.2 Listar Tickets de uma Tarefa
-- **Método / Rota**: `GET /api/tarefas/{id}/tickets`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - List<ConsultaTicketReporteDTO>`)**
-
-### 7.3 Fechar / Resolver Ticket
-- **Método / Rota**: `PATCH /api/tickets/{id}/fechar`
-- **Autenticação**: Bearer Token Obrigatório (Criador do ticket ou Dono/Admin da equipe)
-- **Retorno (`200 OK - ConsultaTicketReporteDTO`)** (`ativo: false`)
-
-### 7.4 Listar Tickets Abertos por Equipe
-- **Método / Rota**: `GET /api/equipes/{id}/tickets`
-- **Autenticação**: Bearer Token Obrigatório (Apenas Dono/Admin da equipe)
-- **Retorno (`200 OK - List<ConsultaTicketReporteDTO>`)**
-
----
-
-## 8. Respostas de Tarefas (`/api/respostas`)
-
-### 8.1 Publicar Resposta / Comentário em Tarefa
-- **Método / Rota**: `POST /api/tarefas/{id}/respostas`
-- **Autenticação**: Bearer Token Obrigatório
-- **Content-Type**: `multipart/form-data`
-- **Campos Form-Data (`CriarRespostaTarefaDTO`)**:
-  - `Anexos` (arquivos, opcional)
-- **Retorno (`201 Created - ConsultaRespostaTarefaDTO`)**:
-```json
-{
-  "id": 1,
-  "dataResposta": "2026-10-25T16:20:00Z",
-  "nota": 95,
-  "usuarioId": 1,
-  "tarefaId": 1,
-  "usuario": { "id": 1, "nome": "João Silva" },
-  "anexos": [
-    {
-      "id": 2,
-      "urlCaminho": "/uploads/anexos/evidencia.pdf",
-      "nomeOriginal": "evidencia.pdf",
-      "mimeType": "application/pdf",
-      "dataEnvio": "2026-10-25T16:20:00Z",
-      "tipoEntidade": "Tarefa"
-    }
-  ]
-}
-```
-
-### 8.2 Listar Respostas de uma Tarefa
-- **Método / Rota**: `GET /api/tarefas/{id}/respostas`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - List<ConsultaRespostaTarefaDTO>`)**
-
-### 8.3 Atribuir Nota à Resposta
-- **Método / Rota**: `PATCH /api/respostas/{id}/nota`
-- **Autenticação**: Bearer Token Obrigatório (Criador da tarefa ou Dono/Admin da equipe)
-- **Content-Type**: `application/json`
-- **Regras de Negócio**: A nota deve ser maior ou igual a 0 e menor ou igual à pontuação estipulada para a tarefa (se a tarefa não possuir pontuação definida, o limite padrão é 100).
-- **Corpo da Requisição (`AtribuirNotaRespostaDTO`)**:
-```json
-{
-  "nota": 90
-}
-```
-- **Retorno (`200 OK - ConsultaRespostaTarefaDTO`)**:
-```json
-{
-  "id": 1,
-  "dataResposta": "2026-10-25T16:20:00Z",
-  "nota": 90,
-  "usuarioId": 2,
-  "tarefaId": 1,
-  "usuario": { "id": 2, "nome": "Maria Souza" },
-  "anexos": []
-}
-```
-
-### 8.4 Deletar Resposta
-- **Método / Rota**: `DELETE /api/respostas/{id}`
-- **Autenticação**: Bearer Token Obrigatório (Autor da resposta ou Dono/Admin)
-- **Retorno**: `204 No Content`
-
----
-
-## 9. Anexos (`/api/anexos`)
-
-### 9.1 Upload de Anexos em Tarefa
-- **Método / Rota**: `POST /api/tarefas/{id}/anexos`
-- **Autenticação**: Bearer Token Obrigatório
-- **Content-Type**: `multipart/form-data`
-- **Campos Form-Data**:
-  - `arquivos` (lista de `IFormFile`, obrigatório)
-- **Retorno (`201 Created - List<ConsultaAnexoDTO>`)**:
-```json
-[
-  {
-    "id": 3,
-    "urlCaminho": "/uploads/anexos/diagrama.png",
-    "nomeOriginal": "diagrama.png",
-    "mimeType": "image/png",
-    "dataEnvio": "2026-10-25T16:30:00Z",
-    "tipoEntidade": "Tarefa",
-    "tarefaId": 1
-  }
-]
-```
-
-### 9.2 Listar Anexos de uma Tarefa
-- **Método / Rota**: `GET /api/tarefas/{id}/anexos`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - List<ConsultaAnexoDTO>`)**
-
-### 9.3 Obter Anexo por ID
-- **Método / Rota**: `GET /api/anexos/{id}`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - ConsultaAnexoDTO`)**
-
-### 9.4 Listar Anexos por Entidade Genérica
-- **Método / Rota**: `GET /api/entidades/{tipoEntidade}/anexos/{entidadeId}`
-- **Autenticação**: Bearer Token Obrigatório
-- **Parâmetros de Rota**:
-  - `tipoEntidade`: `Tarefa`, `ResponsavelTarefa` ou `Usuario`
-  - `entidadeId`: int (ID da entidade)
-- **Retorno (`200 OK - List<ConsultaAnexoDTO>`)**
-
-### 9.5 Deletar Anexo
-- **Método / Rota**: `DELETE /api/anexos/{id}`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno**: `204 No Content`
-
----
-
-## 10. Notificações & Preferências (`/api/notificacoes`)
-
-Central de notificações in-app persistidas no PostgreSQL e gerenciamento de preferências multi-canal (Email, Push, SMS).
-
-### 10.1 Listar Notificações do Usuário Autenticado
-- **Método / Rota**: `GET /api/notificacoes`
-- **Autenticação**: Bearer Token Obrigatório
-- **Descrição**: Retorna o histórico de notificações recebidas pelo usuário logado, ordenadas da mais recente para a mais antiga. Notificações incluem alertas de atribuição de tarefas, tarefas vencidas (destaque), tarefas com prioridade urgente (destaque), sugestões de alteração e tickets de reporte.
-- **Retorno (`200 OK - List<NotificacaoDTO>`)**:
-```json
-[
-  {
-    "id": 10,
-    "usuarioId": 2,
-    "tipo": "tarefa_vencida",
-    "titulo": "Tarefa Vencida!",
-    "mensagem": "A tarefa 'Elaborar Relatório Trimestral' ultrapassou o prazo de vencimento.",
-    "link": "/minhas-tarefas/5",
-    "lida": false,
-    "destaque": true,
-    "tarefaId": 5,
-    "dataCriacao": "2026-10-29T08:00:00Z"
-  },
-  {
-    "id": 9,
-    "usuarioId": 2,
-    "tipo": "sugestao",
-    "titulo": "Nova sugestão de alteração",
-    "mensagem": "Você recebeu uma nova sugestão na tarefa 'Configurar Servidor'.",
-    "link": "/tarefas-atribuidas/3",
-    "lida": true,
-    "destaque": false,
-    "tarefaId": 3,
-    "dataCriacao": "2026-10-29T07:30:00Z"
-  }
-]
-```
-
-### 10.2 Marcar Notificação Individual como Lida
-- **Método / Rota**: `PUT /api/notificacoes/{id}/lida`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno**: `204 No Content`
-
-### 10.3 Marcar Todas as Notificações como Lidas
-- **Método / Rota**: `PUT /api/notificacoes/marcar-todas-lidas`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno**: `204 No Content`
-
-### 10.4 Excluir Notificação Específica
-- **Método / Rota**: `DELETE /api/notificacoes/{id}`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno**: `204 No Content`
-
-### 10.5 Limpar Histórico de Notificações
-- **Método / Rota**: `DELETE /api/notificacoes`
-- **Autenticação**: Bearer Token Obrigatório
-- **Descrição**: Remove permanentemente todas as notificações associadas ao usuário autenticado.
-- **Retorno**: `204 No Content`
-
-### 10.6 Obter Preferências do Usuário Autenticado
-- **Método / Rota**: `GET /api/notificacoes/preferencias`
-- **Autenticação**: Bearer Token Obrigatório
-- **Retorno (`200 OK - List<PreferenciaNotificacaoDTO>`)**:
-```json
-[
-  {
-    "id": 1,
-    "usuarioId": 1,
-    "canal": "Email",
-    "antecedenciaHoras": 24,
-    "ativoNovaAtribuicao": true,
-    "ativoVencimento": true,
-    "ativoConclusaoMeta": true,
-    "ativoTicket": true,
-    "tema": "light",
-    "altoContraste": false,
-    "tamanhoFonte": 16
-  }
-]
-```
-
-### 10.7 Configurar Preferência de Notificação por Canal
-- **Método / Rota**: `PUT /api/notificacoes/preferencias`
-- **Autenticação**: Bearer Token Obrigatório
-- **Content-Type**: `application/json`
-- **Regra**: Notificação por e-mail exige conta com e-mail confirmado (`EmailVerificado = true`). Antecedência configurável entre 1 e 168 horas (1 a 7 dias).
-- **Corpo da Requisição (`ConfigurarPreferenciaDTO`)**:
-```json
-{
-  "canal": "Email",
-  "antecedenciaHoras": 48,
-  "ativoNovaAtribuicao": true,
-  "ativoVencimento": true,
-  "ativoConclusaoMeta": false,
-  "ativoTicket": true,
-  "tema": "light",
-  "altoContraste": false,
-  "tamanhoFonte": 16
-}
-```
-- **Retorno (`200 OK - PreferenciaNotificacaoDTO`)**
-
-### 10.8 Obter Preferências de Acessibilidade (Sincronização entre Dispositivos)
-- **Método / Rota**: `GET /api/preferencias/acessibilidade`
-- **Rota Alternativa**: `GET /api/usuario/me/preferencias/acessibilidade`
-- **Autenticação**: Bearer Token Obrigatório
-- **Descrição**: Obtém as preferências visuais sincronizadas no banco de dados para renderização fiel em qualquer dispositivo ou navegador.
-- **Retorno (`200 OK - PreferenciaAcessibilidadeDTO`)**:
-```json
-{
-  "tema": "light",
-  "altoContraste": false,
-  "tamanhoFonte": 16
-}
-```
-
-### 10.9 Atualizar Preferências de Acessibilidade
-- **Método / Rota**: `PUT /api/preferencias/acessibilidade`
-- **Rota Alternativa**: `PUT /api/usuario/me/preferencias/acessibilidade`
-- **Autenticação**: Bearer Token Obrigatório
-- **Content-Type**: `application/json`
-- **Regras de Negócio**:
-  - `tema`: Opcional (`"light"` ou `"dark"`).
-  - `altoContraste`: Opcional (`true` ou `false`).
-  - `tamanhoFonte`: Opcional. Deve situar-se estritamente no intervalo de **12px a 24px** e ser **obrigatoriamente um número par** (`12`, `14`, `16`, `18`, `20`, `22` ou `24`).
-- **Corpo da Requisição (`AtualizarPreferenciaAcessibilidadeDTO`)**:
-```json
-{
-  "tema": "dark",
-  "altoContraste": true,
-  "tamanhoFonte": 18
-}
-```
-- **Retorno (`200 OK - PreferenciaAcessibilidadeDTO`)**:
-```json
-{
-  "tema": "dark",
-  "altoContraste": true,
-  "tamanhoFonte": 18
-}
-```
-
----
-
-## 11. Relatórios (`/api/relatorios`)
-
-### 11.1 Gerar Relatório de Tarefas
-- **Método / Rota**: `GET /api/relatorios/tarefas`
-- **Autenticação**: Bearer Token Obrigatório (Usuários com cargo `Membro` visualizam somente suas próprias tarefas; `Dono` e `Admin` visualizam tarefas de suas equipes)
-- **Query Params (`FiltroRelatorioDTO`)**:
-  - `status` (`Pendente`, `Atrasada`, `Concluida`)
-  - `prioridade` (`Baixa`, `Media`, `Alta`, `Urgente`)
-  - `equipeId` (int, opcional)
-  - `responsavelId` (int, opcional - filtragem independente por executor)
-  - `criadorId` (int, opcional - filtragem independente por solicitante)
-  - `dataInicio` (DateTime UTC, opcional)
-  - `dataFim` (DateTime UTC, opcional)
-- **Retorno (`200 OK - RelatorioTarefasDTO`)**:
-```json
-{
-  "totalTarefas": 15,
-  "concluidas": 10,
-  "pendentes": 4,
-  "atrasadas": 1,
-  "taxaConclusaoPercentual": 66.67,
-  "porPrioridade": {
-    "Alta": 5,
-    "Media": 7,
-    "Baixa": 3
-  },
-  "porStatus": {
-    "Concluidas": 10,
-    "Pendentes": 4,
-    "Atrasadas": 1
-  },
-  "periodoInicio": "2026-10-01T00:00:00Z",
-  "periodoFim": "2026-10-31T23:59:59Z",
-  "geradoEm": "2026-10-25T16:45:00Z",
-  "tarefas": [
-    {
-      "id": 1,
-      "titulo": "Implementar endpoints da API",
-      "dataVencimento": "2026-11-01T18:00:00Z",
-      "dataCriacao": "2026-10-25T14:00:00Z",
-      "status": "Pendente",
-      "prioridade": "Alta"
-    }
-  ]
-}
-```
-
-### 11.2 Gerar Relatório Consolidado de Equipe
-- **Método / Rota**: `GET /api/relatorios/equipes/{id}`
-- **Autenticação**: Bearer Token Obrigatório (Apenas `Dono` ou `Admin` da equipe)
-- **Query Params (`FiltroRelatorioDTO`)**:
-  - `status`, `prioridade`, `responsavelId`, `responsaveisIds`, `dataInicio`, `dataFim`
-- **Retorno (`200 OK - RelatorioEquipeDTO`)**:
-```json
-{
-  "equipeId": 1,
-  "equipeNome": "Time de Engenharia",
-  "totalMembros": 5,
-  "metricasGerais": {
-    "totalTarefas": 30,
-    "concluidas": 20,
-    "pendentes": 8,
-    "atrasadas": 2,
-    "taxaConclusaoPercentual": 66.67,
-    "porPrioridade": { "Alta": 10, "Media": 15, "Baixa": 5 },
-    "porStatus": { "Concluidas": 20, "Pendentes": 8, "Atrasadas": 2 },
-    "geradoEm": "2026-10-25T16:45:00Z",
-    "tarefas": []
-  },
-  "desempenhoMembros": [
-    {
-      "usuarioId": 2,
-      "nome": "Maria Souza",
-      "email": "maria@exemplo.com",
-      "cargo": "Membro",
-      "totalAtribuidas": 10,
-      "concluidas": 8,
-      "pendentes": 2,
-      "atrasadas": 0,
-      "taxaConclusaoPercentual": 80.0
-    }
-  ]
-}
-```
-
----
-
-## 12. Procedimentos de Backup Periódico (RNF006)
-
-Para atender ao **RNF006** ("O sistema deve realizar backups periódicos para garantir a integridade e disponibilidade dos dados"), o projeto disponibiliza scripts automatizados em `scripts/`:
-
-- **Windows / PowerShell**: `scripts/backup-database.ps1`
-  - Utilização:
-    ```powershell
-    pwsh ./scripts/backup-database.ps1 -HostName localhost -Port 5432 -Database cortex_db -User postgres -RetentionDays 30
-    ```
-  - Agendamento: Configurar via *Agendador de Tarefas do Windows* (Task Scheduler) para execução diária.
-
-- **Linux / Docker**: `scripts/backup-database.sh`
-  - Utilização:
-    ```bash
-    ./scripts/backup-database.sh
-    ```
-  - Agendamento via Cron (execução diária às 02h00 com rotação de 30 dias):
-    ```cron
-    0 2 * * * /caminho/para/scripts/backup-database.sh >> /var/log/cortex-backup.log 2>&1
-    ```
-
+## 📄 Licença
+Desenvolvido para fins corporativos e acadêmicos como parte do ecossistema **Cortex**. Todos os direitos reservados.
