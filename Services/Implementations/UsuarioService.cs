@@ -182,12 +182,12 @@ namespace Cortex.Services.Implementations
             if (usuario == null)
                 return false;
 
-            // RN05: Block deletion if user has tasks "In Progress" or "Pendente" as creator or assignee
+            // RN005: Um usuário não pode excluir a própria conta se houver tarefas com status 'Pendente' ou 'Atrasada' atribuídas a ele.
             var temTarefasEmAndamento = await _usuarioRepository.UsuarioTemTarefasEmAndamentoAsync(id);
             var ehResponsavelPorTarefaEmAndamento = await _usuarioRepository.UsuarioEhResponsavelPorTarefaEmAndamentoAsync(id);
 
             if (temTarefasEmAndamento || ehResponsavelPorTarefaEmAndamento)
-                throw new InvalidOperationException("Não é possível excluir usuário com tarefas em andamento.");
+                throw new InvalidOperationException("Não é possível excluir usuário com tarefas em andamento (pendentes ou atrasadas).");
 
             var removido = await _usuarioRepository.RemoverUsuarioAsync(id);
             if (removido)

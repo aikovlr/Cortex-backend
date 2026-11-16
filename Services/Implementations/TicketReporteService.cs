@@ -129,7 +129,7 @@ namespace Cortex.Services.Implementations
                         ticket.UsuarioId,
                         "resposta_ticket",
                         "Ticket de Reporte Resolvido",
-                        $"O problema reportado na tarefa \"{tarefa?.Titulo ?? "Tarefa"}\" foi marcado como resolvido.",
+                        $"O ticket de reporte na tarefa \"{tarefa?.Titulo ?? "Tarefa"}\" foi marcado como resolvido.",
                         $"/minhas-tarefas/{ticket.TarefaId}?aba=tickets",
                         false,
                         ticket.TarefaId);

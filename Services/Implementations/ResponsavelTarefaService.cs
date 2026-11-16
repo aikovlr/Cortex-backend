@@ -62,23 +62,27 @@ namespace Cortex.Services.Implementations
 
             await _responsavelTarefaRepository.AdicionarResponsavelTarefaAsync(novoResponsavel);
 
-            var isUrgente = tarefa.Prioridade == Prioridade.Urgente;
-            try
+            // Não notifica se o usuário estiver atribuindo a tarefa a si mesmo
+            if (dto.UsuarioId != solicitanteId)
             {
-                await _notificacaoService.CriarNotificacaoAsync(
-                    dto.UsuarioId,
-                    isUrgente ? "tarefa_urgente" : "tarefa",
-                    isUrgente ? "Tarefa Urgente Atribuída" : "Nova Tarefa Atribuída",
-                    isUrgente
-                        ? $"Atenção: A tarefa \"{tarefa.Titulo}\" possui prioridade urgente e requer sua atenção imediata."
-                        : $"Você foi designado como responsável pela tarefa \"{tarefa.Titulo}\".",
-                    $"/minhas-tarefas/{tarefa.Id}",
-                    destaque: isUrgente,
-                    tarefaId: tarefa.Id);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao criar notificação de atribuição de tarefa para UsuarioId {UsuarioId}", dto.UsuarioId);
+                var isUrgente = tarefa.Prioridade == Prioridade.Urgente;
+                try
+                {
+                    await _notificacaoService.CriarNotificacaoAsync(
+                        dto.UsuarioId,
+                        isUrgente ? "tarefa_urgente" : "tarefa",
+                        isUrgente ? "Tarefa Urgente Atribuída" : "Nova Tarefa Atribuída",
+                        isUrgente
+                            ? $"Atenção: A tarefa \"{tarefa.Titulo}\" possui prioridade urgente e requer sua atenção imediata."
+                            : $"Você foi designado como responsável pela tarefa \"{tarefa.Titulo}\".",
+                        $"/minhas-tarefas/{tarefa.Id}",
+                        destaque: isUrgente,
+                        tarefaId: tarefa.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao criar notificação de atribuição de tarefa para UsuarioId {UsuarioId}", dto.UsuarioId);
+                }
             }
 
             _logger.LogInformation("Responsável atribuído: UsuarioId {UsuarioId} à TarefaId {TarefaId} por SolicitanteId {SolicitanteId}",
@@ -138,6 +142,10 @@ namespace Cortex.Services.Implementations
                 var isUrgenteEquipe = tarefa.Prioridade == Prioridade.Urgente;
                 foreach (var resp in novosResponsaveis)
                 {
+                    // Não notifica se o membro da equipe for o próprio solicitante
+                    if (resp.UsuarioId == solicitanteId)
+                        continue;
+
                     try
                     {
                         await _notificacaoService.CriarNotificacaoAsync(

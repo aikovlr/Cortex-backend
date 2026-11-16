@@ -79,13 +79,13 @@ namespace Cortex.Repositories.Implementations
 
         public async Task<bool> UsuarioTemTarefasEmAndamentoAsync(int usuarioId)
         {
-            return await _context.Tarefas.AnyAsync(t => t.CriadorId == usuarioId && t.Status == Status.Pendente);
+            return await _context.Tarefas.AnyAsync(t => t.CriadorId == usuarioId && (t.Status == Status.Pendente || t.Status == Status.Atrasada));
         }
 
         public async Task<bool> UsuarioEhResponsavelPorTarefaEmAndamentoAsync(int usuarioId)
         {
             return await _context.ResponsaveisTarefa.AnyAsync(r => r.UsuarioId == usuarioId
-                && r.Tarefa.Status == Status.Pendente);
+                && (r.Tarefa.Status == Status.Pendente || r.Tarefa.Status == Status.Atrasada));
         }
     }
 }

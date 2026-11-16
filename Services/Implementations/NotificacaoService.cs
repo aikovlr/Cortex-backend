@@ -472,15 +472,23 @@ namespace Cortex.Services.Implementations
             bool destaque,
             int? tarefaId)
         {
-            // Quando for notificação de conclusão de tarefa, stacka na notificação existente da mesma tarefa
-            if (tarefaId.HasValue && titulo.StartsWith("Tarefa Concluída"))
+            // Quando for notificação de conclusão ou resposta de tarefa, stacka na notificação existente da mesma tarefa
+            var isConclusao = titulo.StartsWith("Tarefa Concluída");
+            var isResposta = titulo.StartsWith("Nova Resposta Recebida");
+            if (tarefaId.HasValue && (isConclusao || isResposta))
             {
+                var prefixo = isConclusao ? "Tarefa Concluída" : "Nova Resposta Recebida";
                 var existente = await _notificacaoRepository
                     .ObterNotificacaoPorUsuarioETarefaAsync(usuarioId, tarefaId.Value, tipo);
 
-                if (existente != null && existente.Titulo.StartsWith("Tarefa Concluída"))
+                if (existente != null && existente.Titulo.StartsWith(prefixo))
                 {
-                    existente.Titulo = titulo;
+                    var matchCount = System.Text.RegularExpressions.Regex.Match(existente.Titulo, @"\((\d+)\)$");
+                    var countAtual = matchCount.Success && int.TryParse(matchCount.Groups[1].Value, out var c) ? c : 1;
+                    var novoCount = countAtual + 1;
+
+                    // Adiciona contador (X) apenas quando há mais de uma notificação (> 1)
+                    existente.Titulo = novoCount > 1 ? $"{prefixo} ({novoCount})" : prefixo;
                     existente.Mensagem = mensagem;
                     existente.Link = link;
                     existente.Destaque = destaque;
@@ -489,8 +497,8 @@ namespace Cortex.Services.Implementations
 
                     await _notificacaoRepository.AtualizarAsync(existente);
 
-                    _logger.LogInformation("Notificação de conclusão stackada: Id {Id}, UsuarioId {UsuarioId}, TarefaId {TarefaId}",
-                        existente.Id, usuarioId, tarefaId.Value);
+                    _logger.LogInformation("Notificação de {Prefixo} stackada ({NovoCount}x): Id {Id}, UsuarioId {UsuarioId}, TarefaId {TarefaId}",
+                        prefixo, novoCount, existente.Id, usuarioId, tarefaId.Value);
 
                     return MapNotificacaoToDTO(existente);
                 }

@@ -84,11 +84,12 @@ namespace Cortex.Services.Implementations
             {
                 try
                 {
+                    var complementoCargo = dto.Cargo == Cargo.Admin ? " como administrador" : string.Empty;
                     await _notificacaoService.CriarNotificacaoAsync(
                         usuarioId,
                         "equipe",
                         "Adicionado a uma Equipe",
-                        $"Você foi adicionado à equipe \"{equipe.Nome}\".",
+                        $"Você foi adicionado à equipe \"{equipe.Nome}\"{complementoCargo}.",
                         $"/equipes/{dto.EquipeId}",
                         destaque: false);
                 }

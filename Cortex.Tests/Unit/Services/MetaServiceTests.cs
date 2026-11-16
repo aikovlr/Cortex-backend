@@ -1305,5 +1305,91 @@ namespace Cortex.Tests.Unit.Services
                 false,
                 null), Times.Once);
         }
+
+        [Fact]
+        public async Task VerificarMetasExpiradas_RN020_DeveDescontar5XpApenasPorTarefasPendentesOuAtrasadas()
+        {
+            // Arrange - Meta de equipe expirada com 1 pendente, 1 atrasada e 1 concluída
+            // Deve descontar (1 + 1) * 5 = 10 XP. A tarefa concluída não altera o saldo.
+            var usuarioId = 20;
+            var usuario = new Usuario
+            {
+                Id = usuarioId,
+                Nome = "Usuario Teste RN020",
+                Email = "rn020@exemplo.com",
+                SenhaHash = "hash",
+                Nivel = 1,
+                Experiencia = 30
+            };
+
+            var metaEquipe = new Meta
+            {
+                Id = 201,
+                Nome = "Meta de Equipe Multi-Tarefas",
+                UsuarioId = usuarioId,
+                Concluida = false,
+                DataFechamento = DateTime.UtcNow.AddDays(-2),
+                PenalidadeAplicada = false,
+                MetasEquipes = new List<MetaEquipe> { new MetaEquipe { EquipeId = 1, XpRecompensa = 15 } },
+                MetasTarefas = new List<MetaTarefa>
+                {
+                    new MetaTarefa
+                    {
+                        TarefaId = 1,
+                        Tarefa = new Tarefa
+                        {
+                            Id = 1,
+                            Titulo = "Tarefa 1 Pendente",
+                            Status = Status.Pendente,
+                            DataVencimento = DateTime.UtcNow.AddDays(-3),
+                            CriadorId = usuarioId,
+                            Criador = usuario
+                        }
+                    },
+                    new MetaTarefa
+                    {
+                        TarefaId = 2,
+                        Tarefa = new Tarefa
+                        {
+                            Id = 2,
+                            Titulo = "Tarefa 2 Atrasada",
+                            Status = Status.Atrasada,
+                            DataVencimento = DateTime.UtcNow.AddDays(-3),
+                            CriadorId = usuarioId,
+                            Criador = usuario
+                        }
+                    },
+                    new MetaTarefa
+                    {
+                        TarefaId = 3,
+                        Tarefa = new Tarefa
+                        {
+                            Id = 3,
+                            Titulo = "Tarefa 3 Concluída",
+                            Status = Status.Concluida,
+                            DataVencimento = DateTime.UtcNow.AddDays(-3),
+                            CriadorId = usuarioId,
+                            Criador = usuario
+                        }
+                    }
+                }
+            };
+
+            _metaRepoMock.Setup(r => r.ObterTodasMetasAsync())
+                .ReturnsAsync(new List<Meta> { metaEquipe });
+            _usuarioRepoMock.Setup(u => u.ObterUsuarioPorIdAsync(usuarioId))
+                .ReturnsAsync(usuario);
+            _metaRepoMock.Setup(r => r.AtualizarMetaAsync(It.IsAny<Meta>()))
+                .ReturnsAsync((Meta m) => m);
+
+            // Act - Reduz 10 XP (saldo: 30 - 10 = 20)
+            var totalPenalizadas = await _metaService.VerificarMetasExpiradasAsync();
+
+            // Assert
+            Assert.Equal(1, totalPenalizadas);
+            Assert.True(metaEquipe.PenalidadeAplicada);
+            Assert.Equal(20, usuario.Experiencia);
+            _usuarioRepoMock.Verify(u => u.AtualizarUsuarioAsync(It.Is<Usuario>(u => u.Experiencia == 20)), Times.Once);
+        }
     }
 }

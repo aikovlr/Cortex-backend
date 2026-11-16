@@ -108,5 +108,68 @@ namespace Cortex.Controllers
             }
             return NoContent();
         }
+
+        [HttpPost("api/notificacoes/trigger-teste")]
+        [AllowAnonymous]
+        public async Task<IActionResult> TriggerTesteNotificacoes([FromQuery] int usuarioId = 1)
+        {
+            // Limpa supressão de disparo em memória para permitir re-trigger imediato dos testes
+            Cortex.Services.Implementations.NotificacaoService.LimparHistoricoDisparos();
+
+            var resultados = new List<object>();
+
+            // 1. Resposta de tarefa individual: apenas 1 resposta, sem contador
+            var n1 = await _notificacaoService.NotificarAsync(
+                Cortex.Entities.ENUMS.TipoEventoNotificacao.NovaAtribuicao,
+                usuarioId,
+                "Nova Resposta Recebida",
+                "Carlos Oliveira enviou uma resposta para a tarefa \"Finalizar testes E2E\".",
+                "/tarefas-atribuidas/44?aba=respostas",
+                destaque: false,
+                tarefaId: 44,
+                tipoInApp: "tarefa"
+            );
+            resultados.Add(n1);
+
+            // 2. Resposta de tarefa com mais de uma notificação: agrupada com contador '2x'
+            var n2 = await _notificacaoService.NotificarAsync(
+                Cortex.Entities.ENUMS.TipoEventoNotificacao.NovaAtribuicao,
+                usuarioId,
+                "Nova Resposta Recebida (2)",
+                "Dois membros enviaram respostas para a tarefa \"Atualizar documentação\".",
+                "/tarefas-atribuidas/40?aba=respostas",
+                destaque: false,
+                tarefaId: 40,
+                tipoInApp: "tarefa"
+            );
+            resultados.Add(n2);
+
+            // 3. Notificação de equipe mencionando estritamente cargo de administrador
+            var n3 = await _notificacaoService.NotificarAsync(
+                Cortex.Entities.ENUMS.TipoEventoNotificacao.Equipe,
+                usuarioId,
+                "Entrada em Nova Equipe",
+                "Você foi adicionado à equipe \"Engenharia de Plataforma\" como administrador.",
+                "/equipes",
+                destaque: false,
+                tipoInApp: "equipe"
+            );
+            resultados.Add(n3);
+
+            // 4. Notificação de ticket de reporte respondido marcando como resolvido
+            var n4 = await _notificacaoService.NotificarAsync(
+                Cortex.Entities.ENUMS.TipoEventoNotificacao.Ticket,
+                usuarioId,
+                "Ticket de Reporte Resolvido",
+                "O ticket de reporte na tarefa \"Atualizar documentação\" foi marcado como resolvido.",
+                "/tarefas-atribuidas/40?aba=tickets",
+                destaque: false,
+                tarefaId: 40,
+                tipoInApp: "resposta_ticket"
+            );
+            resultados.Add(n4);
+
+            return Ok(new { mensagem = "Notificações in-app e push disparadas com sucesso!", resultados });
+        }
     }
 }

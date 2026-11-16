@@ -22,7 +22,8 @@ namespace Cortex.Tests.Unit.Validators
             {
                 Nome = "Teste",
                 Email = "teste@exemplo.com",
-                Senha = senha
+                Senha = senha,
+                AceitouTermosPrivacidade = true
             };
 
             var resultado = userValidator.Validate(dto);
@@ -113,7 +114,8 @@ namespace Cortex.Tests.Unit.Validators
             {
                 Nome = "Teste",
                 Email = email,
-                Senha = "SenhaForte123!@"
+                Senha = "SenhaForte123!@",
+                AceitouTermosPrivacidade = true
             };
 
             var resultado = validator.Validate(dto);
@@ -135,7 +137,8 @@ namespace Cortex.Tests.Unit.Validators
                 Nome = "Teste",
                 Email = "teste@exemplo.com",
                 Senha = "SenhaForte123!@",
-                Telefone = telefone
+                Telefone = telefone,
+                AceitouTermosPrivacidade = true
             };
 
             var resultado = validator.Validate(dto);

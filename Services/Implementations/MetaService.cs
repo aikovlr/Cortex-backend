@@ -664,6 +664,7 @@ namespace Cortex.Services.Implementations
 
                 var metasEquipeDoUsuario = new List<Meta>();
                 var metasIndividuaisDoUsuario = new List<Meta>();
+                var tarefasNaoConcluidasPorMeta = new Dictionary<int, int>();
 
                 foreach (var meta in grupo)
                 {
@@ -687,6 +688,15 @@ namespace Cortex.Services.Implementations
                         if (ehMetaDeEquipe)
                         {
                             metasEquipeDoUsuario.Add(meta);
+                            // RN020: Para cada tarefa vinculada a meta expirada com status 'Pendente' ou 'Atrasadas', reduz 5 XP.
+                            // Tarefas 'Concluída' não alteram o saldo.
+                            var qtdNaoConcluidas = tarefasDaMeta.Count(t => t.Status == Status.Pendente || t.Status == Status.Atrasada);
+                            if (qtdNaoConcluidas == 0 && !tarefasDaMeta.Any())
+                            {
+                                // Fallback para manter cálculo caso tarefasDaMeta não tenha vindo populada
+                                qtdNaoConcluidas = 1;
+                            }
+                            tarefasNaoConcluidasPorMeta[meta.Id] = qtdNaoConcluidas;
                         }
                         else
                         {
@@ -705,12 +715,15 @@ namespace Cortex.Services.Implementations
                 // Processa metas de equipe expiradas (aplica penalidade de XP e emite notificação com identidade de meta)
                 if (metasEquipeDoUsuario.Any())
                 {
-                    var quantidadeNaoConcluidas = metasEquipeDoUsuario.Count;
-                    var xpRemovido = quantidadeNaoConcluidas * 5;
+                    var totalTarefasNaoConcluidas = metasEquipeDoUsuario.Sum(m => tarefasNaoConcluidasPorMeta.GetValueOrDefault(m.Id, 1));
+                    var xpRemovido = totalTarefasNaoConcluidas * 5;
 
                     var xpAnterior = usuario.Experiencia;
-                    DecrementarXp(usuario, xpRemovido);
-                    await _usuarioRepository.AtualizarUsuarioAsync(usuario);
+                    if (xpRemovido > 0)
+                    {
+                        DecrementarXp(usuario, xpRemovido);
+                        await _usuarioRepository.AtualizarUsuarioAsync(usuario);
+                    }
 
                     foreach (var meta in metasEquipeDoUsuario)
                     {
@@ -720,10 +733,10 @@ namespace Cortex.Services.Implementations
                     }
 
                     _logger.LogWarning(
-                        "Penalidade de XP aplicada ao UsuarioId {UsuarioId}: -{XpRemovido} XP ({TotalMetas} meta(s) de equipe não concluída(s) com prazo expirado). Saldo: {XpAnterior} -> {NovoXp} XP",
-                        usuario.Id, xpRemovido, quantidadeNaoConcluidas, xpAnterior, usuario.Experiencia);
+                        "Penalidade de XP aplicada ao UsuarioId {UsuarioId}: -{XpRemovido} XP ({TotalMetas} meta(s) de equipe não concluída(s) com prazo expirado, {TotalTarefas} tarefa(s) pendente(s)/atrasada(s)). Saldo: {XpAnterior} -> {NovoXp} XP",
+                        usuario.Id, xpRemovido, metasEquipeDoUsuario.Count, totalTarefasNaoConcluidas, xpAnterior, usuario.Experiencia);
 
-                    if (_notificacaoService != null)
+                    if (_notificacaoService != null && xpRemovido > 0)
                     {
                         try
                         {
@@ -731,7 +744,7 @@ namespace Cortex.Services.Implementations
                                 usuario.Id,
                                 "meta",
                                 "Penalidade de XP: Meta Expirada",
-                                $"Você teve {quantidadeNaoConcluidas} meta(s) de equipe não concluída(s) com prazo expirado. Foram deduzidos {xpRemovido} XP do seu saldo.",
+                                $"Você teve {metasEquipeDoUsuario.Count} meta(s) de equipe não concluída(s) com prazo expirado. Foram deduzidos {xpRemovido} XP do seu saldo.",
                                 "/metas",
                                 destaque: false);
                         }

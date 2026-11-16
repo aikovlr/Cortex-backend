@@ -116,6 +116,36 @@ namespace Cortex.Tests.Unit.Services
         }
 
         [Fact]
+        public async Task DeletarUsuario_RN005_DeveBloquearSeUsuarioForResponsavelPorTarefaEmAndamento()
+        {
+            // Arrange - RN005: Um usuário não pode excluir a própria conta se houver tarefas com status 'Pendente' ou 'Atrasada' atribuídas a ele.
+            var userId = 7;
+            _usuarioRepoMock
+                .Setup(r => r.ObterUsuarioPorIdAsync(userId))
+                .ReturnsAsync(new Usuario
+                {
+                    Id = userId,
+                    Nome = "Responsavel por Tarefas",
+                    Email = "responsavel@exemplo.com",
+                    SenhaHash = "hash"
+                });
+
+            _usuarioRepoMock
+                .Setup(r => r.UsuarioTemTarefasEmAndamentoAsync(userId))
+                .ReturnsAsync(false);
+
+            _usuarioRepoMock
+                .Setup(r => r.UsuarioEhResponsavelPorTarefaEmAndamentoAsync(userId))
+                .ReturnsAsync(true);
+
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _usuarioService.DeletarUsuarioAsync(userId, userId));
+
+            Assert.Contains("tarefas em andamento", ex.Message);
+        }
+
+        [Fact]
         public async Task DeletarUsuario_Sucesso_DeveRemoverERetornarTrue()
         {
             // Arrange

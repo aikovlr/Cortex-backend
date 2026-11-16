@@ -1049,3 +1049,27 @@ Central de notificações in-app persistidas no PostgreSQL e gerenciamento de pr
   ]
 }
 ```
+
+---
+
+## 12. Procedimentos de Backup Periódico (RNF006)
+
+Para atender ao **RNF006** ("O sistema deve realizar backups periódicos para garantir a integridade e disponibilidade dos dados"), o projeto disponibiliza scripts automatizados em `scripts/`:
+
+- **Windows / PowerShell**: `scripts/backup-database.ps1`
+  - Utilização:
+    ```powershell
+    pwsh ./scripts/backup-database.ps1 -HostName localhost -Port 5432 -Database cortex_db -User postgres -RetentionDays 30
+    ```
+  - Agendamento: Configurar via *Agendador de Tarefas do Windows* (Task Scheduler) para execução diária.
+
+- **Linux / Docker**: `scripts/backup-database.sh`
+  - Utilização:
+    ```bash
+    ./scripts/backup-database.sh
+    ```
+  - Agendamento via Cron (execução diária às 02h00 com rotação de 30 dias):
+    ```cron
+    0 2 * * * /caminho/para/scripts/backup-database.sh >> /var/log/cortex-backup.log 2>&1
+    ```
+
